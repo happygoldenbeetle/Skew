@@ -147,6 +147,12 @@ public partial class BrowserStore : ObservableObject
     }
 
     [RelayCommand]
+    public void ToggleSidebarPosition()
+    {
+        SidebarOnLeft = !SidebarOnLeft;
+    }
+
+    [RelayCommand]
     public void Navigate(string input)
     {
         if (SelectedTab is null) return;

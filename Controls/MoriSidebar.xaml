@@ -40,7 +40,11 @@
                     Click="SidebarToggle_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle sidebar">
-                    <PathIcon Data="F1 M 12.2222 7.33333 a 0.666667 0.666667 0 0 1 0 1.33333 h -1.33333 a 0.666667 0.666667 0 0 1 0 -1.33333 z M 12.2222 4.88889 a 0.666667 0.666667 0 0 1 0 1.33333 h -1.33333 a 0.666667 0.666667 0 0 1 0 -1.33333 z M 12.6667 1.77778 A 2.44444 2.44444 0 0 1 15.1111 4.22222 v 7.55556 A 2.44444 2.44444 0 0 1 12.6667 14.2222 H 3.33333 A 2.44444 2.44444 0 0 1 0.888889 11.7778 v -7.55556 A 2.44444 2.44444 0 0 1 3.33333 1.77778 z M 3.33333 3.11111 c -0.613333 0 -1.11111 0.497778 -1.11111 1.11111 v 7.55556 c 0 0.613333 0.497778 1.11111 1.11111 1.11111 H 8 v -9.77778 z m 6 9.77778 h 3.33333 c 0.613333 0 1.11111 -0.497778 1.11111 -1.11111 v -7.55556 c 0 -0.613333 -0.497778 -1.11111 -1.11111 -1.11111 H 9.33333 z" Width="16" Height="16" RenderTransformOrigin="0.5,0.5"><PathIcon.RenderTransform><ScaleTransform ScaleX="-1" /></PathIcon.RenderTransform></PathIcon>
+                    <PathIcon x:Name="SidebarToggleIcon" Data="F1 M 12.2222 7.33333 a 0.666667 0.666667 0 0 1 0 1.33333 h -1.33333 a 0.666667 0.666667 0 0 1 0 -1.33333 z M 12.2222 4.88889 a 0.666667 0.666667 0 0 1 0 1.33333 h -1.33333 a 0.666667 0.666667 0 0 1 0 -1.33333 z M 12.6667 1.77778 A 2.44444 2.44444 0 0 1 15.1111 4.22222 v 7.55556 A 2.44444 2.44444 0 0 1 12.6667 14.2222 H 3.33333 A 2.44444 2.44444 0 0 1 0.888889 11.7778 v -7.55556 A 2.44444 2.44444 0 0 1 3.33333 1.77778 z M 3.33333 3.11111 c -0.613333 0 -1.11111 0.497778 -1.11111 1.11111 v 7.55556 c 0 0.613333 0.497778 1.11111 1.11111 1.11111 H 8 v -9.77778 z m 6 9.77778 h 3.33333 c 0.613333 0 1.11111 -0.497778 1.11111 -1.11111 v -7.55556 c 0 -0.613333 -0.497778 -1.11111 -1.11111 -1.11111 H 9.33333 z" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                        <PathIcon.RenderTransform>
+                            <ScaleTransform ScaleX="-1" />
+                        </PathIcon.RenderTransform>
+                    </PathIcon>
                 </Button>
 
                 <StackPanel
@@ -293,11 +297,22 @@
                 <PathIcon Data="F1 M 2.35278 4.37344 a 0.389667 0.389667 0 0 0 0.738889 0 l 0.327444 -0.982333 0.982333 -0.327444 a 0.388889 0.388889 0 0 0 0 -0.737333 L 3.41911 1.99889 l -0.327444 -0.982333 c -0.106556 -0.317333 -0.631556 -0.317333 -0.738111 0 L 2.02611 1.99889 l -0.982333 0.327444 a 0.388889 0.388889 0 0 0 0 0.737333 l 0.982333 0.327444 z m 10.5 2.47333 L 9.32556 5.45222 l -1.39456 -3.52722 c -0.176556 -0.444889 -0.908444 -0.444889 -1.085 0 L 5.45144 5.45222 1.92422 6.84678 a 0.583333 0.583333 0 0 0 0 1.08422 l 3.52722 1.39456 1.39456 3.52722 a 0.583333 0.583333 0 0 0 1.08422 0 l 1.39456 -3.52722 3.52722 -1.39456 a 0.584111 0.584111 0 0 0 0.000777778 -1.08422" Width="14" Height="14" />
             </Button>
 
-            <!-- Right side: theme toggle + settings -->
+            <!-- Right side: position toggle + theme toggle + settings -->
             <StackPanel
                 Grid.Column="2"
                 Orientation="Horizontal"
                 Spacing="2">
+                <Button
+                    x:Name="PositionToggle"
+                    Width="30" Height="30"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="PositionToggle_Click"
+                    CornerRadius="8"
+                    ToolTipService.ToolTip="Switch Sidebar Side">
+                    <FontIcon x:Name="PositionIcon" FontSize="14" Glyph="&#xE90C;" />
+                </Button>
                 <Button
                     x:Name="ThemeToggle"
                     Width="30" Height="30"

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
 using Mori.Models;
 using Mori.Theme;
@@ -41,6 +42,9 @@ public sealed partial class MainWindow : Window
         Sidebar.DataContext = Store;
         Sidebar.Store = Store;
 
+        // Apply initial layout state
+        UpdateColumnLayout();
+
         // Apply theme
         if (Content is FrameworkElement root)
         {
@@ -57,21 +61,9 @@ public sealed partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(BrowserStore.SidebarVisible):
-                SidebarColumn.Width = Store.SidebarVisible
-                    ? new GridLength(260)
-                    : new GridLength(0);
-                SidebarRevealButton.Visibility = Store.SidebarVisible
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
-                break;
-
             case nameof(BrowserStore.AiPanelVisible):
-                AIPanelColumn.Width = Store.AiPanelVisible
-                    ? new GridLength(360)
-                    : new GridLength(0);
-                AIPanel.Visibility = Store.AiPanelVisible
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+            case nameof(BrowserStore.SidebarOnLeft):
+                UpdateColumnLayout();
                 break;
 
             case nameof(BrowserStore.LauncherVisible):
@@ -107,6 +99,48 @@ public sealed partial class MainWindow : Window
                         : Visibility.Collapsed;
                 }
             };
+        }
+    }
+
+    private void UpdateColumnLayout()
+    {
+        if (Store.SidebarOnLeft)
+        {
+            Grid.SetColumn(Sidebar, 0);
+            Grid.SetColumn(AIPanel, 2);
+            Grid.SetColumn(SidebarRevealButton, 1);
+            SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
+            SidebarRevealButton.Margin = new Thickness(16, 16, 0, 0);
+        }
+        else
+        {
+            Grid.SetColumn(Sidebar, 2);
+            Grid.SetColumn(AIPanel, 0);
+            Grid.SetColumn(SidebarRevealButton, 1);
+            SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
+            SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
+        }
+        
+        SidebarColumn.Width = Store.SidebarOnLeft 
+            ? (Store.SidebarVisible ? new GridLength(260) : new GridLength(0))
+            : (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0));
+            
+        AIPanelColumn.Width = Store.SidebarOnLeft
+            ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
+            : (Store.SidebarVisible ? new GridLength(260) : new GridLength(0));
+
+        SidebarRevealButton.Visibility = Store.SidebarVisible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        AIPanel.Visibility = Store.AiPanelVisible
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        // Ensure reveal button icon flips appropriately
+        if (SidebarRevealButtonIcon.RenderTransform is Microsoft.UI.Xaml.Media.ScaleTransform st)
+        {
+            st.ScaleX = Store.SidebarOnLeft ? -1 : 1;
         }
     }
 

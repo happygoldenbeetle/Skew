@@ -13,7 +13,20 @@ namespace Mori.Controls;
 /// </summary>
 public sealed partial class MoriSidebar : UserControl
 {
-    public BrowserStore? Store { get; set; }
+    private BrowserStore? _store;
+    public BrowserStore? Store
+    {
+        get => _store;
+        set
+        {
+            if (_store != null)
+                _store.PropertyChanged -= Store_PropertyChanged;
+            _store = value;
+            if (_store != null)
+                _store.PropertyChanged += Store_PropertyChanged;
+            RefreshUI();
+        }
+    }
 
     public bool HasPins => Store?.PinnedTabs.Count > 0;
 
@@ -26,6 +39,14 @@ public sealed partial class MoriSidebar : UserControl
     private void MoriSidebar_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshUI();
+    }
+
+    private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(BrowserStore.SidebarOnLeft))
+        {
+            UpdatePositionIcons();
+        }
     }
 
     /// <summary>
@@ -48,6 +69,19 @@ public sealed partial class MoriSidebar : UserControl
         // Update nav button states
         BackButton.IsEnabled = Store.SelectedTab?.CanGoBack ?? false;
         ForwardButton.IsEnabled = Store.SelectedTab?.CanGoForward ?? false;
+        
+        UpdatePositionIcons();
+    }
+
+    private void UpdatePositionIcons()
+    {
+        if (Store == null) return;
+        
+        PositionIcon.Glyph = Store.SidebarOnLeft ? "\uE90C" : "\uE90D"; // DockLeft / DockRight
+        if (SidebarToggleIcon.RenderTransform is Microsoft.UI.Xaml.Media.ScaleTransform st)
+        {
+            st.ScaleX = Store.SidebarOnLeft ? -1 : 1;
+        }
     }
 
     public void FocusOmnibox()
@@ -144,4 +178,7 @@ public sealed partial class MoriSidebar : UserControl
 
     private void Settings_Click(object sender, RoutedEventArgs e)
         => Store?.ToggleSettings();
+
+    private void PositionToggle_Click(object sender, RoutedEventArgs e)
+        => Store?.ToggleSidebarPosition();
 }
