@@ -33,6 +33,7 @@ public sealed partial class MainWindow : Window
             presenter.IsResizable = true;
             presenter.IsMaximizable = true;
             presenter.IsMinimizable = true;
+            presenter.SetBorderAndTitleBar(true, false);
         }
 
         // Wire up store state to UI
@@ -195,5 +196,16 @@ public sealed partial class MainWindow : Window
     private void SidebarReveal_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         Store.ToggleSidebar();
+    }
+
+    private void TopDragArea_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    {
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            if (presenter.State == OverlappedPresenterState.Maximized)
+                presenter.Restore();
+            else
+                presenter.Maximize();
+        }
     }
 }

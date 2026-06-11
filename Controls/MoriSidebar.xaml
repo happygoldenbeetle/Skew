@@ -10,7 +10,7 @@
     xmlns:models="using:Mori.Models"
     mc:Ignorable="d">
 
-    <Grid>
+    <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <!-- Header: toggle + nav buttons + omnibox -->
             <RowDefinition Height="Auto" />

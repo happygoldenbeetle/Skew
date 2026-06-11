@@ -142,5 +142,8 @@
                 </PathIcon.RenderTransform>
             </PathIcon>
         </Button>
+
+        <!-- Top Drag Area (Double-click to Maximize) -->
+        <Grid Grid.ColumnSpan="3" Height="12" VerticalAlignment="Top" Background="Transparent" DoubleTapped="TopDragArea_DoubleTapped" ToolTipService.ToolTip="Double-click to maximize" />
     </Grid>
 </Window>
