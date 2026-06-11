@@ -113,10 +113,6 @@ public partial class BrowserStore : ObservableObject
     [RelayCommand]
     public void SelectTab(Guid tabId)
     {
-        foreach (var t in Tabs)
-        {
-            t.IsSelected = (t.Id == tabId);
-        }
         SelectedTab = Tabs.FirstOrDefault(t => t.Id == tabId);
         SelectedTabId = SelectedTab?.Id;
     }

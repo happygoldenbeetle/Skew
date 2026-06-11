@@ -6,8 +6,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:local="using:Mori.Controls"
-    xmlns:converters="using:Mori.Converters"
     mc:Ignorable="d">
 
     <Grid>
@@ -207,14 +205,67 @@
                 <muxc:ItemsRepeater x:Name="LooseTabList">
                     <muxc:ItemsRepeater.ItemTemplate>
                         <DataTemplate>
-                            <local:MoriTabRow
-                                Title="{Binding Title}"
-                                TabId="{Binding Id}"
-                                IsSelectedTab="{Binding IsSelected}"
-                                SelectRequested="MoriTabRow_SelectRequested"
-                                CloseRequested="MoriTabRow_CloseRequested"
-                                PinRequested="MoriTabRow_PinRequested"
-                                ContextMenuRequested="MoriTabRow_ContextMenuRequested" />
+                            <Button
+                                Height="34"
+                                Padding="9,0"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                CornerRadius="8"
+                                Tag="{Binding Id}"
+                                Click="TabRow_Click">
+                                <Button.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="Pin Tab" Tag="{Binding Id}" Click="PinTab_Click">
+                                            <MenuFlyoutItem.Icon>
+                                                <PathIcon Data="F1 M9.34 2.502a2.75 2.75 0 0 1 3.89 0l2.268 2.268a2.75 2.75 0 0 1 0 3.889l-2.803 2.8c-.03.46-.1.992-.25 1.567A8.3 8.3 0 0 1 11 15.962a.75.75 0 0 1-1.16.122L6.41 12.65l-2.799 2.8a.75.75 0 0 1-1.06-1.06l2.797-2.8-3.431-3.43a.75.75 0 0 1 .07-1.123 8.35 8.35 0 0 1 2.987-1.48l.262-.065a8 8 0 0 1 1.303-.188zm2.829 1.061a1.25 1.25 0 0 0-1.768 0L7.396 6.568a.75.75 0 0 1-.51.22c-.43.011-.953.066-1.53.217v.001a6.8 6.8 0 0 0-1.74.73l6.646 6.647a6.8 6.8 0 0 0 .732-1.739l.097-.423c.08-.41.113-.786.122-1.108l.016-.142a.75.75 0 0 1 .202-.368l3.005-3.005a1.25 1.25 0 0 0 0-1.767z" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="Close Tab" Tag="{Binding Id}" Click="CloseTab_Click">
+                                            <MenuFlyoutItem.Icon>
+                                                <PathIcon Data="F1 M13.47 3.47a.75.75 0 1 1 1.06 1.06L10.06 9l4.47 4.47a.75.75 0 1 1-1.06 1.06L9 10.06l-4.47 4.47a.75.75 0 0 1-1.06-1.06L7.94 9 3.47 4.53a.75.75 0 1 1 1.06-1.06L9 7.94z" />
+                                            </MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Button.ContextFlyout>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Favicon placeholder -->
+                                    <muxc:PersonPicture
+                                        Grid.Column="0"
+                                        Width="16" Height="16"
+                                        Margin="0,0,9,0"
+                                        DisplayName="{Binding Title}" />
+
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        FontSize="13"
+                                        Text="{Binding Title}"
+                                        TextTrimming="CharacterEllipsis"
+                                        VerticalAlignment="Center" />
+
+                                    <!-- Close button (visible on hover via code) -->
+                                    <Button
+                                        Grid.Column="2"
+                                        Width="20" Height="20"
+                                        Padding="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        CornerRadius="4"
+                                        Tag="{Binding Id}"
+                                        Click="CloseTab_Click"
+                                        Opacity="0.5"
+                                        ToolTipService.ToolTip="Close tab">
+                                        <PathIcon Data="F1 M 5.98667 1.54222 a 0.333333 0.333333 0 1 1 0.471111 0.471111 L 4.47111 4 l 1.98667 1.98667 a 0.333333 0.333333 0 1 1 -0.471111 0.471111 L 4 4.47111 l -1.98667 1.98667 a 0.333333 0.333333 0 0 1 -0.471111 -0.471111 L 3.52889 4 1.54222 2.01333 a 0.333333 0.333333 0 1 1 0.471111 -0.471111 L 4 3.52889 z" Width="8" Height="8" />
+                                    </Button>
+                                </Grid>
+                            </Button>
                         </DataTemplate>
                     </muxc:ItemsRepeater.ItemTemplate>
                 </muxc:ItemsRepeater>

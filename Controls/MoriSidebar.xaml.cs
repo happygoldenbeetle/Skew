@@ -87,26 +87,10 @@ public sealed partial class MoriSidebar : UserControl
             Store?.SelectTab(tabId);
     }
 
-    private void MoriTabRow_SelectRequested(object sender, Guid tabId)
+    private void TabRow_Click(object sender, RoutedEventArgs e)
     {
-        Store?.SelectTab(tabId);
-    }
-
-    private void MoriTabRow_CloseRequested(object sender, Guid tabId)
-    {
-        Store?.CloseTab(tabId);
-        RefreshUI();
-    }
-
-    private void MoriTabRow_PinRequested(object sender, Guid tabId)
-    {
-        Store?.TogglePin(tabId);
-        RefreshUI();
-    }
-
-    private void MoriTabRow_ContextMenuRequested(object sender, FrameworkElement e)
-    {
-        e.ContextFlyout?.ShowAt(e);
+        if (sender is Button btn && btn.Tag is Guid tabId)
+            Store?.SelectTab(tabId);
     }
 
     private void CloseTab_Click(object sender, RoutedEventArgs e)
