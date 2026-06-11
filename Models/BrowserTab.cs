@@ -17,6 +17,9 @@ public partial class BrowserTab : ObservableObject
     private string _urlString;
 
     [ObservableProperty]
+    private bool _isSelected;
+
+    [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
