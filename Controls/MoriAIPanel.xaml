@@ -9,6 +9,14 @@
     Width="360">
 
     <Grid>
+        <Grid.Resources>
+            <Storyboard x:Name="AIPulseStoryboard" RepeatBehavior="Forever" AutoReverse="True">
+                <DoubleAnimation 
+                    Storyboard.TargetName="AIIcon"
+                    Storyboard.TargetProperty="Opacity"
+                    From="1.0" To="0.4" Duration="0:0:0.75" />
+            </Storyboard>
+        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -25,7 +33,21 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <PathIcon Grid.Column="0" Margin="0,0,8,0" Width="15" Height="15" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Data="F1 M 2.52083 4.68583 a 0.4175 0.4175 0 0 0 0.791667 0 l 0.350833 -1.0525 1.0525 -0.350833 a 0.416667 0.416667 0 0 0 0 -0.79 L 3.66333 2.14167 l -0.350833 -1.0525 c -0.114167 -0.34 -0.676667 -0.34 -0.790833 0 L 2.17083 2.14167 l -1.0525 0.350833 a 0.416667 0.416667 0 0 0 0 0.79 l 1.0525 0.350833 z m 11.25 2.65 L 9.99167 5.84167 l -1.49417 -3.77917 c -0.189167 -0.476667 -0.973333 -0.476667 -1.1625 0 L 5.84083 5.84167 2.06167 7.33583 a 0.625 0.625 0 0 0 0 1.16167 l 3.77917 1.49417 1.49417 3.77917 a 0.625 0.625 0 0 0 1.16167 0 l 1.49417 -3.77917 3.77917 -1.49417 a 0.625833 0.625833 0 0 0 0.000833333 -1.16167" />
+            <PathIcon x:Name="AIIcon" Grid.Column="0" Margin="0,0,8,0" Width="15" Height="15" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Data="F1 M 2.52083 4.68583 a 0.4175 0.4175 0 0 0 0.791667 0 l 0.350833 -1.0525 1.0525 -0.350833 a 0.416667 0.416667 0 0 0 0 -0.79 L 3.66333 2.14167 l -0.350833 -1.0525 c -0.114167 -0.34 -0.676667 -0.34 -0.790833 0 L 2.17083 2.14167 l -1.0525 0.350833 a 0.416667 0.416667 0 0 0 0 0.79 l 1.0525 0.350833 z m 11.25 2.65 L 9.99167 5.84167 l -1.49417 -3.77917 c -0.189167 -0.476667 -0.973333 -0.476667 -1.1625 0 L 5.84083 5.84167 2.06167 7.33583 a 0.625 0.625 0 0 0 0 1.16167 l 3.77917 1.49417 1.49417 3.77917 a 0.625 0.625 0 0 0 1.16167 0 l 1.49417 -3.77917 3.77917 -1.49417 a 0.625833 0.625833 0 0 0 0.000833333 -1.16167">
+                <PathIcon.Triggers>
+                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation 
+                                    Storyboard.TargetName="AIIcon"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="1.0" To="0.4" Duration="0:0:0.75" 
+                                    RepeatBehavior="Forever" AutoReverse="True"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </PathIcon.Triggers>
+            </PathIcon>
 
             <TextBlock
                 Grid.Column="1"

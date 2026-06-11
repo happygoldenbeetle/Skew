@@ -19,6 +19,11 @@
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
     <Grid x:Name="RootGrid" Background="Transparent">
+        <Grid.ChildrenTransitions>
+            <TransitionCollection>
+                <RepositionThemeTransition />
+            </TransitionCollection>
+        </Grid.ChildrenTransitions>
         <Grid.ColumnDefinitions>
             <!-- Sidebar column — auto width, collapses when hidden -->
             <ColumnDefinition x:Name="SidebarColumn" Width="260" />
