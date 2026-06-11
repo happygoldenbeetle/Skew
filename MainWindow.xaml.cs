@@ -11,13 +11,11 @@ namespace Mori;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
-    public BrowserStore Store { get; }
+    public BrowserStore Store => BrowserStore.Shared;
 
     public MainWindow()
     {
         InitializeComponent();
-
-        Store = new BrowserStore();
 
         // Custom title bar — extend into content, no separate bar
         ExtendsContentIntoTitleBar = true;
@@ -62,6 +60,9 @@ public sealed partial class MainWindow : Window
                 SidebarColumn.Width = Store.SidebarVisible
                     ? new GridLength(260)
                     : new GridLength(0);
+                SidebarRevealButton.Visibility = Store.SidebarVisible
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
                 break;
 
             case nameof(BrowserStore.AiPanelVisible):
@@ -155,5 +156,10 @@ public sealed partial class MainWindow : Window
             if (Store.LauncherVisible) { Store.DismissLauncher(); e.Handled = true; }
             else if (Store.FindBarVisible) { Store.ToggleFindBar(); e.Handled = true; }
         }
+    }
+
+    private void SidebarReveal_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        Store.ToggleSidebar();
     }
 }

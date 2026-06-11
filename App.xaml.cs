@@ -26,6 +26,12 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        this.UnhandledException += App_UnhandledException;
+    }
+
+    private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        System.Console.WriteLine($"[CRASH] {e.Exception.Message}\n{e.Exception.StackTrace}");
     }
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)

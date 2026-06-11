@@ -25,12 +25,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <FontIcon
-                Grid.Column="0"
-                Margin="0,0,8,0"
-                FontSize="15"
-                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                Glyph="&#xE945;" />
+            <PathIcon Grid.Column="0" Margin="0,0,8,0" Width="15" Height="15" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Data="F1 M 2.52083 4.68583 a 0.4175 0.4175 0 0 0 0.791667 0 l 0.350833 -1.0525 1.0525 -0.350833 a 0.416667 0.416667 0 0 0 0 -0.79 L 3.66333 2.14167 l -0.350833 -1.0525 c -0.114167 -0.34 -0.676667 -0.34 -0.790833 0 L 2.17083 2.14167 l -1.0525 0.350833 a 0.416667 0.416667 0 0 0 0 0.79 l 1.0525 0.350833 z m 11.25 2.65 L 9.99167 5.84167 l -1.49417 -3.77917 c -0.189167 -0.476667 -0.973333 -0.476667 -1.1625 0 L 5.84083 5.84167 2.06167 7.33583 a 0.625 0.625 0 0 0 0 1.16167 l 3.77917 1.49417 1.49417 3.77917 a 0.625 0.625 0 0 0 1.16167 0 l 1.49417 -3.77917 3.77917 -1.49417 a 0.625833 0.625833 0 0 0 0.000833333 -1.16167" />
 
             <TextBlock
                 Grid.Column="1"
@@ -48,7 +43,7 @@
                 CornerRadius="6"
                 Click="Close_Click"
                 ToolTipService.ToolTip="Close AI Panel">
-                <FontIcon FontSize="10" Glyph="&#xE711;" />
+                <PathIcon Data="F1 M 7.48333 1.92778 a 0.416667 0.416667 0 1 1 0.588889 0.588889 L 5.58889 5 l 2.48333 2.48333 a 0.416667 0.416667 0 1 1 -0.588889 0.588889 L 5 5.58889 l -2.48333 2.48333 a 0.416667 0.416667 0 0 1 -0.588889 -0.588889 L 4.41111 5 1.92778 2.51667 a 0.416667 0.416667 0 1 1 0.588889 -0.588889 L 5 4.41111 z" Width="10" Height="10" />
             </Button>
         </Grid>
 

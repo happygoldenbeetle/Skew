@@ -10,6 +10,8 @@ namespace Mori.Models;
 /// </summary>
 public partial class BrowserStore : ObservableObject
 {
+    public static BrowserStore Shared { get; } = new();
+
     // ── Tab collections ──
 
     public ObservableCollection<BrowserTab> Tabs { get; } = [];
@@ -40,6 +42,9 @@ public partial class BrowserStore : ObservableObject
 
     [ObservableProperty]
     private bool _settingsVisible;
+
+    [ObservableProperty]
+    private bool _downloadsVisible;
 
     [ObservableProperty]
     private bool _findBarVisible;
@@ -190,6 +195,9 @@ public partial class BrowserStore : ObservableObject
 
     [RelayCommand]
     public void ToggleSettings() => SettingsVisible = !SettingsVisible;
+
+    [RelayCommand]
+    public void ToggleDownloads() => DownloadsVisible = !DownloadsVisible;
 
     [RelayCommand]
     public void ToggleFindBar() => FindBarVisible = !FindBarVisible;

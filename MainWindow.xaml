@@ -111,5 +111,31 @@
             x:Name="Launcher"
             Grid.ColumnSpan="3"
             Visibility="Collapsed" />
+
+        <!-- Sidebar reveal button (shows when sidebar is hidden) -->
+        <Button
+            x:Name="SidebarRevealButton"
+            Grid.Column="1"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="16,16,0,0"
+            Width="32" Height="32"
+            Padding="0"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Click="SidebarReveal_Click"
+            Visibility="Collapsed"
+            ToolTipService.ToolTip="Show Sidebar (Ctrl+S)">
+            <Button.Shadow>
+                <ThemeShadow />
+            </Button.Shadow>
+            <PathIcon Data="F1 M 9.16667 5.5 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.16667 3.66667 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.5 1.33333 A 1.83333 1.83333 0 0 1 11.3333 3.16667 v 5.66667 A 1.83333 1.83333 0 0 1 9.5 10.6667 H 2.5 A 1.83333 1.83333 0 0 1 0.666667 8.83333 v -5.66667 A 1.83333 1.83333 0 0 1 2.5 1.33333 z M 2.5 2.33333 c -0.46 0 -0.833333 0.373333 -0.833333 0.833333 v 5.66667 c 0 0.46 0.373333 0.833333 0.833333 0.833333 H 6 v -7.33333 z m 4.5 7.33333 h 2.5 c 0.46 0 0.833333 -0.373333 0.833333 -0.833333 v -5.66667 c 0 -0.46 -0.373333 -0.833333 -0.833333 -0.833333 H 7 z" Width="12" Height="12" RenderTransformOrigin="0.5,0.5">
+                <PathIcon.RenderTransform>
+                    <ScaleTransform ScaleX="-1" />
+                </PathIcon.RenderTransform>
+            </PathIcon>
+        </Button>
     </Grid>
 </Window>
