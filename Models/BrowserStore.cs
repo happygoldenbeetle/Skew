@@ -173,6 +173,28 @@ public partial class BrowserStore : ObservableObject
         SelectedTab.Load(url);
     }
 
+    [RelayCommand]
+    public void PinTab(Guid tabId)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) return;
+        if (!PinnedTabs.Contains(tab))
+        {
+            PinnedTabs.Add(tab);
+            LooseTabs.Remove(tab);
+        }
+    }
+
+    [RelayCommand]
+    public void UnpinTab(Guid tabId)
+    {
+        var tab = PinnedTabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) return;
+        
+        PinnedTabs.Remove(tab);
+        LooseTabs.Add(tab); // Optionally add it back to loose tabs if it doesn't belong to a folder
+    }
+
     // ── Navigation ──
 
     [RelayCommand]

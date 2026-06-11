@@ -41,6 +41,9 @@ public partial class BrowserTab : ObservableObject
     [ObservableProperty]
     private int _zoomPercent = 100;
 
+    [ObservableProperty]
+    private Microsoft.UI.Xaml.Media.SolidColorBrush _accentColorBrush;
+
     /// <summary>
     /// The address shown in the omnibox when the user is not editing.
     /// </summary>
@@ -59,6 +62,7 @@ public partial class BrowserTab : ObservableObject
         Id = Guid.NewGuid();
         _title = title;
         _urlString = url;
+        _accentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
     }
 
     // ── Navigation stubs (will be wired to CEF later) ──
@@ -66,6 +70,7 @@ public partial class BrowserTab : ObservableObject
     public void Load(string url)
     {
         UrlString = url;
+        AccentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
         DidFail = false;
         IsLoading = true;
         // Simulate load completion after a short delay

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Mori.Controls.MoriPinnedTile"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    mc:Ignorable="d">
+
+    <Grid
+        x:Name="RootGrid"
+        HorizontalAlignment="Stretch"
+        Height="40"
+        MaxWidth="80"
+        Background="Transparent"
+        PointerEntered="RootGrid_PointerEntered"
+        PointerExited="RootGrid_PointerExited"
+        Tapped="RootGrid_Tapped"
+        RightTapped="RootGrid_RightTapped"
+        ToolTipService.ToolTip="{x:Bind Tab.Title, Mode=OneWay}">
+
+        <!-- Context Menu -->
+        <Grid.ContextFlyout>
+            <MenuFlyout>
+                <MenuFlyoutItem Text="Unpin Tab" Click="UnpinTab_Click">
+                    <MenuFlyoutItem.Icon>
+                        <PathIcon Data="F1 M14.75 8.25a.75.75 0 0 1 0 1.5H3.25a.75.75 0 0 1 0-1.5z" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+                <MenuFlyoutItem Text="Close Tab" Click="CloseTab_Click">
+                    <MenuFlyoutItem.Icon>
+                        <PathIcon Data="F1 M13.47 3.47a.75.75 0 1 1 1.06 1.06L10.06 9l4.47 4.47a.75.75 0 1 1-1.06 1.06L9 10.06l-4.47 4.47a.75.75 0 0 1-1.06-1.06L7.94 9 3.47 4.53a.75.75 0 1 1 1.06-1.06L9 7.94z" />
+                    </MenuFlyoutItem.Icon>
+                </MenuFlyoutItem>
+            </MenuFlyout>
+        </Grid.ContextFlyout>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="CommonStates">
+                <VisualStateGroup.Transitions>
+                    <!-- Motion.state = 150ms -->
+                    <VisualTransition GeneratedDuration="0:0:0.15" />
+                </VisualStateGroup.Transitions>
+
+                <VisualState x:Name="Normal">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="GreyOutline" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="ColoredOutline" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+                
+                <VisualState x:Name="PointerOver">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="GreyOutline" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="ColoredOutline" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+
+                <VisualState x:Name="Selected">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="GreyOutline" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="ColoredOutline" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <!-- Base transparent resting fill (matches .white.opacity(0.06)) -->
+        <Grid Background="{ThemeResource SubtleFillColorTransparentBrush}" CornerRadius="10" />
+
+        <!-- Hover background (matches .white.opacity(0.10)) -->
+        <Grid x:Name="HoverBackground" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Opacity="0" CornerRadius="10" />
+
+        <!-- Selected background (Elevated card matching .white.opacity(0.18)) -->
+        <Border x:Name="SelectedBackground" 
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
+                BorderThickness="0" 
+                Opacity="0" 
+                CornerRadius="10">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+        </Border>
+
+        <!-- Outlines -->
+        <Border x:Name="GreyOutline" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1.5" CornerRadius="10" Opacity="1" />
+        <Border x:Name="ColoredOutline" BorderBrush="{x:Bind Tab.AccentColorBrush, Mode=OneWay}" BorderThickness="1.5" CornerRadius="10" Opacity="0" />
+
+        <!-- Icon Content (Centered) -->
+        <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="20" Height="20">
+            <ProgressRing
+                IsActive="{x:Bind Tab.IsLoading, Mode=OneWay}"
+                Width="16" Height="16"
+                Visibility="{x:Bind GetVisibility(Tab.IsLoading), Mode=OneWay}" />
+
+            <!-- PersonPicture fallback when not loading -->
+            <muxc:PersonPicture
+                Width="20" Height="20"
+                DisplayName="{x:Bind Tab.Title, Mode=OneWay}"
+                Visibility="{x:Bind GetInverseVisibility(Tab.IsLoading), Mode=OneWay}" />
+        </Grid>
+
+    </Grid>
+</UserControl>

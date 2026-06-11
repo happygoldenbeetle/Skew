@@ -112,6 +112,14 @@ public sealed partial class MoriTabRow : UserControl
         // Handled implicitly by ContextFlyout
     }
 
+    private void PinTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (Tab is not null)
+        {
+            BrowserStore.Shared.PinTab(Tab.Id);
+        }
+    }
+
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         BrowserStore.Shared.CloseTab(Tab.Id);

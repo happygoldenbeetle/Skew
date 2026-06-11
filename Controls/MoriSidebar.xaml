@@ -114,40 +114,8 @@
                     Margin="2,0"
                     Layout="{StaticResource PinnedGridLayout}">
                     <muxc:ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
-                            <Button
-                                Width="56" Height="40"
-                                Padding="0"
-                                HorizontalContentAlignment="Center"
-                                VerticalContentAlignment="Center"
-                                Background="{ThemeResource SubtleFillColorTransparentBrush}"
-                                BorderThickness="0"
-                                CornerRadius="8"
-                                Tag="{Binding Id}"
-                                Click="PinnedTile_Click"
-                                ToolTipService.ToolTip="{Binding Title}">
-                                <Button.ContextFlyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem Text="Unpin Tab" Tag="{Binding Id}" Click="PinTab_Click">
-                                            <MenuFlyoutItem.Icon>
-                                                <PathIcon Data="F1 M14.75 8.25a.75.75 0 0 1 0 1.5H3.25a.75.75 0 0 1 0-1.5z" />
-                                            </MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                        <MenuFlyoutItem Text="Close Tab" Tag="{Binding Id}" Click="CloseTab_Click">
-                                            <MenuFlyoutItem.Icon>
-                                                <PathIcon Data="F1 M13.47 3.47a.75.75 0 1 1 1.06 1.06L10.06 9l4.47 4.47a.75.75 0 1 1-1.06 1.06L9 10.06l-4.47 4.47a.75.75 0 0 1-1.06-1.06L7.94 9 3.47 4.53a.75.75 0 1 1 1.06-1.06L9 7.94z" />
-                                            </MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                    </MenuFlyout>
-                                </Button.ContextFlyout>
-                                <!-- Favicon or monogram -->
-                                <Grid Width="20" Height="20">
-                                    <muxc:PersonPicture
-                                        Width="20" Height="20"
-                                        DisplayName="{Binding Title}"
-                                        Visibility="Visible" />
-                                </Grid>
-                            </Button>
+                        <DataTemplate x:DataType="models:BrowserTab">
+                            <controls:MoriPinnedTile Tab="{x:Bind}" />
                         </DataTemplate>
                     </muxc:ItemsRepeater.ItemTemplate>
                 </muxc:ItemsRepeater>
