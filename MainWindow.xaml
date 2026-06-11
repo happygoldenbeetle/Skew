@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="Mori.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Mori.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="Mori"
+    mc:Ignorable="d">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <!--
+        Root layout: the entire browser chrome.
+        3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
+        The web content sits in a floating rounded card inset from the edges (Arc-style).
+    -->
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Grid.ColumnDefinitions>
+            <!-- Sidebar column — auto width, collapses when hidden -->
+            <ColumnDefinition x:Name="SidebarColumn" Width="260" />
+            <!-- Web content — fills remaining space -->
+            <ColumnDefinition Width="*" />
+            <!-- AI panel column — auto, collapses when hidden -->
+            <ColumnDefinition x:Name="AIPanelColumn" Width="0" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ═══ Sidebar ═══ -->
+        <controls:MoriSidebar
+            x:Name="Sidebar"
+            Grid.Column="0" />
+
+        <!-- ═══ Web Content Area ═══ -->
+        <Grid Grid.Column="1" Margin="0,4,0,0">
+            <Grid.RowDefinitions>
+                <!-- Loading bar strip -->
+                <RowDefinition Height="Auto" />
+                <!-- Web card -->
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Loading progress bar (top edge, Arc-style) -->
+            <ProgressBar
+                x:Name="LoadingBar"
+                Grid.Row="0"
+                Height="2.5"
+                IsIndeterminate="True"
+                Visibility="Collapsed" />
+
+            <!-- Floating web content card with rounded corners and shadow -->
+            <Border
+                x:Name="WebCard"
+                Grid.Row="1"
+                Margin="8,4,8,8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="10"
+                Shadow="{ThemeResource SharedShadow}">
+
+                <!-- Web content placeholder — will host CEF HWND later -->
+                <Grid
+                    x:Name="WebContentHost"
+                    CornerRadius="10">
+                    <!-- Placeholder content showing we're alive -->
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="16">
+                        <FontIcon
+                            HorizontalAlignment="Center"
+                            FontSize="48"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE774;" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            FontSize="20"
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                            Text="Mori" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            FontSize="13"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Web content will appear here" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Find bar overlay (top-right of web card) -->
+            <controls:MoriFindBar
+                x:Name="FindBar"
+                Grid.Row="1"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,12,20,0"
+                Visibility="Collapsed" />
+        </Grid>
+
+        <!-- ═══ AI Panel ═══ -->
+        <controls:MoriAIPanel
+            x:Name="AIPanel"
+            Grid.Column="2"
+            Visibility="Collapsed" />
+
+        <!-- ═══ Launcher Overlay (command palette) ═══ -->
+        <controls:MoriLauncher
+            x:Name="Launcher"
+            Grid.ColumnSpan="3"
+            Visibility="Collapsed" />
+    </Grid>
+</Window>

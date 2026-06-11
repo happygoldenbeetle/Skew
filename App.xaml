@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="Mori.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Mori">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Loads all WinUI 3 Fluent Design styles (fixes Win10 look) -->
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Pinned tab grid layout (adaptive 4-column grid, matching Mac's PinnedGrid) -->
+            <UniformGridLayout
+                x:Key="PinnedGridLayout"
+                MinColumnSpacing="6"
+                MinRowSpacing="6"
+                MinItemWidth="56"
+                MinItemHeight="40"
+                ItemsStretch="Fill" />
+
+            <!-- Shared shadow for floating card elements -->
+            <ThemeShadow x:Key="SharedShadow" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
