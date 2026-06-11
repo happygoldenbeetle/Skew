@@ -26,7 +26,7 @@
         </Grid.ChildrenTransitions>
         <Grid.ColumnDefinitions>
             <!-- Sidebar column — auto width, collapses when hidden -->
-            <ColumnDefinition x:Name="SidebarColumn" Width="260" />
+            <ColumnDefinition x:Name="SidebarColumn" Width="256" />
             <!-- Web content — fills remaining space -->
             <ColumnDefinition Width="*" />
             <!-- AI panel column — auto, collapses when hidden -->

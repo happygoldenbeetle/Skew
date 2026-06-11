@@ -115,6 +115,11 @@ public partial class BrowserStore : ObservableObject
     {
         SelectedTab = Tabs.FirstOrDefault(t => t.Id == tabId);
         SelectedTabId = SelectedTab?.Id;
+
+        foreach (var tab in Tabs)
+        {
+            tab.IsSelected = (tab.Id == tabId);
+        }
     }
 
     public BrowserTab NewTab(string url = "mori://newtab/")

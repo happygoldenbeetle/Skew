@@ -13,6 +13,13 @@ public partial class BrowserTab : ObservableObject
     [ObservableProperty]
     private string _title;
 
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
     [ObservableProperty]
     private string _urlString;
 
