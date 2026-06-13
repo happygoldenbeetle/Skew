@@ -96,6 +96,12 @@ internal sealed class MoriDisplayHandler : CefDisplayHandler
         }
         return false;
     }
+
+    protected override bool OnCursorChange(CefBrowser browser, IntPtr cursorHandle, CefCursorType type, CefCursorInfo customCursorInfo)
+    {
+        _client.Delegate?.OnCursorChange(type);
+        return true;
+    }
 }
 
 internal sealed class MoriDownloadHandler : CefDownloadHandler

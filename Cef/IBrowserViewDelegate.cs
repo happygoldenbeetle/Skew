@@ -47,4 +47,7 @@ public interface IBrowserViewDelegate
 
     /// <summary>Find-in-page progress: total match count and 1-based active index.</summary>
     void OnFindResult(int count, int activeMatchOrdinal);
+
+    /// <summary>Mouse cursor change requested by the Chromium engine.</summary>
+    void OnCursorChange(CefCursorType type);
 }

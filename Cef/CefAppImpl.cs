@@ -39,7 +39,7 @@ public sealed class CefAppImpl : CefApp
         // user-facing toggle gates whether our agent sets that attribute.
         commandLine.AppendSwitch(
             "enable-features",
-            "AutoPictureInPictureForVideoPlayback,MediaSessionEnterPictureInPicture");
+            "AutoPictureInPictureForVideoPlayback,MediaSessionEnterPictureInPicture,OverlayScrollbar,FluentScrollbar,FluentOverlayScrollbar");
         commandLine.AppendSwitch("enable-blink-features", "AutoPictureInPicture");
 
         // NOTE: the mac build also appends use-mock-keychain / password-store=basic

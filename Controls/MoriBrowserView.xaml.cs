@@ -211,6 +211,21 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     void IBrowserViewDelegate.OnFindResult(int count, int activeMatchOrdinal)
         => Post(() => FindMatchUpdated?.Invoke(activeMatchOrdinal, count));
 
+    void IBrowserViewDelegate.OnCursorChange(CefCursorType type)
+        => Post(() =>
+        {
+            var shape = type switch
+            {
+                CefCursorType.Hand => Microsoft.UI.Input.InputSystemCursorShape.Hand,
+                CefCursorType.IBeam => Microsoft.UI.Input.InputSystemCursorShape.IBeam,
+                CefCursorType.Wait => Microsoft.UI.Input.InputSystemCursorShape.Wait,
+                CefCursorType.Cross => Microsoft.UI.Input.InputSystemCursorShape.Cross,
+                CefCursorType.Help => Microsoft.UI.Input.InputSystemCursorShape.Help,
+                _ => Microsoft.UI.Input.InputSystemCursorShape.Arrow
+            };
+            this.ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(shape);
+        });
+
     private void Post(Action action)
     {
         if (_dispatcher.HasThreadAccess)
@@ -242,12 +257,22 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         return _browserHwnd;
     }
 
+    private nint GetWParam(Microsoft.UI.Input.PointerPoint pt)
+    {
+        nint wParam = 0;
+        if (pt.Properties.IsLeftButtonPressed) wParam |= 0x0001;
+        if (pt.Properties.IsRightButtonPressed) wParam |= 0x0002;
+        if (pt.Properties.IsMiddleButtonPressed) wParam |= 0x0010;
+        return wParam;
+    }
+
     private void HostPanel_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         nint targetHwnd = GetRenderWidgetHostHwnd();
         if (targetHwnd == nint.Zero) return;
+        HostPanel.CapturePointer(e.Pointer);
         var pt = e.GetCurrentPoint(this);
-        PostMessage(targetHwnd, 0x0201, 1, MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        PostMessage(targetHwnd, 0x0201, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
         _browser?.GetHost().SetFocus(true);
         e.Handled = true;
     }
@@ -257,7 +282,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         nint targetHwnd = GetRenderWidgetHostHwnd();
         if (targetHwnd == nint.Zero) return;
         var pt = e.GetCurrentPoint(this);
-        PostMessage(targetHwnd, 0x0200, 0, MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        PostMessage(targetHwnd, 0x0200, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
         e.Handled = true;
     }
 
@@ -265,8 +290,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     {
         nint targetHwnd = GetRenderWidgetHostHwnd();
         if (targetHwnd == nint.Zero) return;
+        HostPanel.ReleasePointerCapture(e.Pointer);
         var pt = e.GetCurrentPoint(this);
-        PostMessage(targetHwnd, 0x0202, 0, MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        PostMessage(targetHwnd, 0x0202, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
         e.Handled = true;
     }
 
