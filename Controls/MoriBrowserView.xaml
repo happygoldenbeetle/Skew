@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Mori.Controls.MoriBrowserView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+      The CEF browser is parented to a native child HWND positioned over this
+      host panel (mac SetAsChild into the NSView). The child window is created
+      and resized in code-behind to track HostPanel's bounds. The rounded card
+      framing lives on the parent Border in MainWindow (mac _styleBrowserContentView).
+    -->
+    <Grid x:Name="HostPanel" Background="Transparent" />
+</UserControl>

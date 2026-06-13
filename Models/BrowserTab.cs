@@ -65,28 +65,81 @@ public partial class BrowserTab : ObservableObject
         _accentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
     }
 
-    // ── Navigation stubs (will be wired to CEF later) ──
+    // ── CEF-backed browser view ──
+
+    private Mori.Controls.MoriBrowserView? _browserView;
+
+    /// <summary>
+    /// The per-tab CEF browser view, created on first access. The host inserts
+    /// this into the web-content card; the underlying browser is created lazily
+    /// once the view is loaded and sized (mac MoriBrowserView lifecycle).
+    /// </summary>
+    public Mori.Controls.MoriBrowserView BrowserView
+    {
+        get
+        {
+            if (_browserView is null)
+            {
+                _browserView = new Mori.Controls.MoriBrowserView(UrlString);
+                WireBrowserEvents(_browserView);
+            }
+            return _browserView;
+        }
+    }
+
+    /// <summary>True once the browser view has been materialized for this tab.</summary>
+    public bool HasBrowserView => _browserView is not null;
+
+    private void WireBrowserEvents(Mori.Controls.MoriBrowserView view)
+    {
+        view.TitleChanged += t => Title = string.IsNullOrEmpty(t) ? "Untitled" : t;
+        view.UrlChanged += u =>
+        {
+            UrlString = u;
+            AccentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(u);
+            OnPropertyChanged(nameof(DisplayUrl));
+        };
+        view.LoadingStateChanged += (loading, back, forward) =>
+        {
+            IsLoading = loading;
+            CanGoBack = back;
+            CanGoForward = forward;
+        };
+        view.FaviconUrlsChanged += urls =>
+            FaviconUrl = urls.Count > 0 ? urls[0] : FaviconUrl;
+        view.LoadFailed += (_, _) => { DidFail = true; IsLoading = false; };
+        view.NavigationFinished += (_, _) => DidFail = false;
+    }
+
+    // ── Navigation (delegates to the CEF browser view) ──
 
     public void Load(string url)
     {
         UrlString = url;
         AccentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
         DidFail = false;
-        IsLoading = true;
-        // Simulate load completion after a short delay
-        _ = SimulateLoadAsync();
+        BrowserView.LoadUrl(url);
+
+
     }
 
-    private async Task SimulateLoadAsync()
+    private async Task SimulateLoadAsync_Unused()
     {
-        await Task.Delay(800);
+        await Task.CompletedTask;
         IsLoading = false;
         CanGoBack = true;
         OnPropertyChanged(nameof(DisplayUrl));
     }
 
-    public void GoBack() => CanGoBack = false;
-    public void GoForward() { }
-    public void Reload() { IsLoading = true; _ = SimulateLoadAsync(); }
-    public void Stop() => IsLoading = false;
+    public void GoBack() => _browserView?.GoBack();
+    public void GoForward() => _browserView?.GoForward();
+    public void Reload() => _browserView?.Reload();
+    public void Stop() => _browserView?.StopLoading();
+
+    /// <summary>Tear down the CEF browser when the tab closes.</summary>
+    public void Dispose()
+    {
+        _browserView?.CloseBrowser();
+        _browserView = null;
+    }
 }

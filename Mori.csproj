@@ -55,6 +55,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.3.2" />
+    <PackageReference Include="CefGlue.Common" Version="120.6099.211" />
   </ItemGroup>
 
   <!--
@@ -72,5 +73,27 @@
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <!--
+    Vendored Windows CEF binary distribution (libcef.dll, *.pak, icudtl.dat,
+    locales\, v8 snapshots). Analog of the mac Chromium Embedded
+    Framework.framework payload. Copied next to the executable under cef\.
+    Place the distribution under third_party\cef\win.
+  -->
+  <ItemGroup>
+    <None Include="third_party\cef\win\**\*.*" Link="cef\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Injected JS agents + internal pages ship next to the app. -->
+  <ItemGroup>
+    <Content Include="Assets\Scripts\**\*.js" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Internal\**\*.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Keep the trimmer away from CefGlue's reflection/interop surface. -->
+  <ItemGroup Condition="'$(PublishTrimmed)' == 'true'">
+    <TrimmerRootAssembly Include="CefGlue" />
+  </ItemGroup>
 </Project>

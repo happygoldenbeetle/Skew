@@ -52,3 +52,6 @@ _ReSharper*/
 # Generated files
 Generated\ Files/
 *_wpftmp.csproj
+
+# CEF binaries
+third_party/cef/win/

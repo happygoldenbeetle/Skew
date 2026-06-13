@@ -144,6 +144,8 @@ public partial class BrowserStore : ObservableObject
         foreach (var folder in Folders)
             folder.TabIds.Remove(tabId);
 
+        tab.Dispose(); // tear down the per-tab CEF browser
+
         // Select adjacent tab if the closed one was selected
         if (SelectedTabId == tabId)
         {

@@ -27,6 +27,8 @@ public partial class App : Application
     {
         InitializeComponent();
         this.UnhandledException += App_UnhandledException;
+        // CEF init happens in OnLaunched (browser process) and in the static
+        // Main() subprocess fast-path. See ExecuteSubprocessAndExitIfNeeded.
     }
 
     private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
@@ -36,7 +38,14 @@ public partial class App : Application
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        // Initialize the global CEF context on the WinUI thread before any
+        // browser view is created (mac main.mm: CefInitialize before the window).
+        Mori.Cef.CefRuntimeHost.Initialize(
+            System.Environment.GetCommandLineArgs(),
+            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+
         Window = new MainWindow();
+        Window.Closed += (_, _) => Mori.Cef.CefRuntimeHost.Shutdown();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
     }

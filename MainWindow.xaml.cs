@@ -55,6 +55,13 @@ public sealed partial class MainWindow : Window
 
         // Listen for launcher keyboard shortcut
         Content.KeyDown += Content_KeyDown;
+
+        // Route CEF in-page shortcut presses to the same handler as native
+        // chrome (mac OnPreKeyEvent → MoriRoot.handleShortcutEvent).
+        Mori.Cef.MoriBrowserHostChannel.ShortcutHandler = HandleCefShortcut;
+
+        // Show the selected tab's CEF browser view in the web-content card.
+        ShowSelectedBrowserView();
     }
 
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -83,8 +90,72 @@ public sealed partial class MainWindow : Window
 
             case nameof(BrowserStore.SelectedTab):
                 UpdateLoadingBar();
+                ShowSelectedBrowserView();
                 break;
         }
+    }
+
+    /// <summary>
+    /// Swap the web-content host to display the currently selected tab's CEF
+    /// browser view (mac shows the selected tab's MoriBrowserView). Other tabs'
+    /// views are detached so only the active engine surface composites.
+    /// </summary>
+    private void ShowSelectedBrowserView()
+    {
+        var tab = Store.SelectedTab;
+        if (tab is null)
+            return;
+
+        var view = tab.BrowserView;
+
+        // If the host already shows this view, nothing to do.
+        if (WebContentHost.Children.Count == 1 &&
+            ReferenceEquals(WebContentHost.Children[0], view))
+            return;
+
+        WebContentHost.Children.Clear();
+        // Keep the placeholder hidden once a real view is mounted.
+        WebContentHost.Children.Add(view);
+
+        // Route popup/target=_blank requests into new Mori tabs (mac OnOpenURLFromTab).
+        view.RequestsNewTab -= OnViewRequestsNewTab;
+        view.RequestsNewTab += OnViewRequestsNewTab;
+    }
+
+    private void OnViewRequestsNewTab(string url)
+    {
+        DispatcherQueue.TryEnqueue(() => Store.NewTab(url));
+    }
+
+    /// <summary>
+    /// Maps a CEF key event (Windows virtual-key + modifiers) to Mori's shortcut
+    /// actions. Returns true when consumed so the page never sees it. Mirrors the
+    /// Ctrl-shortcut set in <see cref="Content_KeyDown"/>.
+    /// </summary>
+    private bool HandleCefShortcut(int windowsKeyCode, Xilium.CefGlue.CefEventFlags modifiers)
+    {
+        bool ctrl = (modifiers & Xilium.CefGlue.CefEventFlags.ControlDown) != 0;
+        if (!ctrl)
+            return false;
+
+        bool handled = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            switch ((Windows.System.VirtualKey)windowsKeyCode)
+            {
+                case Windows.System.VirtualKey.T: Store.ToggleLauncher(); break;
+                case Windows.System.VirtualKey.W:
+                    if (Store.SelectedTabId is not null)
+                        Store.CloseTab(Store.SelectedTabId.Value);
+                    break;
+                case Windows.System.VirtualKey.L: Sidebar.FocusOmnibox(); break;
+                case Windows.System.VirtualKey.S: Store.ToggleSidebar(); break;
+                case Windows.System.VirtualKey.K: Store.ToggleAIPanel(); break;
+                case Windows.System.VirtualKey.F: Store.ToggleFindBar(); break;
+                case Windows.System.VirtualKey.R: Store.Reload(); break;
+            }
+        });
+        return handled;
     }
 
     private void UpdateLoadingBar()
