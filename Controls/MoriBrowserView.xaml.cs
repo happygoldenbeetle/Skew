@@ -40,6 +40,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     private readonly DispatcherQueue _dispatcher;
     private BrowserClient? _client;
     private CefBrowser? _browser;
+    private nint _browserHwnd;
     private HwndHostWindow? _hostWindow; // native child HWND CEF parents into
     private string _pendingUrl;
     private bool _created;
@@ -162,6 +163,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         => Post(() =>
         {
             _browser = browser;
+            _browserHwnd = browser.GetHost().GetWindowHandle();
             EmitEngineAuditMarker(browser);
             SyncBrowserFrame();
             SyncBrowserVisibility();
@@ -215,6 +217,79 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
             action();
         else
             _dispatcher.TryEnqueue(() => action());
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private static extern nint FindWindowEx(nint parentHandle, nint childAfter, string className, string? windowTitle);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern nint PostMessage(nint hWnd, uint Msg, nint wParam, nint lParam);
+
+    private nint GetRenderWidgetHostHwnd()
+    {
+        if (_browserHwnd == nint.Zero) return nint.Zero;
+        
+        nint widget = FindWindowEx(_browserHwnd, nint.Zero, "Chrome_WidgetWin_0", null);
+        if (widget != nint.Zero)
+        {
+            nint renderWidget = FindWindowEx(widget, nint.Zero, "Chrome_RenderWidgetHostHWND", null);
+            if (renderWidget != nint.Zero) return renderWidget;
+        }
+        
+        nint directRenderWidget = FindWindowEx(_browserHwnd, nint.Zero, "Chrome_RenderWidgetHostHWND", null);
+        if (directRenderWidget != nint.Zero) return directRenderWidget;
+
+        return _browserHwnd;
+    }
+
+    private void HostPanel_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        nint targetHwnd = GetRenderWidgetHostHwnd();
+        if (targetHwnd == nint.Zero) return;
+        var pt = e.GetCurrentPoint(this);
+        PostMessage(targetHwnd, 0x0201, 1, MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        _browser?.GetHost().SetFocus(true);
+        e.Handled = true;
+    }
+
+    private void HostPanel_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        nint targetHwnd = GetRenderWidgetHostHwnd();
+        if (targetHwnd == nint.Zero) return;
+        var pt = e.GetCurrentPoint(this);
+        PostMessage(targetHwnd, 0x0200, 0, MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        e.Handled = true;
+    }
+
+    private void HostPanel_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        nint targetHwnd = GetRenderWidgetHostHwnd();
+        if (targetHwnd == nint.Zero) return;
+        var pt = e.GetCurrentPoint(this);
+        PostMessage(targetHwnd, 0x0202, 0, MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        e.Handled = true;
+    }
+
+    private void HostPanel_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+    }
+
+    private void HostPanel_PointerWheelChanged(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        nint targetHwnd = GetRenderWidgetHostHwnd();
+        if (targetHwnd == nint.Zero) return;
+        var pt = e.GetCurrentPoint(this);
+        int delta = pt.Properties.MouseWheelDelta;
+        PostMessage(targetHwnd, 0x020A, (nint)(delta << 16), MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        e.Handled = true;
+    }
+
+    private nint MakeLParamScaled(double dipX, double dipY)
+    {
+        double scale = XamlRoot?.RasterizationScale ?? 1.0;
+        int x = (int)(dipX * scale);
+        int y = (int)(dipY * scale);
+        return (nint)((y << 16) | (x & 0xFFFF));
     }
 
     // ── Navigation API (mac loadURL/goBack/...) ───────────────────────────

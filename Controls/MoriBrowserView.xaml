@@ -13,5 +13,10 @@
       and resized in code-behind to track HostPanel's bounds. The rounded card
       framing lives on the parent Border in MainWindow (mac _styleBrowserContentView).
     -->
-    <Grid x:Name="HostPanel" Background="Transparent" />
+    <Grid x:Name="HostPanel" Background="Transparent" 
+          PointerPressed="HostPanel_PointerPressed"
+          PointerMoved="HostPanel_PointerMoved"
+          PointerReleased="HostPanel_PointerReleased"
+          PointerExited="HostPanel_PointerExited"
+          PointerWheelChanged="HostPanel_PointerWheelChanged" />
 </UserControl>
