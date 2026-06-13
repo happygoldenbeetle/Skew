@@ -99,7 +99,7 @@ public static class CefRuntimeHost
             RootCachePath = cachePath,
             // WinUI drives the thread loop; CEF must not own it.
             MultiThreadedMessageLoop = false,
-            ExternalMessagePump = true,
+            ExternalMessagePump = false,
             BrowserSubprocessPath = Path.Combine(AppContext.BaseDirectory, "Mori.exe"),
         };
 

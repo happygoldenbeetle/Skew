@@ -100,11 +100,18 @@
                 Width="16" Height="16"
                 Visibility="{x:Bind GetVisibility(Tab.IsLoading), Mode=OneWay}" />
 
-            <!-- PersonPicture fallback when not loading -->
-            <muxc:PersonPicture
-                Width="20" Height="20"
-                DisplayName="{x:Bind Tab.Title, Mode=OneWay}"
-                Visibility="{x:Bind GetInverseVisibility(Tab.IsLoading), Mode=OneWay}" />
+            <!-- Container for both fallback and favicon -->
+            <Grid Visibility="{x:Bind GetInverseVisibility(Tab.IsLoading), Mode=OneWay}">
+                <!-- Fallback PersonPicture shown behind -->
+                <muxc:PersonPicture
+                    Width="20" Height="20"
+                    DisplayName="{x:Bind Tab.Title, Mode=OneWay}" />
+
+                <!-- Actual Favicon overlaid if available -->
+                <Image
+                    Width="20" Height="20"
+                    Source="{x:Bind Tab.FaviconUrl, Mode=OneWay}" />
+            </Grid>
         </Grid>
 
     </Grid>

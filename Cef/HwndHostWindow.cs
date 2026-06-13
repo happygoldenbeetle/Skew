@@ -77,35 +77,58 @@ internal sealed class HwndHostWindow : IDisposable
         if (_hwnd == nint.Zero)
             return;
 
-        double rasterScale = _hostElement.XamlRoot?.RasterizationScale ?? 1.0;
+        try
+        {
+            if (_hostElement.XamlRoot == null)
+                return;
 
-        // Position of the host element relative to the window content root.
-        var transform = _hostElement.TransformToVisual(null);
-        var origin = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+            double rasterScale = _hostElement.XamlRoot.RasterizationScale;
 
-        int x = (int)Math.Round(origin.X * rasterScale);
-        int y = (int)Math.Round(origin.Y * rasterScale);
-        int w = Math.Max(1, (int)Math.Round(_hostElement.ActualWidth * rasterScale));
-        int h = Math.Max(1, (int)Math.Round(_hostElement.ActualHeight * rasterScale));
+            // Position of the host element relative to the window content root.
+            var transform = _hostElement.TransformToVisual(null);
+            var origin = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
 
-        PixelBounds = new RectInt32(0, 0, w, h);
+            int x = (int)Math.Round(origin.X * rasterScale);
+            int y = (int)Math.Round(origin.Y * rasterScale);
+            int w = Math.Max(1, (int)Math.Round(_hostElement.ActualWidth * rasterScale));
+            int h = Math.Max(1, (int)Math.Round(_hostElement.ActualHeight * rasterScale));
 
-        SetWindowPos(_hwnd, nint.Zero, x, y, w, h,
-            SWP_NOZORDER | SWP_NOACTIVATE);
+            PixelBounds = new RectInt32(0, 0, w, h);
+
+            SetWindowPos(_hwnd, nint.Zero, x, y, w, h,
+                SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        catch (Exception)
+        {
+            // The element is likely disconnected from the visual tree.
+            // Calling TransformToVisual throws an ArgumentException in this case.
+        }
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool BringWindowToTop(nint hwnd);
 
     public void SetVisible(bool visible)
     {
+        System.IO.File.AppendAllText("visibility.log", $"SetVisible({visible}) called for handle {_hwnd}\n");
         if (_hwnd != nint.Zero)
+        {
             ShowWindow(_hwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+            if (visible)
+            {
+                BringWindowToTop(_hwnd);
+            }
+        }
     }
 
     public void ResizeBrowserWindow(nint browserHwnd)
     {
         if (browserHwnd != nint.Zero && _hwnd != nint.Zero)
         {
+            const uint SWP_SHOWWINDOW = 0x0040;
             SetWindowPos(browserHwnd, nint.Zero, 0, 0, PixelBounds.Width, PixelBounds.Height,
-                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE | SWP_SHOWWINDOW);
         }
     }
 

@@ -113,12 +113,28 @@ public partial class BrowserStore : ObservableObject
     [RelayCommand]
     public void SelectTab(Guid tabId)
     {
-        SelectedTab = Tabs.FirstOrDefault(t => t.Id == tabId);
-        SelectedTabId = SelectedTab?.Id;
+        System.IO.File.AppendAllText("crash.log", $"SelectTab called for {tabId}\n");
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) {
+            System.IO.File.AppendAllText("crash.log", $"Tab {tabId} not found\n");
+            return;
+        }
 
-        foreach (var tab in Tabs)
+        System.IO.File.AppendAllText("crash.log", $"Tab found: {tab.Title}. Checking Tabs.Contains\n");
+        if (!Tabs.Contains(tab))
+            Tabs.Add(tab);
+
+        System.IO.File.AppendAllText("crash.log", $"Setting SelectedTab to {tab.Title}\n");
+        SelectedTab = tab;
+        SelectedTabId = tab.Id;
+
+        foreach (var t in Tabs)
         {
-            tab.IsSelected = (tab.Id == tabId);
+            t.IsSelected = (t.Id == tabId);
+        }
+        foreach (var p in PinnedTabs)
+        {
+            p.IsSelected = (p.Id == tabId);
         }
     }
 
@@ -134,11 +150,11 @@ public partial class BrowserStore : ObservableObject
     [RelayCommand]
     public void CloseTab(Guid tabId)
     {
-        var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
         if (tab is null) return;
 
         Tabs.Remove(tab);
-        PinnedTabs.Remove(tab);
+        // Do NOT remove from PinnedTabs here; pinned tabs stay across closes.
         LooseTabs.Remove(tab);
 
         foreach (var folder in Folders)
@@ -194,7 +210,8 @@ public partial class BrowserStore : ObservableObject
         if (tab is null) return;
         
         PinnedTabs.Remove(tab);
-        LooseTabs.Add(tab); // Optionally add it back to loose tabs if it doesn't belong to a folder
+        if (Tabs.Contains(tab))
+            LooseTabs.Add(tab); // Add to loose tabs if it's currently open
     }
 
     // ── Navigation ──
@@ -242,13 +259,14 @@ public partial class BrowserStore : ObservableObject
     [RelayCommand]
     public void TogglePin(Guid tabId)
     {
-        var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
         if (tab is null) return;
 
         if (PinnedTabs.Contains(tab))
         {
             PinnedTabs.Remove(tab);
-            LooseTabs.Add(tab);
+            if (Tabs.Contains(tab))
+                LooseTabs.Add(tab);
         }
         else
         {

@@ -6,9 +6,25 @@ namespace Mori.Helpers;
 
 public static class ColorUtils
 {
+    private static readonly System.Collections.Generic.Dictionary<string, Color> KnownColors = new()
+    {
+        { "youtube.com", Color.FromArgb(255, 255, 0, 0) },
+        { "discord.com", Color.FromArgb(255, 88, 101, 242) },
+        { "github.com", Color.FromArgb(255, 240, 246, 252) },
+        { "news.ycombinator.com", Color.FromArgb(255, 255, 102, 0) },
+        { "twitter.com", Color.FromArgb(255, 29, 155, 240) },
+        { "x.com", Color.FromArgb(255, 255, 255, 255) },
+        { "google.com", Color.FromArgb(255, 66, 133, 244) }
+    };
+
     public static SolidColorBrush GetColorFromUrl(string urlString)
     {
         string host = GetHost(urlString) ?? "unknown";
+        
+        if (KnownColors.TryGetValue(host, out Color knownColor))
+        {
+            return new SolidColorBrush(knownColor);
+        }
         
         ulong hash = 5381;
         foreach (char c in host)

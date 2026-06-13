@@ -20,10 +20,18 @@ public sealed partial class MoriSidebar : UserControl
         set
         {
             if (_store != null)
+            {
                 _store.PropertyChanged -= Store_PropertyChanged;
+                if (_store.SelectedTab != null)
+                    _store.SelectedTab.PropertyChanged -= SelectedTab_PropertyChanged;
+            }
             _store = value;
             if (_store != null)
+            {
                 _store.PropertyChanged += Store_PropertyChanged;
+                if (_store.SelectedTab != null)
+                    _store.SelectedTab.PropertyChanged += SelectedTab_PropertyChanged;
+            }
             RefreshUI();
         }
     }
@@ -46,6 +54,45 @@ public sealed partial class MoriSidebar : UserControl
         if (e.PropertyName == nameof(BrowserStore.SidebarOnLeft))
         {
             UpdatePositionIcons();
+        }
+        else if (e.PropertyName == nameof(BrowserStore.SelectedTab))
+        {
+            if (sender is BrowserStore oldStore && oldStore.SelectedTab != null)
+            {
+                // This is slightly tricky: 'sender' is the store.
+                // We actually want to detach from the old selected tab.
+                // Since this fires AFTER it changed, we can't get the old one easily.
+                // But we handle attaching to the new one here.
+            }
+            
+            // To properly manage the SelectedTab PropertyChanged event:
+            if (Store != null)
+            {
+                // Remove from all tabs just to be safe if we can't track the old one easily
+                foreach (var tab in Store.Tabs) tab.PropertyChanged -= SelectedTab_PropertyChanged;
+                foreach (var tab in Store.PinnedTabs) tab.PropertyChanged -= SelectedTab_PropertyChanged;
+                
+                if (Store.SelectedTab != null)
+                    Store.SelectedTab.PropertyChanged += SelectedTab_PropertyChanged;
+            }
+
+            RefreshUI();
+        }
+    }
+
+    private void SelectedTab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(BrowserTab.DisplayUrl) || e.PropertyName == nameof(BrowserTab.UrlString))
+        {
+            if (Store?.SelectedTab != null)
+            {
+                OmniboxField.Text = Store.SelectedTab.DisplayUrl;
+            }
+        }
+        else if (e.PropertyName == nameof(BrowserTab.CanGoBack) || e.PropertyName == nameof(BrowserTab.CanGoForward))
+        {
+            BackButton.IsEnabled = Store?.SelectedTab?.CanGoBack ?? false;
+            ForwardButton.IsEnabled = Store?.SelectedTab?.CanGoForward ?? false;
         }
     }
 

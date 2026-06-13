@@ -102,20 +102,28 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void ShowSelectedBrowserView()
     {
+        System.IO.File.AppendAllText("crash.log", "ShowSelectedBrowserView entered\n");
         var tab = Store.SelectedTab;
-        if (tab is null)
-            return;
-
+        if (tab is null) return;
+        System.IO.File.AppendAllText("crash.log", $"SelectedTab is {tab.Title}. Getting BrowserView\n");
         var view = tab.BrowserView;
-
-        // If the host already shows this view, nothing to do.
-        if (WebContentHost.Children.Count == 1 &&
-            ReferenceEquals(WebContentHost.Children[0], view))
-            return;
-
+        System.IO.File.AppendAllText("crash.log", $"Got BrowserView. Checking Parent\n");
+        if (view.Parent is Panel p)
+        {
+            if (p == WebContentHost)
+            {
+                System.IO.File.AppendAllText("crash.log", "View is already in WebContentHost\n");
+                // Already shown
+                return;
+            }
+            System.IO.File.AppendAllText("crash.log", "Removing view from old panel\n");
+            p.Children.Remove(view);
+        }
+        System.IO.File.AppendAllText("crash.log", "Clearing WebContentHost\n");
         WebContentHost.Children.Clear();
-        // Keep the placeholder hidden once a real view is mounted.
+        System.IO.File.AppendAllText("crash.log", "Adding view to WebContentHost\n");
         WebContentHost.Children.Add(view);
+        System.IO.File.AppendAllText("crash.log", "View added to WebContentHost successfully\n");
 
         // Route popup/target=_blank requests into new Mori tabs (mac OnOpenURLFromTab).
         view.RequestsNewTab -= OnViewRequestsNewTab;

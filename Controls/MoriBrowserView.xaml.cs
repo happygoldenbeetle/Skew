@@ -93,11 +93,16 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _webWindowVisible = true;
         CreateBrowserIfReady();
         SyncBrowserVisibility();
     }
 
-    private void OnUnloaded(object sender, RoutedEventArgs e) => CloseBrowser();
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        _webWindowVisible = false;
+        SyncBrowserVisibility();
+    }
 
     private void CreateBrowserIfReady()
     {
@@ -114,15 +119,17 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
 
     private void CreateBrowserNow()
     {
-        if (_browser is not null)
-            return;
-
-        // The native child window CEF parents into, sized to this control.
-        nint parentHwnd = App.WindowHandle;
-        _hostWindow = HwndHostWindow.Create(parentHwnd, HostPanel, this);
+        System.IO.File.AppendAllText("crash.log", $"CreateBrowserNow entered for url {_pendingUrl}\n");
+        if (_hostWindow is null)
+        {
+            nint parentHwnd = App.WindowHandle;
+            System.IO.File.AppendAllText("crash.log", $"Creating HwndHostWindow\n");
+            _hostWindow = HwndHostWindow.Create(parentHwnd, HostPanel, this);
+        }
 
         var windowInfo = CefWindowInfo.Create();
         var bounds = _hostWindow.PixelBounds;
+        System.IO.File.AppendAllText("crash.log", $"HwndHostWindow bounds: {bounds.Width}x{bounds.Height}\n");
         windowInfo.SetAsChild(_hostWindow.Handle,
             new CefRectangle(0, 0, bounds.Width, bounds.Height));
 
@@ -131,7 +138,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         if (ExtensionTabId != 0)
             _client.SetExtensionTabId(ExtensionTabId);
 
+        System.IO.File.AppendAllText("crash.log", $"Calling CefBrowserHost.CreateBrowser\n");
         CefBrowserHost.CreateBrowser(windowInfo, _client, settings, _pendingUrl);
+        System.IO.File.AppendAllText("crash.log", $"CefBrowserHost.CreateBrowser returned successfully\n");
     }
 
     private void SyncBrowserFrame()
@@ -170,7 +179,19 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         });
 
     void IBrowserViewDelegate.OnBeforeClose(CefBrowser browser)
-        => Post(() => _browser = null);
+    {
+        if (_browser != null && _browser.Identifier == browser.Identifier)
+        {
+            _browser = null;
+        }
+        
+        // CEF has officially destroyed the browser, now it is safe to destroy the parent HWND.
+        Post(() => 
+        {
+            _hostWindow?.Dispose();
+            _hostWindow = null;
+        });
+    }
 
     void IBrowserViewDelegate.OnTitleChange(string title)
         => Post(() => { CurrentTitle = title; TitleChanged?.Invoke(title); });
@@ -191,16 +212,32 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         => Post(() => FaviconUrlsChanged?.Invoke(iconUrls));
 
     void IBrowserViewDelegate.OnBeforeBrowse(string url, bool isRedirect, bool userGesture)
-        => Post(() => NavigationStarted?.Invoke(url, isRedirect, userGesture));
+        => Post(() => 
+        {
+            System.IO.File.AppendAllText("nav.log", $"OnBeforeBrowse: {url}\n");
+            NavigationStarted?.Invoke(url, isRedirect, userGesture);
+        });
 
     void IBrowserViewDelegate.OnLoadStart(string url)
-        => Post(() => NavigationCommitted?.Invoke(url));
+        => Post(() => 
+        {
+            System.IO.File.AppendAllText("nav.log", $"OnLoadStart: {url}\n");
+            NavigationCommitted?.Invoke(url);
+        });
 
     void IBrowserViewDelegate.OnLoadEnd(string url, int httpStatusCode)
-        => Post(() => NavigationFinished?.Invoke(url, httpStatusCode));
+        => Post(() => 
+        {
+            System.IO.File.AppendAllText("nav.log", $"OnLoadEnd: {url} (Status: {httpStatusCode})\n");
+            NavigationFinished?.Invoke(url, httpStatusCode);
+        });
 
     void IBrowserViewDelegate.OnLoadError(int errorCode, string errorText, string failedUrl)
-        => Post(() => LoadFailed?.Invoke(errorText, failedUrl));
+        => Post(() => 
+        {
+            System.IO.File.AppendAllText("nav.log", $"OnLoadError: {failedUrl} (Code: {errorCode}, Error: {errorText})\n");
+            LoadFailed?.Invoke(errorText, failedUrl);
+        });
 
     bool IBrowserViewDelegate.OnOpenUrlFromTab(string targetUrl)
     {
@@ -498,9 +535,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     {
         _client?.DetachDelegate();
         _browser?.GetHost().CloseBrowser(forceClose: true);
-        _browser = null;
-        _hostWindow?.Dispose();
-        _hostWindow = null;
+        // Do NOT dispose _hostWindow here! We must wait for OnBeforeClose from CEF
+        // otherwise libcef.dll will crash with an Access Violation (0xc0000005).
+        
         lock (s_allViews)
             s_allViews.RemoveAll(w => !w.TryGetTarget(out var v) || v == this);
     }

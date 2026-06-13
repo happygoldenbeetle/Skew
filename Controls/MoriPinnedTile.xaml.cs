@@ -66,6 +66,7 @@ public sealed partial class MoriPinnedTile : UserControl
     {
         if (Tab is not null)
         {
+            System.IO.File.AppendAllText("clicks.log", $"Tapped on {Tab.Title} ({Tab.UrlString})\n");
             BrowserStore.Shared.SelectTab(Tab.Id);
         }
     }
