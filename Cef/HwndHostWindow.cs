@@ -100,6 +100,15 @@ internal sealed class HwndHostWindow : IDisposable
             ShowWindow(_hwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
     }
 
+    public void ResizeBrowserWindow(nint browserHwnd)
+    {
+        if (browserHwnd != nint.Zero && _hwnd != nint.Zero)
+        {
+            SetWindowPos(browserHwnd, nint.Zero, 0, 0, PixelBounds.Width, PixelBounds.Height,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
+        }
+    }
+
     public void Dispose()
     {
         if (_hwnd != nint.Zero)
@@ -142,6 +151,7 @@ internal sealed class HwndHostWindow : IDisposable
     private const int WS_CLIPCHILDREN = 0x02000000;
     private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_NOMOVE = 0x0002;
     private const int SW_HIDE = 0;
     private const int SW_SHOWNOACTIVATE = 4;
 

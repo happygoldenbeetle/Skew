@@ -100,9 +100,6 @@ public static class CefRuntimeHost
             // WinUI drives the thread loop; CEF must not own it.
             MultiThreadedMessageLoop = false,
             ExternalMessagePump = true,
-            // Point CEF at the vendored Windows payload.
-            ResourcesDirPath = CefRootDirectory,
-            LocalesDirPath = Path.Combine(CefRootDirectory, "locales"),
             BrowserSubprocessPath = Path.Combine(AppContext.BaseDirectory, "Mori.exe"),
         };
 

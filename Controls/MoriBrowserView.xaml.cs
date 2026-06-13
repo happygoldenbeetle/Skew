@@ -83,7 +83,8 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
-        SizeChanged += (_, _) => SyncBrowserFrame();
+        SizeChanged += (_, _) => { CreateBrowserIfReady(); SyncBrowserFrame(); };
+        LayoutUpdated += (_, _) => SyncBrowserFrame();
     }
 
     // ── Lifecycle: create the browser once installed & sized ──────────────
@@ -139,6 +140,8 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         _hostWindow.UpdateBounds();
         if (_browser is not null)
         {
+            var browserHwnd = _browser.GetHost().GetWindowHandle();
+            _hostWindow.ResizeBrowserWindow(browserHwnd);
             _browser.GetHost().NotifyMoveOrResizeStarted();
             _browser.GetHost().WasResized();
         }
