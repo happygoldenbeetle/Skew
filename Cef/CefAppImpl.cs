@@ -39,8 +39,15 @@ public sealed class CefAppImpl : CefApp
         // user-facing toggle gates whether our agent sets that attribute.
         commandLine.AppendSwitch(
             "enable-features",
-            "AutoPictureInPictureForVideoPlayback,MediaSessionEnterPictureInPicture,OverlayScrollbar,FluentScrollbar,FluentOverlayScrollbar");
+            "WebUIDarkMode,AutoPictureInPictureForVideoPlayback,MediaSessionEnterPictureInPicture,OverlayScrollbar,FluentScrollbar,FluentOverlayScrollbar,OverscrollHistoryNavigation");
         commandLine.AppendSwitch("enable-blink-features", "AutoPictureInPicture");
+        
+        // Force trackpad swipe navigation
+        commandLine.AppendSwitch("overscroll-history-navigation", "1");
+
+        // Force native Chromium web controls (like scrollbars) to render in dark mode
+        // to match our WinUI shell.
+        commandLine.AppendSwitch("force-dark-mode");
 
         // NOTE: the mac build also appends use-mock-keychain / password-store=basic
         // to avoid macOS Keychain "Safe Storage" prompts on ad-hoc-signed clones.

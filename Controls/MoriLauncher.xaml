@@ -8,19 +8,56 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <Storyboard x:Name="RevealAnimation">
+            <DoubleAnimation Storyboard.TargetName="ScrimGrid" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.1" />
+            <DoubleAnimation Storyboard.TargetName="CardScale" Storyboard.TargetProperty="ScaleX" From="0.96" To="1" Duration="0:0:0.15">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="6" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="CardScale" Storyboard.TargetProperty="ScaleY" From="0.96" To="1" Duration="0:0:0.15">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="6" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.1" />
+        </Storyboard>
+        <Storyboard x:Name="HideAnimation" Completed="HideAnimation_Completed">
+            <DoubleAnimation Storyboard.TargetName="ScrimGrid" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.1" />
+            <DoubleAnimation Storyboard.TargetName="CardScale" Storyboard.TargetProperty="ScaleX" To="0.98" Duration="0:0:0.1">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseIn" Exponent="4" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="CardScale" Storyboard.TargetProperty="ScaleY" To="0.98" Duration="0:0:0.1">
+                <DoubleAnimation.EasingFunction>
+                    <ExponentialEase EasingMode="EaseIn" Exponent="4" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.1" />
+        </Storyboard>
+    </UserControl.Resources>
+
     <!-- Full-window scrim + centered card (Spotlight-style command palette) -->
-    <Grid Background="#40000000" PointerPressed="Scrim_PointerPressed">
+    <Grid x:Name="ScrimGrid" Background="#40000000" CornerRadius="10" PointerPressed="Scrim_PointerPressed">
         <Border
-            MaxWidth="620"
-            Margin="24,80,24,0"
+            x:Name="Card"
+            RenderTransformOrigin="0.5,0.5"
+            Width="620"
+            Margin="24,0"
             HorizontalAlignment="Center"
-            VerticalAlignment="Top"
+            VerticalAlignment="Center"
             Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="12"
             PointerPressed="Card_PointerPressed"
-            Shadow="{ThemeResource SharedShadow}">
+            Shadow="{ThemeResource SharedShadow}"
+            Translation="0,0,32">
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="CardScale" ScaleX="1" ScaleY="1" />
+            </Border.RenderTransform>
             <StackPanel>
                 <!-- Header: icon + search field + zoom label -->
                 <Grid Padding="16,0" Height="48">
@@ -28,7 +65,6 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <PathIcon Grid.Column="0" Margin="0,0,10,0" Width="17" Height="17" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Data="F0 M 13.8125 1.59375 C 13.8125 2.47395 14.526 3.1875 15.4062 3.1875 H 15.9375 V 4.25 H 15.4062 C 14.8083 4.25 14.2565 4.05241 13.8125 3.71895 C 13.8126 4.59906 14.5261 5.3125 15.4062 5.3125 H 15.9375 V 6.375 H 15.4062 C 14.8083 6.375 14.2565 6.17743 13.8125 5.84396 V 7.96875 H 12.75 V 3.71895 C 12.306 4.05241 11.7542 4.25 11.1562 4.25 H 10.625 V 3.1875 H 11.1562 C 12.0365 3.1875 12.75 2.47395 12.75 1.59375 V 1.0625 H 13.8125 V 1.59375 Z M 5.84375 10.405 L 7.96875 12.53 V 15.4062 H 3.71875 V 12.53 L 5.84375 10.405 Z M 11.3763 5.3125 H 5.62371 L 1.0625 9.87371 V 15.9375 H 15.9375 V 9.87371 L 11.3763 5.3125 Z M 5.84375 6.59504 L 2.125 10.3138 V 14.875 H 9.5625 V 10.3138 L 5.84375 6.59504 Z M 3.71875 1.0625 C 2.25175 1.0625 1.0625 2.25175 1.0625 3.71875 C 1.0625 4.98171 1.94392 6.03877 3.12517 6.30843 L 4.8724 4.5612 C 5.07166 4.36194 5.34193 4.25 5.62371 4.25 H 6.32188 C 6.35672 4.07835 6.375 3.90069 6.375 3.71875 C 6.375 2.25175 5.18575 1.0625 3.71875 1.0625 Z" />
@@ -43,19 +79,16 @@
                         BorderThickness="0"
                         FontSize="15"
                         PlaceholderText="Search…"
-                        KeyDown="SearchBox_KeyDown" />
-
-                    <Border
-                        Grid.Column="3"
-                        Padding="7,3"
-                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                        CornerRadius="10">
-                        <TextBlock
-                            FontSize="11"
-                            FontWeight="Medium"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="100%" />
-                    </Border>
+                        KeyDown="SearchBox_KeyDown"
+                        PreviewKeyDown="SearchBox_PreviewKeyDown"
+                        TextChanged="SearchBox_TextChanged">
+                        <TextBox.Resources>
+                            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                        </TextBox.Resources>
+                    </TextBox>
                 </Grid>
 
                 <!-- Separator -->
@@ -68,11 +101,64 @@
                 <!-- Results list -->
                 <ListView
                     x:Name="ResultsList"
-                    MaxHeight="280"
+                    MaxHeight="246"
                     Padding="6"
                     SelectionMode="Single"
                     ItemClick="Result_Click"
                     IsItemClickEnabled="True">
+                    <ListView.ItemContainerTransitions>
+                        <TransitionCollection />
+                    </ListView.ItemContainerTransitions>
+                    <ListView.Resources>
+                        <CornerRadius x:Key="ListViewItemCornerRadius">8</CornerRadius>
+                        <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+                    </ListView.Resources>
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Margin" Value="0,1" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="MinHeight" Value="46" />
+                            <Setter Property="CornerRadius" Value="8" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <ListViewItemPresenter
+                                            ContentTransitions="{TemplateBinding ContentTransitions}"
+                                            Control.IsTemplateFocusTarget="True"
+                                            FocusVisualMargin="{TemplateBinding FocusVisualMargin}"
+                                            FocusVisualPrimaryBrush="{TemplateBinding FocusVisualPrimaryBrush}"
+                                            FocusVisualPrimaryThickness="{TemplateBinding FocusVisualPrimaryThickness}"
+                                            FocusVisualSecondaryBrush="{TemplateBinding FocusVisualSecondaryBrush}"
+                                            FocusVisualSecondaryThickness="{TemplateBinding FocusVisualSecondaryThickness}"
+                                            SelectionCheckMarkVisualEnabled="True"
+                                            CheckBrush="{ThemeResource ListViewItemCheckBrush}"
+                                            CheckBoxBrush="{ThemeResource ListViewItemCheckBoxBrush}"
+                                            DragBackground="{ThemeResource ListViewItemDragBackground}"
+                                            DragForeground="{ThemeResource ListViewItemDragForeground}"
+                                            FocusBorderBrush="{ThemeResource ListViewItemFocusBorderBrush}"
+                                            FocusSecondaryBorderBrush="{ThemeResource ListViewItemFocusSecondaryBorderBrush}"
+                                            PlaceholderBackground="{ThemeResource ListViewItemPlaceholderBackground}"
+                                            PointerOverBackground="{ThemeResource ListViewItemBackgroundPointerOver}"
+                                            PointerOverForeground="{ThemeResource ListViewItemForegroundPointerOver}"
+                                            SelectedBackground="{ThemeResource ListViewItemBackgroundSelected}"
+                                            SelectedForeground="{ThemeResource ListViewItemForegroundSelected}"
+                                            SelectedPointerOverBackground="{ThemeResource ListViewItemBackgroundSelectedPointerOver}"
+                                            PressedBackground="{ThemeResource ListViewItemBackgroundPressed}"
+                                            SelectedPressedBackground="{ThemeResource ListViewItemBackgroundSelectedPressed}"
+                                            DisabledOpacity="{ThemeResource ListViewItemDisabledThemeOpacity}"
+                                            DragOpacity="{ThemeResource ListViewItemDragThemeOpacity}"
+                                            ReorderHintOffset="{ThemeResource ListViewItemReorderHintThemeOffset}"
+                                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                            ContentMargin="{TemplateBinding Padding}"
+                                            CheckMode="{ThemeResource ListViewItemCheckMode}"
+                                            CornerRadius="{TemplateBinding CornerRadius}" />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <Grid Height="46" Padding="10,0">
@@ -82,11 +168,24 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
+                                <!-- Show PersonPicture for existing tabs -->
                                 <muxc:PersonPicture
                                     Grid.Column="0"
                                     Width="18" Height="18"
                                     Margin="0,0,10,0"
-                                    DisplayName="{Binding Title}" />
+                                    Visibility="{Binding TabIconVisibility}"
+                                    DisplayName="{Binding Title}"
+                                    ProfilePicture="{Binding TabFaviconSource}" />
+
+                                <!-- Show Search Icon for Google Fallback -->
+                                <FontIcon 
+                                    Grid.Column="0"
+                                    Width="18" Height="18"
+                                    Margin="0,0,10,0"
+                                    Visibility="{Binding SearchIconVisibility}"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Glyph="&#xE721;" 
+                                    FontSize="14"/>
 
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                     <TextBlock
@@ -97,8 +196,33 @@
                                     <TextBlock
                                         FontSize="11"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{Binding DisplayUrl}"
+                                        Text="{Binding Subtitle}"
+                                        Visibility="{Binding SubtitleVisibility}"
                                         TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+
+                                <!-- 'Switch to Tab' indicator -->
+                                <StackPanel
+                                    Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    Spacing="6"
+                                    VerticalAlignment="Center">
+                                    <TextBlock
+                                        FontSize="11"
+                                        FontWeight="Medium"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="Switch to Tab"
+                                        VerticalAlignment="Center" />
+                                    <Border
+                                        Width="20"
+                                        Height="20"
+                                        CornerRadius="6"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                        <FontIcon
+                                            FontSize="11"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Glyph="&#xE72A;" />
+                                    </Border>
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>

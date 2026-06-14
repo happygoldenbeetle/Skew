@@ -40,6 +40,14 @@ public partial class BrowserStore : ObservableObject
     [ObservableProperty]
     private bool _launcherVisible;
 
+    partial void OnLauncherVisibleChanged(bool value)
+    {
+        if (value)
+        {
+            SelectedTab?.SyncZoom();
+        }
+    }
+
     [ObservableProperty]
     private bool _settingsVisible;
 
@@ -116,7 +124,8 @@ public partial class BrowserStore : ObservableObject
 
     public BrowserTab NewTab(string url = "mori://newtab/")
     {
-        var tab = new BrowserTab(url);
+        string formatted = FormatUrl(url);
+        var tab = new BrowserTab(formatted);
         Tabs.Add(tab);
         LooseTabs.Add(tab);
         SelectTab(tab.Id);
@@ -155,7 +164,13 @@ public partial class BrowserStore : ObservableObject
     public void Navigate(string input)
     {
         if (SelectedTab is null) return;
+        SelectedTab.Load(FormatUrl(input));
+    }
 
+    public string FormatUrl(string input)
+    {
+        if (input == "mori://newtab/" || input.StartsWith("mori-extension://")) return input;
+        
         string url = input;
         if (!input.Contains("://") && !input.StartsWith("about:"))
         {
@@ -164,7 +179,7 @@ public partial class BrowserStore : ObservableObject
             else
                 url = $"https://www.google.com/search?q={Uri.EscapeDataString(input)}";
         }
-        SelectedTab.Load(url);
+        return url;
     }
 
     [RelayCommand]

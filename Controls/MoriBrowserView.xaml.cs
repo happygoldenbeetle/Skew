@@ -383,8 +383,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     public void Reload() => _browser?.Reload();
     public void ReloadIgnoringCache() => _browser?.ReloadIgnoreCache();
     public void StopLoading() => _browser?.StopLoad();
-
     // ── Zoom (mac zoomIn/zoomOut/resetZoom/setZoomFactor) ─────────────────
+
+    public double ZoomLevel => _browser?.GetHost().GetZoomLevel() ?? 0;
 
     public void ZoomIn() => AdjustZoom(ZoomStep);
     public void ZoomOut() => AdjustZoom(-ZoomStep);

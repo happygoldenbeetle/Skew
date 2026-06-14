@@ -8,9 +8,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Mori"
     mc:Ignorable="d">
-
     <Window.SystemBackdrop>
-        <MicaBackdrop />
+        <DesktopAcrylicBackdrop />
     </Window.SystemBackdrop>
 
     <!--
@@ -18,12 +17,16 @@
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="Transparent">
+    <Grid x:Name="RootGrid" Background="#4DFFFFFF" SizeChanged="RootGrid_SizeChanged">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />
             </TransitionCollection>
         </Grid.ChildrenTransitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="Accelerator_GoBack" />
+            <KeyboardAccelerator Key="Right" Modifiers="Menu" Invoked="Accelerator_GoForward" />
+        </Grid.KeyboardAccelerators>
         <Grid.ColumnDefinitions>
             <!-- Sidebar column — auto width, collapses when hidden -->
             <ColumnDefinition x:Name="SidebarColumn" Width="256" />
@@ -57,10 +60,11 @@
 
             <!-- Floating web content card with rounded corners and shadow -->
             <Border
-                x:Name="WebCard"
+                x:Name="WebContentBorder"
                 Grid.Row="1"
                 Margin="4"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                SizeChanged="WebContentBorder_SizeChanged"
+                Background="Transparent"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="10"
@@ -103,18 +107,22 @@
                 VerticalAlignment="Top"
                 Margin="0,12,20,0"
                 Visibility="Collapsed" />
+
+            <!-- ═══ Launcher Overlay (command palette) ═══ -->
+            <Popup x:Name="LauncherPopup" Grid.Row="1" Margin="4" IsOpen="False" ShouldConstrainToRootBounds="False">
+                <controls:MoriLauncher x:Name="Launcher" />
+            </Popup>
+
+            <!-- ═══ Swipe Gesture Overlay ═══ -->
+            <Popup x:Name="SwipePopup" Grid.Row="1" Margin="4" IsOpen="False" IsHitTestVisible="False" ShouldConstrainToRootBounds="False">
+                <controls:SwipeIndicatorOverlay x:Name="SwipeOverlay" />
+            </Popup>
         </Grid>
 
         <!-- ═══ AI Panel ═══ -->
         <controls:MoriAIPanel
             x:Name="AIPanel"
             Grid.Column="2"
-            Visibility="Collapsed" />
-
-        <!-- ═══ Launcher Overlay (command palette) ═══ -->
-        <controls:MoriLauncher
-            x:Name="Launcher"
-            Grid.ColumnSpan="3"
             Visibility="Collapsed" />
 
         <!-- Sidebar reveal button (shows when sidebar is hidden) -->

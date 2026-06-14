@@ -164,4 +164,13 @@ public partial class BrowserTab : ObservableObject
         _browserView = null;
         OnPropertyChanged(nameof(HasBrowserView));
     }
+
+    public void SyncZoom()
+    {
+        if (_browserView != null)
+        {
+            double rawLevel = _browserView.ZoomLevel;
+            ZoomPercent = (int)Math.Round(Math.Pow(1.2, rawLevel) * 100);
+        }
+    }
 }

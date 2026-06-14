@@ -9,7 +9,6 @@
     xmlns:controls="using:Mori.Controls"
     xmlns:models="using:Mori.Models"
     mc:Ignorable="d">
-
     <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <!-- Header: toggle + nav buttons + omnibox -->
@@ -206,9 +205,12 @@
                     BorderThickness="0"
                     Click="NewTab_Click"
                     CornerRadius="6">
-                    <StackPanel Orientation="Horizontal" Spacing="9">
-                        <PathIcon Width="13" Height="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Data="F1 M 6.5 1.80556 a 0.541667 0.541667 0 0 1 0.541667 0.541667 v 3.61111 h 3.61111 a 0.541667 0.541667 0 0 1 0 1.08333 h -3.61111 v 3.61111 a 0.541667 0.541667 0 0 1 -1.08333 0 v -3.61111 h -3.61111 a 0.541667 0.541667 0 0 1 0 -1.08333 h 3.61111 v -3.61111 A 0.541667 0.541667 0 0 1 6.5 1.80556" />
+                    <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                        <Grid Width="20" Height="20">
+                            <FontIcon FontSize="14" Glyph="&#xE710;" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
                         <TextBlock
+                            VerticalAlignment="Center"
                             FontSize="13"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="New Tab" />
@@ -310,6 +312,17 @@
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle light / dark">
                     <PathIcon x:Name="ThemeIcon" Width="14" Height="14" Data="F1 M 12.9928 7.95122 a 0.583333 0.583333 0 0 0 -0.651778 -0.0287778 A 4.27778 4.27778 0 0 1 10.1111 8.55556 a 4.28244 4.28244 0 0 1 -4.27778 -4.27778 c 0 -0.891333 0.275333 -1.74767 0.795667 -2.478 a 0.583333 0.583333 0 0 0 -0.582556 -0.912333 A 6.22222 6.22222 0 0 0 0.972222 7 c 0 3.43078 2.79144 6.22222 6.22222 6.22222 a 6.21833 6.21833 0 0 0 6.01611 -4.65578 0.583333 0.583333 0 0 0 -0.217778 -0.614444" />
+                </Button>
+                <Button
+                    x:Name="GlassPickerToggle"
+                    Width="30" Height="30"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    CornerRadius="8"
+                    Click="GlassPickerToggle_Click"
+                    ToolTipService.ToolTip="Customize Glass Tint">
+                    <FontIcon FontSize="14" Glyph="&#xE790;" />
                 </Button>
                 <Button
                     Width="30" Height="30"

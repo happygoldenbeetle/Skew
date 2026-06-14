@@ -14,9 +14,12 @@ public sealed partial class MainWindow : Window
 {
     public BrowserStore Store => BrowserStore.Shared;
 
+    public static MainWindow Instance { get; private set; }
+
     public MainWindow()
     {
-        InitializeComponent();
+        Instance = this;
+        this.InitializeComponent();
 
         // Custom title bar — extend into content, no separate bar
         ExtendsContentIntoTitleBar = true;
@@ -26,6 +29,10 @@ public sealed partial class MainWindow : Window
         appWindow.SetIcon("Assets/AppIcon.ico");
         appWindow.Resize(new Windows.Graphics.SizeInt32(1400, 900));
         appWindow.Title = "Mori";
+
+        // 100ms timer to detect trackpad release
+        _swipeResetTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _swipeResetTimer.Tick += (s, e) => EvaluateAndResetSwipe();
 
         // Use OverlappedPresenter for a real, chrome-less window
         if (appWindow.Presenter is OverlappedPresenter presenter)
@@ -59,6 +66,9 @@ public sealed partial class MainWindow : Window
         // Listen for mouse side buttons globally (Back/Forward)
         Content.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Content_PointerPressed), true);
 
+        // Listen for trackpad swipes globally
+        Content.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Content_PointerWheelChanged), true);
+
         // Route CEF in-page shortcut presses to the same handler as native
         // chrome (mac OnPreKeyEvent → MoriRoot.handleShortcutEvent).
         Mori.Cef.MoriBrowserHostChannel.ShortcutHandler = HandleCefShortcut;
@@ -78,11 +88,19 @@ public sealed partial class MainWindow : Window
                 break;
 
             case nameof(BrowserStore.LauncherVisible):
-                Launcher.Visibility = Store.LauncherVisible
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
                 if (Store.LauncherVisible)
+                {
+                    LauncherPopup.IsOpen = true;
+                    SyncLauncherPopupSize();
                     Launcher.FocusSearchBox();
+                }
+                else
+                {
+                    if (LauncherPopup.IsOpen)
+                    {
+                        Launcher.PlayHideAnimation(() => LauncherPopup.IsOpen = false);
+                    }
+                }
                 break;
 
             case nameof(BrowserStore.FindBarVisible):
@@ -96,6 +114,41 @@ public sealed partial class MainWindow : Window
                 ShowSelectedBrowserView();
                 break;
         }
+    }
+
+    public void UpdateGlobalTint(Windows.UI.Color color)
+    {
+        RootGrid.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
+    }
+
+    private void Cef_TitleChanged(object sender, string title)
+    {
+    }
+
+    private void RootGrid_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+    {
+    }
+
+    private void WebContentBorder_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+    {
+        if (LauncherPopup.IsOpen)
+        {
+            SyncLauncherPopupSize();
+        }
+        
+        SwipeOverlay.UpdateSize(e.NewSize.Width, e.NewSize.Height);
+    }
+
+    private void SyncLauncherPopupSize()
+    {
+        // Align the popup perfectly over the web content card
+        // Because LauncherPopup is declared inside the Content grid, its (0,0) origin
+        // is automatically aligned to the top-left of the web content card!
+        Launcher.Width = WebContentBorder.ActualWidth;
+        Launcher.Height = WebContentBorder.ActualHeight;
+        
+        LauncherPopup.HorizontalOffset = 0;
+        LauncherPopup.VerticalOffset = 0;
     }
 
     /// <summary>
@@ -146,26 +199,60 @@ public sealed partial class MainWindow : Window
     private bool HandleCefShortcut(int windowsKeyCode, Xilium.CefGlue.CefEventFlags modifiers)
     {
         bool ctrl = (modifiers & Xilium.CefGlue.CefEventFlags.ControlDown) != 0;
-        if (!ctrl)
-            return false;
+        bool alt = (modifiers & Xilium.CefGlue.CefEventFlags.AltDown) != 0;
 
-        bool handled = true;
-        DispatcherQueue.TryEnqueue(() =>
+        System.IO.File.AppendAllText("keys.log", $"HandleCefShortcut: key={windowsKeyCode}, ctrl={ctrl}, alt={alt}\n");
+
+        if (!ctrl && !alt) return false;
+
+        var key = (Windows.System.VirtualKey)windowsKeyCode;
+        bool handled = false;
+
+        if (ctrl)
         {
-            switch ((Windows.System.VirtualKey)windowsKeyCode)
+            if (key == Windows.System.VirtualKey.T || key == Windows.System.VirtualKey.W ||
+                key == Windows.System.VirtualKey.L || key == Windows.System.VirtualKey.S ||
+                key == Windows.System.VirtualKey.K || key == Windows.System.VirtualKey.F ||
+                key == Windows.System.VirtualKey.R)
             {
-                case Windows.System.VirtualKey.T: Store.ToggleLauncher(); break;
-                case Windows.System.VirtualKey.W:
-                    if (Store.SelectedTabId is not null)
-                        Store.CloseTab(Store.SelectedTabId.Value);
-                    break;
-                case Windows.System.VirtualKey.L: Sidebar.FocusOmnibox(); break;
-                case Windows.System.VirtualKey.S: Store.ToggleSidebar(); break;
-                case Windows.System.VirtualKey.K: Store.ToggleAIPanel(); break;
-                case Windows.System.VirtualKey.F: Store.ToggleFindBar(); break;
-                case Windows.System.VirtualKey.R: Store.Reload(); break;
+                handled = true;
             }
-        });
+        }
+        else if (alt)
+        {
+            if (key == Windows.System.VirtualKey.Left || key == Windows.System.VirtualKey.Right)
+            {
+                handled = true;
+            }
+        }
+
+        if (handled)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (ctrl)
+                {
+                    switch (key)
+                    {
+                        case Windows.System.VirtualKey.T: Store.ToggleLauncher(); break;
+                        case Windows.System.VirtualKey.W:
+                            if (Store.SelectedTabId is not null)
+                                Store.CloseTab(Store.SelectedTabId.Value);
+                            break;
+                        case Windows.System.VirtualKey.L: Sidebar.FocusOmnibox(); break;
+                        case Windows.System.VirtualKey.S: Store.ToggleSidebar(); break;
+                        case Windows.System.VirtualKey.K: Store.ToggleAIPanel(); break;
+                        case Windows.System.VirtualKey.F: Store.ToggleFindBar(); break;
+                        case Windows.System.VirtualKey.R: Store.Reload(); break;
+                    }
+                }
+                else if (alt)
+                {
+                    if (key == Windows.System.VirtualKey.Left) Store.GoBack();
+                    else if (key == Windows.System.VirtualKey.Right) Store.GoForward();
+                }
+            });
+        }
         return handled;
     }
 
@@ -231,6 +318,8 @@ public sealed partial class MainWindow : Window
     {
         var ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
             Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var alt = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 
         if (ctrl)
         {
@@ -265,6 +354,19 @@ public sealed partial class MainWindow : Window
                     Store.Reload();
                     e.Handled = true;
                     break;
+            }
+        }
+        else if (alt)
+        {
+            if (e.Key == Windows.System.VirtualKey.Left)
+            {
+                Store.GoBack();
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Right)
+            {
+                Store.GoForward();
+                e.Handled = true;
             }
         }
 
@@ -304,5 +406,85 @@ public sealed partial class MainWindow : Window
             Store.GoForward();
             e.Handled = true;
         }
+    }
+
+    private void Accelerator_GoBack(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        Store.GoBack();
+        args.Handled = true;
+    }
+
+    private void Accelerator_GoForward(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        Store.GoForward();
+        args.Handled = true;
+    }
+
+    private int _horizontalScrollDeltaAccumulator = 0;
+    private DateTime _lastSwipeTime = DateTime.MinValue;
+    private DispatcherTimer _swipeResetTimer;
+
+    private void Content_PointerWheelChanged(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint((UIElement)sender);
+        var props = point.Properties;
+
+        if (props.IsHorizontalMouseWheel)
+        {
+            var tab = Store.SelectedTab;
+            if (tab == null) return;
+
+            // Cooldown between swipe navigations
+            if ((DateTime.Now - _lastSwipeTime).TotalMilliseconds < 800)
+            {
+                _horizontalScrollDeltaAccumulator = 0;
+                return;
+            }
+            
+            // Check if we can actually go back/forward before accumulating
+            if (props.MouseWheelDelta < 0 && !tab.CanGoBack && _horizontalScrollDeltaAccumulator <= 0) return;
+            if (props.MouseWheelDelta > 0 && !tab.CanGoForward && _horizontalScrollDeltaAccumulator >= 0) return;
+
+            _horizontalScrollDeltaAccumulator += props.MouseWheelDelta;
+
+            // Trackpad scroll detection requires a timer because there are no "Finger Lifted" events for scroll wheels in Windows.
+            // A 75ms timer gives us enough time to let you stretch the pill and cancel it if you want.
+            _swipeResetTimer.Stop();
+            _swipeResetTimer.Start();
+
+            if (!SwipePopup.IsOpen)
+            {
+                SwipePopup.IsOpen = true;
+            }
+
+            SwipeOverlay.UpdateProgress(_horizontalScrollDeltaAccumulator);
+
+            e.Handled = true;
+        }
+        else
+        {
+            EvaluateAndResetSwipe();
+        }
+    }
+
+    private void EvaluateAndResetSwipe()
+    {
+        _swipeResetTimer.Stop();
+        
+        bool navigated = false;
+        if (_horizontalScrollDeltaAccumulator > 300)
+        {
+            Store.GoForward();
+            navigated = true;
+        }
+        else if (_horizontalScrollDeltaAccumulator < -300)
+        {
+            Store.GoBack();
+            navigated = true;
+        }
+
+        _horizontalScrollDeltaAccumulator = 0;
+        _lastSwipeTime = DateTime.Now;
+        SwipeOverlay.AnimateOut(navigated);
     }
 }

@@ -248,4 +248,66 @@ public sealed partial class MoriSidebar : UserControl
 
     private void PositionToggle_Click(object sender, RoutedEventArgs e)
         => Store?.ToggleSidebarPosition();
+
+    private Microsoft.UI.Xaml.Window _themeWindow;
+
+    private void GlassPickerToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (_themeWindow != null)
+        {
+            _themeWindow.Activate();
+            return;
+        }
+
+        _themeWindow = new Microsoft.UI.Xaml.Window();
+        _themeWindow.Title = "Theme Picker";
+        _themeWindow.AppWindow.Resize(new Windows.Graphics.SizeInt32(380, 650));
+        _themeWindow.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+
+        var presenter = _themeWindow.AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
+        if (presenter != null)
+        {
+            presenter.IsResizable = true;
+            presenter.IsMaximizable = true;
+        }
+
+        var picker = new Microsoft.UI.Xaml.Controls.ColorPicker
+        {
+            IsAlphaEnabled = false, // We'll use our own explicit slider for clarity
+            Color = Microsoft.UI.ColorHelper.FromArgb(77, 255, 255, 255), // #4DFFFFFF
+            Margin = new Microsoft.UI.Xaml.Thickness(20, 20, 20, 0),
+            HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Center
+        };
+
+        var opacitySlider = new Microsoft.UI.Xaml.Controls.Slider
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Value = 30,
+            Header = "Glass Frosting Opacity (%)",
+            Margin = new Microsoft.UI.Xaml.Thickness(40, 10, 40, 20)
+        };
+
+        picker.ColorChanged += (s, args) =>
+        {
+            var color = args.NewColor;
+            color.A = (byte)(opacitySlider.Value / 100.0 * 255.0);
+            MainWindow.Instance?.UpdateGlobalTint(color);
+        };
+
+        opacitySlider.ValueChanged += (s, args) =>
+        {
+            var color = picker.Color;
+            color.A = (byte)(args.NewValue / 100.0 * 255.0);
+            MainWindow.Instance?.UpdateGlobalTint(color);
+        };
+
+        var root = new Microsoft.UI.Xaml.Controls.StackPanel();
+        root.Children.Add(picker);
+        root.Children.Add(opacitySlider);
+        _themeWindow.Content = root;
+
+        _themeWindow.Closed += (s, args) => _themeWindow = null;
+        _themeWindow.Activate();
+    }
 }

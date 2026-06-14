@@ -186,7 +186,8 @@ internal sealed class MoriKeyboardHandler : CefKeyboardHandler
             return false;
 
         bool ctrl = (keyEvent.Modifiers & CefEventFlags.ControlDown) != 0;
-        if (!ctrl)
+        bool alt = (keyEvent.Modifiers & CefEventFlags.AltDown) != 0;
+        if (!ctrl && !alt)
             return false;
 
         bool handled = MoriBrowserHostChannel.HandleShortcut(
