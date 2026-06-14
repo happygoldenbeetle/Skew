@@ -15,8 +15,15 @@
         Background="Transparent"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited"
+        PointerPressed="RootGrid_PointerPressed"
+        PointerReleased="RootGrid_PointerReleased"
+        PointerCanceled="RootGrid_PointerReleased"
         Tapped="RootGrid_Tapped"
-        RightTapped="RootGrid_RightTapped">
+        RightTapped="RootGrid_RightTapped"
+        RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform>
+            <CompositeTransform x:Name="RootTransform" />
+        </Grid.RenderTransform>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="CommonStates">
@@ -30,6 +37,8 @@
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="CloseButton" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="TitleTextBlock" Storyboard.TargetProperty="Opacity" To="0.78" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="FaviconGrid" Storyboard.TargetProperty="Opacity" To="0.9" Duration="0" />
                     </Storyboard>
                 </VisualState>
                 
@@ -38,6 +47,8 @@
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="CloseButton" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="TitleTextBlock" Storyboard.TargetProperty="Opacity" To="0.78" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="FaviconGrid" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
                     </Storyboard>
                 </VisualState>
 
@@ -46,28 +57,48 @@
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="CloseButton" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="TitleTextBlock" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="FaviconGrid" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="PressStates">
+                <VisualStateGroup.Transitions>
+                    <VisualTransition GeneratedDuration="0:0:0.15" />
+                </VisualStateGroup.Transitions>
+                <VisualState x:Name="Released">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleY" To="1" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+                <VisualState x:Name="Pressed">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleX" To="0.985" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleY" To="0.985" Duration="0" />
                     </Storyboard>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
         <!-- Hover background (SubtleFillColorSecondaryBrush) -->
-        <Grid x:Name="HoverBackground" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Opacity="0" CornerRadius="6" />
+        <Grid x:Name="HoverBackground" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Opacity="0" CornerRadius="10" />
 
         <!-- Selected background (Elevated card) -->
         <Border x:Name="SelectedBackground" 
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" 
-                BorderThickness="1" 
+                BorderThickness="0" 
                 Opacity="0" 
-                CornerRadius="6">
+                CornerRadius="10"
+                Translation="0,1,2">
             <Border.Shadow>
                 <ThemeShadow />
             </Border.Shadow>
         </Border>
 
         <!-- Content -->
-        <Grid Margin="8,0">
+        <Grid Margin="9,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -75,16 +106,16 @@
             </Grid.ColumnDefinitions>
 
             <!-- Favicon placeholder (Grid prevents auto-collapse when empty) -->
-            <Grid Grid.Column="0" Width="15" Height="15" Margin="0,0,9,0" VerticalAlignment="Center">
+            <Grid x:Name="FaviconGrid" Grid.Column="0" Width="20" Height="20" Margin="0,0,9,0" VerticalAlignment="Center" Opacity="0.9">
                 <ProgressRing
                     IsActive="{x:Bind Tab.IsLoading, Mode=OneWay}"
-                    Width="14" Height="14"
+                    Width="20" Height="20"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind GetVisibility(Tab.IsLoading), Mode=OneWay}" />
 
                 <!-- Temporary fallback icon when not loading -->
                 <FontIcon
-                    FontSize="12"
+                    FontSize="14"
                     Glyph="&#xE774;"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -92,27 +123,30 @@
 
                 <!-- Internal page icon (Magnifying Glass) -->
                 <FontIcon
-                    FontSize="12"
+                    FontSize="14"
                     Glyph="&#xE721;"
-                    Margin="0,2,0,0"
+                    Margin="0,1,0,0"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Visibility="{x:Bind GetInternalIconVisibility(Tab), Mode=OneWay}" />
 
                 <!-- Actual Favicon overlaid if available -->
                 <Image
-                    Width="14" Height="14"
+                    Width="20" Height="20"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Source="{x:Bind GetFaviconSource(Tab.FaviconUrl), Mode=OneWay}"
+                    Source="{x:Bind GetFaviconSource(Tab.FaviconUrl, Tab.UrlString), Mode=OneWay}"
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
 
             <!-- Title -->
             <TextBlock
+                x:Name="TitleTextBlock"
                 Grid.Column="1"
                 Text="{x:Bind Tab.Title, Mode=OneWay}"
                 VerticalAlignment="Center"
+                Margin="0,-1,0,0"
                 FontSize="13"
+                Opacity="0.78"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 

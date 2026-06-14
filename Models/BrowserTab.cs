@@ -100,6 +100,10 @@ public partial class BrowserTab : ObservableObject
         {
             UrlString = u;
             AccentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(u);
+            if (!IsInternal && Uri.TryCreate(u, UriKind.Absolute, out var uri))
+            {
+                FaviconUrl = $"https://www.google.com/s2/favicons?domain={uri.Host}&sz=128";
+            }
             OnPropertyChanged(nameof(DisplayUrl));
         };
         view.LoadingStateChanged += (loading, back, forward) =>
@@ -109,7 +113,21 @@ public partial class BrowserTab : ObservableObject
             CanGoForward = forward;
         };
         view.FaviconUrlsChanged += urls =>
-            FaviconUrl = urls.Count > 0 ? urls[0] : FaviconUrl;
+        {
+            if (urls.Count == 0) return;
+            string best = urls[0];
+            foreach (var url in urls)
+            {
+                var lower = url.ToLower();
+                // SVGs are the highest quality since they are resolution-independent
+                if (lower.EndsWith(".svg")) { best = url; break; }
+                
+                // Fallback to high-res PNGs
+                if (lower.Contains("apple-touch-icon") && !best.ToLower().EndsWith(".svg")) { best = url; }
+                if (lower.EndsWith(".png") && !best.ToLower().EndsWith(".svg") && !best.ToLower().Contains("apple-touch-icon")) { best = url; }
+            }
+            FaviconUrl = best;
+        };
         view.LoadFailed += (_, _) => { DidFail = true; IsLoading = false; };
         view.NavigationFinished += (_, _) => DidFail = false;
     }

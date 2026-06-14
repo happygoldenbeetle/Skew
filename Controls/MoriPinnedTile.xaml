@@ -12,13 +12,22 @@
         x:Name="RootGrid"
         HorizontalAlignment="Stretch"
         MaxWidth="80"
-        Height="42"
-        Background="Transparent"
+        Height="40"
+        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        CornerRadius="8"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited"
+        PointerPressed="RootGrid_PointerPressed"
+        PointerReleased="RootGrid_PointerReleased"
+        PointerCanceled="RootGrid_PointerReleased"
         Tapped="RootGrid_Tapped"
         RightTapped="RootGrid_RightTapped"
+        RenderTransformOrigin="0.5,0.5"
         ToolTipService.ToolTip="{x:Bind Tab.Title, Mode=OneWay}">
+
+        <Grid.RenderTransform>
+            <CompositeTransform x:Name="RootTransform" />
+        </Grid.RenderTransform>
 
         <!-- Context Menu -->
         <Grid.ContextFlyout>
@@ -87,6 +96,24 @@
                     </Storyboard>
                 </VisualState>
             </VisualStateGroup>
+
+            <VisualStateGroup x:Name="PressStates">
+                <VisualStateGroup.Transitions>
+                    <VisualTransition GeneratedDuration="0:0:0.15" />
+                </VisualStateGroup.Transitions>
+                <VisualState x:Name="Released">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleX" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleY" To="1" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+                <VisualState x:Name="Pressed">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleX" To="0.985" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RootTransform" Storyboard.TargetProperty="ScaleY" To="0.985" Duration="0" />
+                    </Storyboard>
+                </VisualState>
+            </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
         <!-- Base subtle resting fill (matches Mac's tileRestFill) -->
@@ -98,9 +125,8 @@
         <!-- Selected background (Elevated card) -->
         <Border x:Name="SelectedBackground" 
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1" 
-                Translation="0,0,8"
+                BorderThickness="0" 
+                Translation="0,1,2"
                 Opacity="0" 
                 CornerRadius="10">
             <Border.Shadow>
@@ -127,16 +153,23 @@
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Visibility="{x:Bind GetInternalIconVisibility(Tab), Mode=OneWay}" />
 
-                <!-- Fallback PersonPicture shown behind -->
-                <muxc:PersonPicture
+                <!-- Fallback Initial shown behind -->
+                <Border
                     Width="20" Height="20"
-                    DisplayName="{x:Bind Tab.Title, Mode=OneWay}"
-                    Visibility="{x:Bind GetFallbackVisibility(Tab), Mode=OneWay}" />
+                    CornerRadius="4"
+                    Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                    Visibility="{x:Bind GetFallbackVisibility(Tab), Mode=OneWay}">
+                    <TextBlock
+                        Text="{x:Bind GetInitial(Tab.Title), Mode=OneWay}"
+                        FontSize="11" FontWeight="SemiBold"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="0,-1,0,0" />
+                </Border>
 
                 <!-- Actual Favicon overlaid if available -->
                 <Image
                     Width="20" Height="20"
-                    Source="{x:Bind GetFaviconSource(Tab.FaviconUrl), Mode=OneWay}"
+                    Source="{x:Bind GetFaviconSource(Tab.FaviconUrl, Tab.UrlString), Mode=OneWay}"
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
         </Grid>

@@ -36,17 +36,26 @@ public sealed partial class MoriPinnedTile : UserControl
         return string.IsNullOrEmpty(tab.FaviconUrl) ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    public string GetInitial(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return "?";
+        var trimmed = title.Trim();
+        if (trimmed.Length == 0) return "?";
+        return trimmed.Substring(0, 1).ToUpperInvariant();
+    }
+
     public Visibility GetInternalIconVisibility(BrowserTab tab)
     {
         if (tab == null || tab.IsLoading) return Visibility.Collapsed;
         return tab.IsInternal ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    public Microsoft.UI.Xaml.Media.ImageSource? GetFaviconSource(string? url)
+    public Microsoft.UI.Xaml.Media.ImageSource? GetFaviconSource(string? faviconUrl, string? pageUrl)
     {
-        if (string.IsNullOrWhiteSpace(url)) return null;
-        try { return new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(url)); }
-        catch { return null; }
+        if (faviconUrl == null && pageUrl == null) return null;
+        
+        // Pass to our centralized Favicon resolver which handles SVG brand lookups!
+        return Mori.Helpers.FaviconKit.Resolve(faviconUrl, pageUrl);
     }
 
     public MoriPinnedTile()
@@ -76,18 +85,41 @@ public sealed partial class MoriPinnedTile : UserControl
         {
             UpdateVisualState();
         }
+        else if (e.PropertyName == nameof(BrowserTab.FaviconUrl) ||
+                 e.PropertyName == nameof(BrowserTab.IsInternal) ||
+                 e.PropertyName == nameof(BrowserTab.IsLoading))
+        {
+            Bindings.Update();
+        }
     }
+
+    private bool _isPointerOver;
+    private bool _isPressed;
 
     private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        _isHovering = true;
+        _isPointerOver = true;
         UpdateVisualState();
     }
 
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
     {
-        _isHovering = false;
+        _isPointerOver = false;
+        _isPressed = false;
+        VisualStateManager.GoToState(this, "Released", true);
         UpdateVisualState();
+    }
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isPressed = true;
+        VisualStateManager.GoToState(this, "Pressed", true);
+    }
+
+    private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        _isPressed = false;
+        VisualStateManager.GoToState(this, "Released", true);
     }
 
     private void RootGrid_Tapped(object sender, TappedRoutedEventArgs e)
@@ -109,7 +141,7 @@ public sealed partial class MoriPinnedTile : UserControl
         {
             VisualStateManager.GoToState(this, "Selected", true);
         }
-        else if (_isHovering)
+        else if (_isPointerOver)
         {
             VisualStateManager.GoToState(this, "PointerOver", true);
         }
