@@ -213,7 +213,7 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
                 StringComparison.OrdinalIgnoreCase))
         {
             string bg = BuildBackgroundHtml(extensionId);
-            SetTextResponse(200, "OK", "text/html; charset=utf-8", bg);
+            SetTextResponse(200, "OK", "text/html", bg);
             return true;
         }
 
@@ -243,7 +243,7 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
             string? runtime = ExtensionRuntimeBridge.ExtensionPageRuntimeJs(extensionId);
             if (runtime is not null)
                 html = InjectRuntime(html, runtime);
-            SetTextResponse(200, "OK", "text/html; charset=utf-8", html);
+            SetTextResponse(200, "OK", "text/html", html);
             return true;
         }
 
@@ -291,12 +291,15 @@ internal sealed class MoriInternalResourceHandler : MoriBufferedResourceHandler
         if (candidate.StartsWith(Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase) &&
             File.Exists(candidate))
         {
-            SetResponse(200, "OK", "text/html; charset=utf-8", File.ReadAllBytes(candidate));
+            string html = File.ReadAllText(candidate);
+            string theme = Theme.ThemeService.Instance.IsDark ? "dark" : "light";
+            html = html.Replace("<html lang=\"en\">", $"<html lang=\"en\" data-theme=\"{theme}\">");
+            SetResponse(200, "OK", "text/html", Encoding.UTF8.GetBytes(html));
             return true;
         }
 
         // Fallback minimal new-tab shell so navigation never dead-ends.
-        SetTextResponse(200, "OK", "text/html; charset=utf-8",
+        SetTextResponse(200, "OK", "text/html",
             "<!doctype html><html><head><meta charset=\"utf-8\"><title>New Tab</title>" +
             "<style>html,body{height:100%;margin:0;background:#1b1b1b}</style></head>" +
             "<body></body></html>");

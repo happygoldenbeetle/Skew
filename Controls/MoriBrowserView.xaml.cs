@@ -165,6 +165,21 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         _browser?.GetHost().WasHidden(hidden);
     }
 
+    public static void BroadcastThemeChange(bool isDark)
+    {
+        string js = $"document.documentElement.setAttribute('data-theme', '{ (isDark ? "dark" : "light") }');";
+        lock (s_allViews)
+        {
+            foreach (var w in s_allViews.ToList())
+            {
+                if (w.TryGetTarget(out var view) && view._browser is not null)
+                {
+                    view._browser.GetMainFrame().ExecuteJavaScript(js, "mori://internal", 0);
+                }
+            }
+        }
+    }
+
     // ── IBrowserViewDelegate (CEF UI thread → WinUI dispatcher) ───────────
     // Mirrors the mac ViewClientDelegate, hopping every callback to the UI thread.
 
@@ -534,9 +549,8 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     public void CloseBrowser()
     {
         _client?.DetachDelegate();
-        _browser?.GetHost().CloseBrowser(forceClose: true);
-        // Do NOT dispose _hostWindow here! We must wait for OnBeforeClose from CEF
-        // otherwise libcef.dll will crash with an Access Violation (0xc0000005).
+        _hostWindow?.Dispose();
+        _hostWindow = null;
         
         lock (s_allViews)
             s_allViews.RemoveAll(w => !w.TryGetTarget(out var v) || v == this);

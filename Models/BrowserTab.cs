@@ -57,6 +57,8 @@ public partial class BrowserTab : ObservableObject
         }
     }
 
+    public bool IsInternal => UrlString?.StartsWith("mori://") == true;
+
     public BrowserTab(string url = "about:blank", string title = "New Tab")
     {
         Id = Guid.NewGuid();

@@ -102,15 +102,26 @@
 
             <!-- Container for both fallback and favicon -->
             <Grid Visibility="{x:Bind GetInverseVisibility(Tab.IsLoading), Mode=OneWay}">
+                
+                <!-- Internal page icon (Magnifying Glass) -->
+                <FontIcon
+                    FontSize="14"
+                    Glyph="&#xE721;"
+                    Margin="0,2,0,0"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Visibility="{x:Bind GetInternalIconVisibility(Tab), Mode=OneWay}" />
+
                 <!-- Fallback PersonPicture shown behind -->
                 <muxc:PersonPicture
                     Width="20" Height="20"
-                    DisplayName="{x:Bind Tab.Title, Mode=OneWay}" />
+                    DisplayName="{x:Bind Tab.Title, Mode=OneWay}"
+                    Visibility="{x:Bind GetFallbackVisibility(Tab), Mode=OneWay}" />
 
                 <!-- Actual Favicon overlaid if available -->
                 <Image
                     Width="20" Height="20"
-                    Source="{x:Bind Tab.FaviconUrl, Mode=OneWay}" />
+                    Source="{x:Bind GetFaviconSource(Tab.FaviconUrl), Mode=OneWay}"
+                    Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
         </Grid>
 

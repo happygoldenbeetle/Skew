@@ -75,18 +75,36 @@
             </Grid.ColumnDefinitions>
 
             <!-- Favicon placeholder (Grid prevents auto-collapse when empty) -->
-            <Grid Grid.Column="0" Width="15" Height="15" Margin="0,0,9,0">
+            <Grid Grid.Column="0" Width="15" Height="15" Margin="0,0,9,0" VerticalAlignment="Center">
                 <ProgressRing
                     IsActive="{x:Bind Tab.IsLoading, Mode=OneWay}"
                     Width="14" Height="14"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind GetVisibility(Tab.IsLoading), Mode=OneWay}" />
 
                 <!-- Temporary fallback icon when not loading -->
                 <FontIcon
                     FontSize="12"
                     Glyph="&#xE774;"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Visibility="{x:Bind GetInverseVisibility(Tab.IsLoading), Mode=OneWay}" />
+                    Visibility="{x:Bind GetFallbackVisibility(Tab), Mode=OneWay}" />
+
+                <!-- Internal page icon (Magnifying Glass) -->
+                <FontIcon
+                    FontSize="12"
+                    Glyph="&#xE721;"
+                    Margin="0,2,0,0"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Visibility="{x:Bind GetInternalIconVisibility(Tab), Mode=OneWay}" />
+
+                <!-- Actual Favicon overlaid if available -->
+                <Image
+                    Width="14" Height="14"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Source="{x:Bind GetFaviconSource(Tab.FaviconUrl), Mode=OneWay}"
+                    Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
 
             <!-- Title -->

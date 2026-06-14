@@ -82,30 +82,6 @@ public partial class BrowserStore : ObservableObject
         PinnedTabs.Add(pin1);
         PinnedTabs.Add(pin2);
         PinnedTabs.Add(pin3);
-
-        // Folder with tabs
-        var devFolder = new TabFolder("Development", "\uE943", true);
-        Folders.Add(devFolder);
-
-        var tab1 = new BrowserTab("https://learn.microsoft.com", "Microsoft Learn");
-        tab1.FaviconUrl = "https://learn.microsoft.com/favicon.ico";
-        var tab2 = new BrowserTab("https://stackoverflow.com", "Stack Overflow");
-        tab2.FaviconUrl = "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico";
-
-        Tabs.Add(tab1);
-        Tabs.Add(tab2);
-        devFolder.TabIds.Add(tab1.Id);
-        devFolder.TabIds.Add(tab2.Id);
-
-        // Loose tabs
-        var loose1 = new BrowserTab("https://reddit.com/r/programming", "r/programming");
-        loose1.FaviconUrl = "https://www.reddit.com/favicon.ico";
-        var loose2 = new BrowserTab("https://news.ycombinator.com", "Hacker News");
-
-        Tabs.Add(loose1);
-        Tabs.Add(loose2);
-        LooseTabs.Add(loose1);
-        LooseTabs.Add(loose2);
     }
 
     // ── Tab actions ──

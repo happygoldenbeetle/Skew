@@ -31,6 +31,7 @@ public partial class ThemeService : ObservableObject
         CurrentTheme = theme;
         IsDark = theme == ElementTheme.Dark;
         Palette = ThemePalette.ForTheme(theme);
+        Controls.MoriBrowserView.BroadcastThemeChange(IsDark);
     }
 
     /// <summary>

@@ -97,6 +97,12 @@ internal sealed class HwndHostWindow : IDisposable
 
             SetWindowPos(_hwnd, nint.Zero, x, y, w, h,
                 SWP_NOZORDER | SWP_NOACTIVATE);
+
+            // Clip the native child window to the rounded card framing (CornerRadius=10).
+            int radius = (int)Math.Round(10 * rasterScale);
+            int diameter = radius * 2;
+            nint hRgn = CreateRoundRectRgn(0, 0, w + 1, h + 1, diameter, diameter);
+            SetWindowRgn(_hwnd, hRgn, true);
         }
         catch (Exception)
         {
@@ -220,4 +226,10 @@ internal sealed class HwndHostWindow : IDisposable
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern nint GetModuleHandleW(string? moduleName);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowRgn(nint hWnd, nint hRgn, bool bRedraw);
+
+    [DllImport("gdi32.dll")]
+    private static extern nint CreateRoundRectRgn(int x1, int y1, int x2, int y2, int cx, int cy);
 }

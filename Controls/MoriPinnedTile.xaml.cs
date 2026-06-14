@@ -21,6 +21,34 @@ public sealed partial class MoriPinnedTile : UserControl
 
     private bool _isHovering;
 
+    public Visibility GetVisibility(bool b) => b ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility GetInverseVisibility(bool b) => b ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility GetFaviconVisibility(BrowserTab tab)
+    {
+        if (tab == null || tab.IsLoading || tab.IsInternal) return Visibility.Collapsed;
+        return !string.IsNullOrEmpty(tab.FaviconUrl) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public Visibility GetFallbackVisibility(BrowserTab tab)
+    {
+        if (tab == null || tab.IsLoading || tab.IsInternal) return Visibility.Collapsed;
+        return string.IsNullOrEmpty(tab.FaviconUrl) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public Visibility GetInternalIconVisibility(BrowserTab tab)
+    {
+        if (tab == null || tab.IsLoading) return Visibility.Collapsed;
+        return tab.IsInternal ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public Microsoft.UI.Xaml.Media.ImageSource? GetFaviconSource(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        try { return new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(url)); }
+        catch { return null; }
+    }
+
     public MoriPinnedTile()
     {
         InitializeComponent();
@@ -66,7 +94,6 @@ public sealed partial class MoriPinnedTile : UserControl
     {
         if (Tab is not null)
         {
-            System.IO.File.AppendAllText("clicks.log", $"Tapped on {Tab.Title} ({Tab.UrlString})\n");
             BrowserStore.Shared.SelectTab(Tab.Id);
         }
     }
@@ -94,20 +121,14 @@ public sealed partial class MoriPinnedTile : UserControl
 
     // ── Bindings Helpers ──
 
-    public Visibility GetVisibility(bool isVisible) => isVisible ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility GetInverseVisibility(bool isVisible) => !isVisible ? Visibility.Visible : Visibility.Collapsed;
-
     // ── Context Menu Actions ──
 
     private void UnpinTab_Click(object sender, RoutedEventArgs e)
     {
         if (Tab is not null)
         {
-            // Pinning logic should ideally be in BrowserStore
-            // For now, we manually move it if possible or call a store method
-            // Actually, let's implement BrowserStore.UnpinTab
-            // Wait, BrowserStore doesn't have it yet, we'll implement it next.
-            BrowserStore.Shared.UnpinTab(Tab.Id);
+            var id = Tab.Id;
+            App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.UnpinTab(id));
         }
     }
 
@@ -115,7 +136,8 @@ public sealed partial class MoriPinnedTile : UserControl
     {
         if (Tab is not null)
         {
-            BrowserStore.Shared.CloseTab(Tab.Id);
+            var id = Tab.Id;
+            App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.CloseTab(id));
         }
     }
 }

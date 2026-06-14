@@ -25,6 +25,31 @@ public sealed partial class MoriTabRow : UserControl
     public Visibility GetVisibility(bool b) => b ? Visibility.Visible : Visibility.Collapsed;
     public Visibility GetInverseVisibility(bool b) => b ? Visibility.Collapsed : Visibility.Visible;
 
+    public Visibility GetFaviconVisibility(BrowserTab tab)
+    {
+        if (tab == null || tab.IsLoading || tab.IsInternal) return Visibility.Collapsed;
+        return !string.IsNullOrEmpty(tab.FaviconUrl) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public Visibility GetFallbackVisibility(BrowserTab tab)
+    {
+        if (tab == null || tab.IsLoading || tab.IsInternal) return Visibility.Collapsed;
+        return string.IsNullOrEmpty(tab.FaviconUrl) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public Visibility GetInternalIconVisibility(BrowserTab tab)
+    {
+        if (tab == null || tab.IsLoading) return Visibility.Collapsed;
+        return tab.IsInternal ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public Microsoft.UI.Xaml.Media.ImageSource? GetFaviconSource(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        try { return new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(url)); }
+        catch { return null; }
+    }
+
     public MoriTabRow()
     {
         InitializeComponent();
@@ -122,11 +147,19 @@ public sealed partial class MoriTabRow : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        BrowserStore.Shared.CloseTab(Tab.Id);
+        if (Tab is not null)
+        {
+            var id = Tab.Id;
+            App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.CloseTab(id));
+        }
     }
 
     private void Pin_Click(object sender, RoutedEventArgs e)
     {
-        BrowserStore.Shared.TogglePin(Tab.Id);
+        if (Tab is not null)
+        {
+            var id = Tab.Id;
+            App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.TogglePin(id));
+        }
     }
 }
