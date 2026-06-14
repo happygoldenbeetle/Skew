@@ -108,17 +108,54 @@
             VerticalScrollBarVisibility="Auto">
             <StackPanel Padding="8,8,8,10" Spacing="10">
 
-                <!-- Pinned tabs grid -->
-                <muxc:ItemsRepeater
+                <GridView
                     x:Name="PinnedGrid"
                     Margin="2,0"
-                    Layout="{StaticResource PinnedGridLayout}">
-                    <muxc:ItemsRepeater.ItemTemplate>
+                    SelectionMode="None"
+                    CanReorderItems="True"
+                    AllowDrop="True"
+                    SizeChanged="PinnedGrid_SizeChanged">
+                    <GridView.Resources>
+                        <SolidColorBrush x:Key="GridViewItemBackgroundPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="GridViewItemBackgroundPressed" Color="Transparent" />
+                        <SolidColorBrush x:Key="GridViewItemBackgroundSelected" Color="Transparent" />
+                        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPressed" Color="Transparent" />
+                    </GridView.Resources>
+                    <GridView.ItemContainerStyle>
+                        <Style TargetType="GridViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="MinHeight" Value="0" />
+                            <Setter Property="MinWidth" Value="0" />
+                        </Style>
+                    </GridView.ItemContainerStyle>
+                    <GridView.ItemContainerTransitions>
+                        <TransitionCollection>
+                            <AddDeleteThemeTransition />
+                            <ReorderThemeTransition />
+                            <RepositionThemeTransition IsStaggeringEnabled="False" />
+                        </TransitionCollection>
+                    </GridView.ItemContainerTransitions>
+                    <GridView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsWrapGrid Orientation="Horizontal" HorizontalAlignment="Left">
+                                <ItemsWrapGrid.ChildrenTransitions>
+                                    <TransitionCollection>
+                                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                                    </TransitionCollection>
+                                </ItemsWrapGrid.ChildrenTransitions>
+                            </ItemsWrapGrid>
+                        </ItemsPanelTemplate>
+                    </GridView.ItemsPanel>
+                    <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:BrowserTab">
-                            <controls:MoriPinnedTile Tab="{x:Bind}" />
+                            <controls:MoriPinnedTile Tab="{x:Bind}" Margin="0,0,6,6" />
                         </DataTemplate>
-                    </muxc:ItemsRepeater.ItemTemplate>
-                </muxc:ItemsRepeater>
+                    </GridView.ItemTemplate>
+                </GridView>
 
                 <!-- Separator after pins -->
                 <Border
@@ -179,13 +216,50 @@
                 </Button>
 
                 <!-- Loose (unfiled) tabs -->
-                <muxc:ItemsRepeater x:Name="LooseTabList">
-                    <muxc:ItemsRepeater.ItemTemplate>
+                <ListView
+                    x:Name="LooseTabList"
+                    SelectionMode="None"
+                    CanReorderItems="True"
+                    AllowDrop="True">
+                    <ListView.Resources>
+                        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
+                    </ListView.Resources>
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="MinHeight" Value="0" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemContainerTransitions>
+                        <TransitionCollection>
+                            <AddDeleteThemeTransition />
+                            <ReorderThemeTransition />
+                            <RepositionThemeTransition IsStaggeringEnabled="False" />
+                        </TransitionCollection>
+                    </ListView.ItemContainerTransitions>
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsStackPanel>
+                                <ItemsStackPanel.ChildrenTransitions>
+                                    <TransitionCollection>
+                                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                                    </TransitionCollection>
+                                </ItemsStackPanel.ChildrenTransitions>
+                            </ItemsStackPanel>
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
+                    <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:BrowserTab">
                             <controls:MoriTabRow Tab="{x:Bind}" />
                         </DataTemplate>
-                    </muxc:ItemsRepeater.ItemTemplate>
-                </muxc:ItemsRepeater>
+                    </ListView.ItemTemplate>
+                </ListView>
             </StackPanel>
         </ScrollViewer>
 

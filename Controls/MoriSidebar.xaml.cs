@@ -205,6 +205,26 @@ public sealed partial class MoriSidebar : UserControl
         }
     }
 
+    // ── Drag & Drop Resizing Math ──
+    private void PinnedGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (PinnedGrid.ItemsPanelRoot is ItemsWrapGrid wrapGrid)
+        {
+            double availableWidth = e.NewSize.Width;
+            if (availableWidth <= 0) return;
+
+            // Tile min width is 56, plus 6 for the right margin.
+            double minCellWidth = 56 + 6;
+
+            int columns = (int)(availableWidth / minCellWidth);
+            if (columns < 1) columns = 1;
+
+            // Divide the space evenly so it perfectly stretches.
+            wrapGrid.ItemWidth = availableWidth / columns;
+            wrapGrid.ItemHeight = 42 + 6; // tile height + bottom margin
+        }
+    }
+
     private void AIToggle_Click(object sender, RoutedEventArgs e)
         => Store?.ToggleAIPanel();
 

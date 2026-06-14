@@ -56,6 +56,9 @@ public sealed partial class MainWindow : Window
         // Listen for launcher keyboard shortcut
         Content.KeyDown += Content_KeyDown;
 
+        // Listen for mouse side buttons globally (Back/Forward)
+        Content.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Content_PointerPressed), true);
+
         // Route CEF in-page shortcut presses to the same handler as native
         // chrome (mac OnPreKeyEvent → MoriRoot.handleShortcutEvent).
         Mori.Cef.MoriBrowserHostChannel.ShortcutHandler = HandleCefShortcut;
@@ -285,6 +288,21 @@ public sealed partial class MainWindow : Window
                 presenter.Restore();
             else
                 presenter.Maximize();
+        }
+    }
+
+    private void Content_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint((UIElement)sender);
+        if (point.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.XButton1Pressed)
+        {
+            Store.GoBack();
+            e.Handled = true;
+        }
+        else if (point.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.XButton2Pressed)
+        {
+            Store.GoForward();
+            e.Handled = true;
         }
     }
 }

@@ -113,7 +113,7 @@ public sealed partial class MoriTabRow : UserControl
     }
 
 
-    private bool _isPressed;
+
 
     private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
@@ -124,20 +124,17 @@ public sealed partial class MoriTabRow : UserControl
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _isPointerOver = false;
-        _isPressed = false;
         VisualStateManager.GoToState(this, "Released", true);
         UpdateVisualState();
     }
 
     private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        _isPressed = true;
         VisualStateManager.GoToState(this, "Pressed", true);
     }
 
     private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        _isPressed = false;
         VisualStateManager.GoToState(this, "Released", true);
     }
 

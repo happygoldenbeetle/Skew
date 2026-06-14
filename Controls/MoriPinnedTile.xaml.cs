@@ -19,7 +19,7 @@ public sealed partial class MoriPinnedTile : UserControl
         set => SetValue(TabProperty, value);
     }
 
-    private bool _isHovering;
+
 
     public Visibility GetVisibility(bool b) => b ? Visibility.Visible : Visibility.Collapsed;
     public Visibility GetInverseVisibility(bool b) => b ? Visibility.Collapsed : Visibility.Visible;
@@ -94,7 +94,6 @@ public sealed partial class MoriPinnedTile : UserControl
     }
 
     private bool _isPointerOver;
-    private bool _isPressed;
 
     private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
@@ -105,20 +104,17 @@ public sealed partial class MoriPinnedTile : UserControl
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _isPointerOver = false;
-        _isPressed = false;
         VisualStateManager.GoToState(this, "Released", true);
         UpdateVisualState();
     }
 
     private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        _isPressed = true;
         VisualStateManager.GoToState(this, "Pressed", true);
     }
 
     private void RootGrid_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        _isPressed = false;
         VisualStateManager.GoToState(this, "Released", true);
     }
 
