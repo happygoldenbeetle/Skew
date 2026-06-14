@@ -11,8 +11,8 @@
     <Grid
         x:Name="RootGrid"
         HorizontalAlignment="Stretch"
-        Height="40"
         MaxWidth="80"
+        Height="42"
         Background="Transparent"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited"
@@ -40,15 +40,32 @@
             <VisualStateGroup x:Name="CommonStates">
                 <VisualStateGroup.Transitions>
                     <!-- Motion.state = 150ms -->
-                    <VisualTransition GeneratedDuration="0:0:0.15" />
+                    <VisualTransition GeneratedDuration="0:0:0.15">
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" Duration="0:0:0.15" EnableDependentAnimation="True" />
+                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" Duration="0:0:0.15" EnableDependentAnimation="True" />
+                        </Storyboard>
+                    </VisualTransition>
+                    <VisualTransition To="Selected" GeneratedDuration="0:0:0.15">
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="16" Duration="0:0:0.15" EnableDependentAnimation="True" />
+                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="2" Duration="0:0:0.15" EnableDependentAnimation="True" />
+                        </Storyboard>
+                    </VisualTransition>
+                    <VisualTransition From="Selected" GeneratedDuration="0:0:0.15">
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="4" Duration="0:0:0.15" EnableDependentAnimation="True" />
+                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="4" Duration="0:0:0.15" EnableDependentAnimation="True" />
+                        </Storyboard>
+                    </VisualTransition>
                 </VisualStateGroup.Transitions>
 
                 <VisualState x:Name="Normal">
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="GreyOutline" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="ColoredOutline" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="4" Duration="0" EnableDependentAnimation="True" />
+                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="4" Duration="0" EnableDependentAnimation="True" />
                     </Storyboard>
                 </VisualState>
                 
@@ -56,8 +73,8 @@
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="GreyOutline" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="ColoredOutline" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="4" Duration="0" EnableDependentAnimation="True" />
+                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="4" Duration="0" EnableDependentAnimation="True" />
                     </Storyboard>
                 </VisualState>
 
@@ -65,23 +82,25 @@
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="GreyOutline" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="ColoredOutline" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="16" Duration="0" EnableDependentAnimation="True" />
+                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="2" Duration="0" EnableDependentAnimation="True" />
                     </Storyboard>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <!-- Base transparent resting fill (matches .white.opacity(0.06)) -->
-        <Grid Background="{ThemeResource SubtleFillColorTransparentBrush}" CornerRadius="10" />
+        <!-- Base subtle resting fill (matches Mac's tileRestFill) -->
+        <Grid Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="10" />
 
         <!-- Hover background (matches .white.opacity(0.10)) -->
         <Grid x:Name="HoverBackground" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Opacity="0" CornerRadius="10" />
 
-        <!-- Selected background (Elevated card matching .white.opacity(0.18)) -->
+        <!-- Selected background (Elevated card) -->
         <Border x:Name="SelectedBackground" 
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderThickness="0" 
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1" 
+                Translation="0,0,8"
                 Opacity="0" 
                 CornerRadius="10">
             <Border.Shadow>
@@ -89,9 +108,6 @@
             </Border.Shadow>
         </Border>
 
-        <!-- Outlines -->
-        <Border x:Name="GreyOutline" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1.5" CornerRadius="10" Opacity="1" />
-        <Border x:Name="ColoredOutline" BorderBrush="{x:Bind Tab.AccentColorBrush, Mode=OneWay}" BorderThickness="1.5" CornerRadius="10" Opacity="0" />
 
         <!-- Icon Content (Centered) -->
         <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="20" Height="20">
@@ -124,6 +140,16 @@
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
         </Grid>
+
+        <!-- Running Indicator (Dot to Line) -->
+        <Border
+            x:Name="RunningIndicator"
+            Height="4" Width="4"
+            CornerRadius="2"
+            Margin="0,0,0,3"
+            Background="{ThemeResource TextFillColorSecondaryBrush}"
+            VerticalAlignment="Bottom" HorizontalAlignment="Center"
+            Visibility="{x:Bind GetVisibility(Tab.HasBrowserView), Mode=OneWay}" />
 
     </Grid>
 </UserControl>

@@ -17,7 +17,7 @@
                 MinColumnSpacing="6"
                 MinRowSpacing="6"
                 MinItemWidth="56"
-                MinItemHeight="40"
+                MinItemHeight="42"
                 ItemsStretch="Fill" />
 
             <!-- Shared shadow for floating card elements -->

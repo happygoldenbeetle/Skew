@@ -84,6 +84,7 @@ public partial class BrowserTab : ObservableObject
             {
                 _browserView = new Mori.Controls.MoriBrowserView(UrlString);
                 WireBrowserEvents(_browserView);
+                OnPropertyChanged(nameof(HasBrowserView));
             }
             return _browserView;
         }
@@ -143,5 +144,6 @@ public partial class BrowserTab : ObservableObject
     {
         _browserView?.CloseBrowser();
         _browserView = null;
+        OnPropertyChanged(nameof(HasBrowserView));
     }
 }
