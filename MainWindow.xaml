@@ -29,9 +29,12 @@
             <ColumnDefinition x:Name="SidebarColumn" Width="256" />
             <!-- Web content — fills remaining space -->
             <ColumnDefinition Width="*" />
-            <!-- AI panel column — auto, collapses when hidden -->
+            <!--  AI Panel column  -->
             <ColumnDefinition x:Name="AIPanelColumn" Width="0" />
         </Grid.ColumnDefinitions>
+
+        <!-- Film Grain Overlay -->
+        <Image Grid.ColumnSpan="3" Source="ms-appx:///Assets/noise.png" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.04" IsHitTestVisible="False" />
 
         <!-- ═══ Sidebar ═══ -->
         <controls:MoriSidebar

@@ -16,7 +16,7 @@ public sealed partial class MainWindow : Window
 
     public static MainWindow Instance { get; private set; }
 
-    private Microsoft.UI.Composition.SystemBackdrops.MicaController _micaController;
+    private Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController _acrylicController;
     private Microsoft.UI.Composition.SystemBackdrops.SystemBackdropConfiguration _backdropConfiguration;
 
     public MainWindow()
@@ -24,21 +24,20 @@ public sealed partial class MainWindow : Window
         Instance = this;
         this.InitializeComponent();
 
-        if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
+        if (Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported())
         {
             _backdropConfiguration = new Microsoft.UI.Composition.SystemBackdrops.SystemBackdropConfiguration();
             _backdropConfiguration.IsInputActive = true;
             _backdropConfiguration.Theme = Microsoft.UI.Composition.SystemBackdrops.SystemBackdropTheme.Dark;
 
-            _micaController = new Microsoft.UI.Composition.SystemBackdrops.MicaController();
-            // Optional: you can set _micaController.Kind = MicaKind.BaseAlt to use the Alt variant if desired
-            _micaController.TintColor = Microsoft.UI.ColorHelper.FromArgb(77, 255, 255, 255);
-            _micaController.TintOpacity = 0.3f;
-            _micaController.FallbackColor = Microsoft.UI.Colors.Transparent;
+            _acrylicController = new Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController();
+            _acrylicController.TintColor = Microsoft.UI.ColorHelper.FromArgb(77, 255, 255, 255);
+            _acrylicController.TintOpacity = 0.3f;
+            _acrylicController.FallbackColor = Microsoft.UI.Colors.Transparent;
 
             var target = WinRT.CastExtensions.As<Microsoft.UI.Composition.ICompositionSupportsSystemBackdrop>(this);
-            _micaController.AddSystemBackdropTarget(target);
-            _micaController.SetSystemBackdropConfiguration(_backdropConfiguration);
+            _acrylicController.AddSystemBackdropTarget(target);
+            _acrylicController.SetSystemBackdropConfiguration(_backdropConfiguration);
         }
 
         // Custom title bar — extend into content, no separate bar
@@ -138,10 +137,10 @@ public sealed partial class MainWindow : Window
 
     public void UpdateGlobalTint(Windows.UI.Color color)
     {
-        if (_micaController != null)
+        if (_acrylicController != null)
         {
-            _micaController.TintColor = color;
-            _micaController.TintOpacity = color.A / 255.0f;
+            _acrylicController.TintColor = color;
+            _acrylicController.TintOpacity = color.A / 255.0f;
         }
     }
 
