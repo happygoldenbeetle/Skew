@@ -8,16 +8,13 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Mori"
     mc:Ignorable="d">
-    <Window.SystemBackdrop>
-        <DesktopAcrylicBackdrop />
-    </Window.SystemBackdrop>
 
     <!--
         Root layout: the entire browser chrome.
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="#4DFFFFFF" SizeChanged="RootGrid_SizeChanged">
+    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />
