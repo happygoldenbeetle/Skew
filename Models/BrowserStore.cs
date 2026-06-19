@@ -101,6 +101,13 @@ public partial class BrowserStore : ObservableObject
     {
         System.IO.File.AppendAllText("crash.log", $"SelectTab called for {tabId}\n");
         var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
+        
+        if (tab is null)
+        {
+            var folder = Folders.FirstOrDefault(f => f.Tabs.Any(t => t.Id == tabId));
+            tab = folder?.Tabs.FirstOrDefault(t => t.Id == tabId);
+        }
+
         if (tab is null) {
             System.IO.File.AppendAllText("crash.log", $"Tab {tabId} not found\n");
             return;
@@ -138,14 +145,21 @@ public partial class BrowserStore : ObservableObject
     public void CloseTab(Guid tabId)
     {
         var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null)
+        {
+            var folder = Folders.FirstOrDefault(f => f.Tabs.Any(t => t.Id == tabId));
+            tab = folder?.Tabs.FirstOrDefault(t => t.Id == tabId);
+        }
         if (tab is null) return;
 
         Tabs.Remove(tab);
         // Do NOT remove from PinnedTabs here; pinned tabs stay across closes.
         LooseTabs.Remove(tab);
 
-        foreach (var folder in Folders)
-            folder.Tabs.Remove(tab);
+        // Intentionally do not remove from Folders!
+        // This allows folders to act as persistent saved groups.
+        // The tab.Dispose() call below unloads the CEF browser from memory,
+        // and it will seamlessly revive itself the next time SelectTab accesses its BrowserView.
 
         tab.Dispose(); // tear down the per-tab CEF browser
 
