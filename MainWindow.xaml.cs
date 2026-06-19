@@ -54,9 +54,12 @@ public sealed partial class MainWindow : Window
             presenter.SetBorderAndTitleBar(true, false);
         }
 
-        // Ensure popup is always open to prevent WinUI 3 lag/flicker when peeking
-        SidebarPeekPopup.IsOpen = true;
-        SidebarPeekTranslate.X = -5000; // start off-screen
+        // Ensure popup is always open to prevent WinUI 3 lag/flicker when peeking, but wait for XamlRoot
+        RootGrid.Loaded += (s, e) =>
+        {
+            SidebarPeekPopup.IsOpen = true;
+            SidebarPeekTranslate.X = -5000; // start off-screen
+        };
 
         // Wire up store state to UI
         Store.PropertyChanged += Store_PropertyChanged;
