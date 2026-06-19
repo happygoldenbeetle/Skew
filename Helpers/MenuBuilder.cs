@@ -122,17 +122,20 @@ public static class MenuBuilder
         flyout.Items.Add(closeRightItem);
 
         // Close Tab
+        var macRed = ColorHelper.FromArgb(255, 255, 59, 48); // #FF3B30
+        var macRedPressed = ColorHelper.FromArgb(255, 217, 54, 43); // Darker red for press
+
         var closeItem = new MenuFlyoutItem
         {
             Text = "Close Tab",
-            Icon = new FontIcon { Glyph = "\uE711" },
-            Foreground = new SolidColorBrush(Colors.Salmon)
+            Icon = new FontIcon { Glyph = "\uE8BB" }, // E8BB is the perfectly centered standard Close icon
+            Foreground = new SolidColorBrush(macRed)
         };
         
         // Destructive macOS styling: red background with white text on hover
-        closeItem.Resources["MenuFlyoutItemBackgroundPointerOver"] = new SolidColorBrush(Colors.Salmon);
+        closeItem.Resources["MenuFlyoutItemBackgroundPointerOver"] = new SolidColorBrush(macRed);
         closeItem.Resources["MenuFlyoutItemForegroundPointerOver"] = new SolidColorBrush(Colors.White);
-        closeItem.Resources["MenuFlyoutItemBackgroundPressed"] = new SolidColorBrush(Colors.IndianRed);
+        closeItem.Resources["MenuFlyoutItemBackgroundPressed"] = new SolidColorBrush(macRedPressed);
         closeItem.Resources["MenuFlyoutItemForegroundPressed"] = new SolidColorBrush(Colors.White);
         
         closeItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.CloseTab(tab.Id));
