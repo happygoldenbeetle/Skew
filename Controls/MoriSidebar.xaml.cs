@@ -393,7 +393,14 @@ public sealed partial class MoriSidebar : UserControl
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
         e.DragUIOverride.IsCaptionVisible = true;
         e.DragUIOverride.IsGlyphVisible = true;
-        e.DragUIOverride.Caption = "Add to folder";
+        
+        string folderName = "folder";
+        if (sender is FrameworkElement fe && fe.DataContext is TabFolder folder)
+        {
+            folderName = folder.Name;
+        }
+        
+        e.DragUIOverride.Caption = $"Add to {folderName}";
     }
 
     private async void FolderHeader_Drop(object sender, DragEventArgs e)
