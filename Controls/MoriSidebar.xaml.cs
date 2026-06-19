@@ -387,4 +387,33 @@ public sealed partial class MoriSidebar : UserControl
             e.Handled = true;
         }
     }
+
+    private void FolderHeader_DragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        e.DragUIOverride.IsCaptionVisible = false;
+        e.DragUIOverride.IsGlyphVisible = false;
+    }
+
+    private async void FolderHeader_Drop(object sender, DragEventArgs e)
+    {
+        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
+        {
+            var text = await e.DataView.GetTextAsync();
+            if (Guid.TryParse(text, out Guid draggedTabId))
+            {
+                if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+                {
+                    if (Store != null)
+                    {
+                        var folder = Store.Folders.FirstOrDefault(f => f.Id == folderId);
+                        if (folder != null)
+                        {
+                            Store.MoveTab(draggedTabId, new FolderTarget(folderId, int.MaxValue));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

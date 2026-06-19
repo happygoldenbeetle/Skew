@@ -137,6 +137,40 @@ public sealed partial class MoriPinnedTile : UserControl
         }
     }
 
+    private void RootGrid_DragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if (Tab == null) return;
+        args.Data.SetText(Tab.Id.ToString());
+        args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+    }
+
+    private void RootGrid_DragOver(object sender, DragEventArgs e)
+    {
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        e.DragUIOverride.IsCaptionVisible = false;
+        e.DragUIOverride.IsGlyphVisible = false;
+    }
+
+    private async void RootGrid_Drop(object sender, DragEventArgs e)
+    {
+        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
+        {
+            var text = await e.DataView.GetTextAsync();
+            if (Guid.TryParse(text, out Guid draggedTabId))
+            {
+                var store = MainWindow.Instance?.Store;
+                if (store == null || Tab == null) return;
+
+                int pinnedIndex = store.PinnedTabs.IndexOf(this.Tab);
+                if (pinnedIndex >= 0)
+                {
+                    store.MoveTab(draggedTabId, new PinnedTarget(pinnedIndex));
+                    return;
+                }
+            }
+        }
+    }
+
     private void UpdateVisualState()
     {
         if (Tab?.IsSelected == true)

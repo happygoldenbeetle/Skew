@@ -179,7 +179,10 @@
                                     BorderThickness="0"
                                     CornerRadius="6"
                                     Tag="{x:Bind Id}"
-                                    Click="FolderHeader_Click">
+                                    Click="FolderHeader_Click"
+                                    AllowDrop="True"
+                                    DragOver="FolderHeader_DragOver"
+                                    Drop="FolderHeader_Drop">
                                     
                                     <Button.ContextFlyout>
                                         <MenuFlyout>

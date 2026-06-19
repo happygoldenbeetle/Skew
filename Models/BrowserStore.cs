@@ -397,4 +397,61 @@ public partial class BrowserStore : ObservableObject
         }
         Folders.Remove(folder);
     }
+
+    public void MoveTab(Guid tabId, DropTarget target)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab == null) return;
+
+        int sourcePinnedIndex = PinnedTabs.IndexOf(tab);
+        int sourceLooseIndex = LooseTabs.IndexOf(tab);
+        var sourceFolder = Folders.FirstOrDefault(f => f.Tabs.Contains(tab));
+        int sourceFolderIndex = sourceFolder?.Tabs.IndexOf(tab) ?? -1;
+
+        // 1. Detach
+        if (sourcePinnedIndex >= 0) PinnedTabs.RemoveAt(sourcePinnedIndex);
+        if (sourceLooseIndex >= 0) LooseTabs.RemoveAt(sourceLooseIndex);
+        sourceFolder?.Tabs.Remove(tab);
+
+        // Helper to adjust index if we are inserting into the same list AFTER the removed item
+        int AdjustIndex(int index, int? oldIndex)
+        {
+            if (oldIndex.HasValue && oldIndex.Value >= 0 && oldIndex.Value < index)
+            {
+                return index - 1;
+            }
+            return index;
+        }
+
+        // 2. Attach
+        if (target is PinnedTarget p)
+        {
+            int idx = AdjustIndex(p.Index, sourcePinnedIndex);
+            idx = Math.Max(0, Math.Min(idx, PinnedTabs.Count));
+            PinnedTabs.Insert(idx, tab);
+        }
+        else if (target is FolderTarget f)
+        {
+            var folder = Folders.FirstOrDefault(x => x.Id == f.FolderId);
+            if (folder != null)
+            {
+                int? oldIdx = sourceFolder?.Id == f.FolderId ? sourceFolderIndex : null;
+                int idx = AdjustIndex(f.Index, oldIdx);
+                idx = Math.Max(0, Math.Min(idx, folder.Tabs.Count));
+                folder.Tabs.Insert(idx, tab);
+                folder.IsExpanded = true;
+            }
+        }
+        else if (target is LooseTarget l)
+        {
+            int idx = AdjustIndex(l.Index, sourceLooseIndex);
+            idx = Math.Max(0, Math.Min(idx, LooseTabs.Count));
+            LooseTabs.Insert(idx, tab);
+        }
+    }
 }
+
+public abstract record DropTarget;
+public record PinnedTarget(int Index) : DropTarget;
+public record FolderTarget(Guid FolderId, int Index) : DropTarget;
+public record LooseTarget(int Index) : DropTarget;
