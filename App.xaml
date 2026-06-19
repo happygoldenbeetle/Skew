@@ -11,6 +11,17 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SvgImageSource x:Key="SparklesIconSource" UriSource="ms-appx:///Assets/Icons/sparkles.theme-light.svg" />
+                    <SvgImageSource x:Key="SidebarRightIconSource" UriSource="ms-appx:///Assets/Icons/sidebar-right.theme-light.svg" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SvgImageSource x:Key="SparklesIconSource" UriSource="ms-appx:///Assets/Icons/sparkles.theme-dark.svg" />
+                    <SvgImageSource x:Key="SidebarRightIconSource" UriSource="ms-appx:///Assets/Icons/sidebar-right.theme-dark.svg" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <!-- Pinned tab grid layout (adaptive 4-column grid, matching Mac's PinnedGrid) -->
             <UniformGridLayout
                 x:Key="PinnedGridLayout"

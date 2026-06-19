@@ -41,10 +41,7 @@
                     Click="SidebarToggle_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle sidebar">
-                    <ImageIcon x:Name="SidebarToggleIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
-                        <ImageIcon.Source>
-                            <SvgImageSource UriSource="ms-appx:///Assets/Icons/sidebar-right.svg" />
-                        </ImageIcon.Source>
+                    <ImageIcon x:Name="SidebarToggleIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5" Source="{ThemeResource SidebarRightIconSource}">
                         <ImageIcon.RenderTransform>
                             <ScaleTransform ScaleX="-1" />
                         </ImageIcon.RenderTransform>

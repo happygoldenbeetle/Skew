@@ -163,7 +163,7 @@ public static class MenuBuilder
         var aiPanelItem = new MenuFlyoutItem 
         { 
             Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel",
-            Icon = new ImageIcon { Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(new Uri("ms-appx:///Assets/Icons/sparkles.svg")) }
+            Icon = new ImageIcon { Source = (Microsoft.UI.Xaml.Media.ImageSource)App.Current.Resources["SparklesIconSource"] }
         };
         aiPanelItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleAIPanel());
         flyout.Items.Add(aiPanelItem);
@@ -172,7 +172,7 @@ public static class MenuBuilder
         var sideItem = new MenuFlyoutSubItem 
         { 
             Text = "Sidebar Side", 
-            Icon = new ImageIcon { Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(new Uri("ms-appx:///Assets/Icons/sidebar-right.svg")) }
+            Icon = new ImageIcon { Source = (Microsoft.UI.Xaml.Media.ImageSource)App.Current.Resources["SidebarRightIconSource"] }
         };
         var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
         leftItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = true);
