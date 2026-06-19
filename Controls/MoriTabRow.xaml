@@ -25,6 +25,10 @@
             <CompositeTransform x:Name="RootTransform" />
         </Grid.RenderTransform>
 
+        <Grid.ContextFlyout>
+            <MenuFlyout x:Name="TabMenuFlyout" Opening="TabMenuFlyout_Opening" />
+        </Grid.ContextFlyout>
+
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="CommonStates">
                 <VisualStateGroup.Transitions>
@@ -166,22 +170,7 @@
             </Button>
         </Grid>
 
-        <!-- Context Menu -->
-        <Grid.ContextFlyout>
-            <MenuFlyout>
-                <MenuFlyoutItem Text="Pin Tab" Click="Pin_Click">
-                    <MenuFlyoutItem.Icon>
-                        <FontIcon Glyph="&#xE718;" />
-                    </MenuFlyoutItem.Icon>
-                </MenuFlyoutItem>
-                <MenuFlyoutSeparator />
-                <MenuFlyoutItem Text="Close" Click="Close_Click">
-                    <MenuFlyoutItem.Icon>
-                        <FontIcon Glyph="&#xE8BB;" />
-                    </MenuFlyoutItem.Icon>
-                </MenuFlyoutItem>
-            </MenuFlyout>
-        </Grid.ContextFlyout>
+
 
     </Grid>
 </UserControl>

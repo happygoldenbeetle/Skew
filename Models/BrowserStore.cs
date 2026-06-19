@@ -60,6 +60,9 @@ public partial class BrowserStore : ObservableObject
     [ObservableProperty]
     private bool _sidebarOnLeft;
 
+    [ObservableProperty]
+    private Guid? _folderIdPendingRename;
+
     // ── Initialization ──
 
     public BrowserStore()
@@ -294,6 +297,95 @@ public partial class BrowserStore : ObservableObject
         var folder = new TabFolder(name);
         Folders.Add(folder);
         return folder;
+    }
+
+    public TabFolder AddFolderForEditing()
+    {
+        var folder = new TabFolder("New Folder");
+        Folders.Add(folder);
+        FolderIdPendingRename = folder.Id;
+        return folder;
+    }
+
+    public void AddTabToFolder(Guid tabId, Guid folderId)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) return;
+        var folder = Folders.FirstOrDefault(f => f.Id == folderId);
+        if (folder is null) return;
+
+        RemoveTabFromFolders(tabId);
+        folder.TabIds.Add(tabId);
+        if (PinnedTabs.Contains(tab)) PinnedTabs.Remove(tab);
+        if (LooseTabs.Contains(tab)) LooseTabs.Remove(tab);
+        folder.IsExpanded = true;
+    }
+
+    [RelayCommand]
+    public void RemoveTabFromFolders(Guid tabId)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) return;
+
+        foreach (var folder in Folders)
+        {
+            folder.TabIds.Remove(tabId);
+        }
+        
+        if (!PinnedTabs.Contains(tab) && !LooseTabs.Contains(tab))
+        {
+            LooseTabs.Add(tab);
+        }
+    }
+
+    [RelayCommand]
+    public void DuplicateTab(Guid tabId)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) return;
+        
+        NewTab(tab.UrlString);
+    }
+
+    [RelayCommand]
+    public void CopyUrl(Guid tabId)
+    {
+        var tab = Tabs.FirstOrDefault(t => t.Id == tabId) ?? PinnedTabs.FirstOrDefault(t => t.Id == tabId);
+        if (tab is null) return;
+
+        var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dataPackage.SetText(tab.UrlString);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+    }
+
+    [RelayCommand]
+    public void CloseOtherTabs(Guid tabId)
+    {
+        var tabsToClose = Tabs.Where(t => t.Id != tabId && !IsPinned(t.Id)).ToList();
+        foreach (var tab in tabsToClose)
+        {
+            CloseTab(tab.Id);
+        }
+    }
+
+    public bool HasClosableTabsToRight(Guid tabId)
+    {
+        var index = LooseTabs.Select((t, i) => new { t.Id, i }).FirstOrDefault(x => x.Id == tabId)?.i ?? -1;
+        if (index == -1) return false;
+        return index < LooseTabs.Count - 1;
+    }
+
+    [RelayCommand]
+    public void CloseTabsToRight(Guid tabId)
+    {
+        var index = LooseTabs.Select((t, i) => new { t.Id, i }).FirstOrDefault(x => x.Id == tabId)?.i ?? -1;
+        if (index == -1) return;
+        
+        var tabsToClose = LooseTabs.Skip(index + 1).ToList();
+        foreach (var tab in tabsToClose)
+        {
+            CloseTab(tab.Id);
+        }
     }
 
     [RelayCommand]

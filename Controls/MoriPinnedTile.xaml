@@ -29,21 +29,10 @@
             <CompositeTransform x:Name="RootTransform" />
         </Grid.RenderTransform>
 
-        <!-- Context Menu -->
         <Grid.ContextFlyout>
-            <MenuFlyout>
-                <MenuFlyoutItem Text="Unpin Tab" Click="UnpinTab_Click">
-                    <MenuFlyoutItem.Icon>
-                        <PathIcon Data="F1 M14.75 8.25a.75.75 0 0 1 0 1.5H3.25a.75.75 0 0 1 0-1.5z" />
-                    </MenuFlyoutItem.Icon>
-                </MenuFlyoutItem>
-                <MenuFlyoutItem Text="Close Tab" Click="CloseTab_Click">
-                    <MenuFlyoutItem.Icon>
-                        <PathIcon Data="F1 M13.47 3.47a.75.75 0 1 1 1.06 1.06L10.06 9l4.47 4.47a.75.75 0 1 1-1.06 1.06L9 10.06l-4.47 4.47a.75.75 0 0 1-1.06-1.06L7.94 9 3.47 4.53a.75.75 0 1 1 1.06-1.06L9 7.94z" />
-                    </MenuFlyoutItem.Icon>
-                </MenuFlyoutItem>
-            </MenuFlyout>
+            <MenuFlyout x:Name="TabMenuFlyout" Opening="TabMenuFlyout_Opening" />
         </Grid.ContextFlyout>
+
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="CommonStates">

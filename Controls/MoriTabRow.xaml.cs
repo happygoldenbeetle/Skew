@@ -166,6 +166,14 @@ public sealed partial class MoriTabRow : UserControl
         // Handled implicitly by ContextFlyout
     }
 
+    private void TabMenuFlyout_Opening(object sender, object e)
+    {
+        if (sender is MenuFlyout flyout && Tab is not null)
+        {
+            Mori.Helpers.MenuBuilder.BuildTabMenu(flyout, Tab);
+        }
+    }
+
     private void PinTab_Click(object sender, RoutedEventArgs e)
     {
         if (Tab is not null)
