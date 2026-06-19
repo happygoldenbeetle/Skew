@@ -395,9 +395,13 @@ public sealed partial class MoriSidebar : UserControl
         e.DragUIOverride.IsGlyphVisible = true;
         
         string folderName = "folder";
-        if (sender is FrameworkElement fe && fe.DataContext is TabFolder folder)
+        if (sender is FrameworkElement fe && fe.Tag is Guid folderId && Store != null)
         {
-            folderName = folder.Name;
+            var folder = Store.Folders.FirstOrDefault(f => f.Id == folderId);
+            if (folder != null)
+            {
+                folderName = folder.Name;
+            }
         }
         
         e.DragUIOverride.Caption = $"Add to {folderName}";
