@@ -163,7 +163,7 @@ public static class MenuBuilder
         var aiPanelItem = new MenuFlyoutItem 
         { 
             Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel",
-            Icon = new PathIcon { Data = (Microsoft.UI.Xaml.Media.Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Microsoft.UI.Xaml.Media.Geometry), "M3.025 5.623a.501.501 0 0 0 .95 0l.421-1.263 1.263-.421a.5.5 0 0 0 0-.948L4.396 2.57l-.421-1.263c-.137-.408-.812-.408-.949 0L2.605 2.57l-1.263.421a.5.5 0 0 0 0 .948l1.263.421zm13.5 3.18L11.99 7.01l-1.793-4.535c-.227-.572-1.168-.572-1.395 0L7.009 7.01 2.474 8.803a.75.75 0 0 0 0 1.394l4.535 1.793 1.793 4.535a.75.75 0 0 0 1.394 0l1.793-4.535 4.535-1.793a.751.751 0 0 0 .001-1.394") }
+            Icon = new BitmapIcon { UriSource = new Uri("ms-appx:///Assets/Icons/sparkles.svg"), ShowAsMonochrome = true }
         };
         aiPanelItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleAIPanel());
         flyout.Items.Add(aiPanelItem);
@@ -172,7 +172,7 @@ public static class MenuBuilder
         var sideItem = new MenuFlyoutSubItem 
         { 
             Text = "Sidebar Side", 
-            Icon = new PathIcon { Data = (Microsoft.UI.Xaml.Media.Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Microsoft.UI.Xaml.Media.Geometry), "M13.75 8.25a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5zM13.75 5.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5z M14.25 2A2.75 2.75 0 0 1 17 4.75v8.5A2.75 2.75 0 0 1 14.25 16H3.75A2.75 2.75 0 0 1 1 13.25v-8.5A2.75 2.75 0 0 1 3.75 2zM3.75 3.5c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25H9v-11zm6.75 11h3.75c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25H10.5z") }
+            Icon = new BitmapIcon { UriSource = new Uri("ms-appx:///Assets/Icons/sidebar-right.svg"), ShowAsMonochrome = true }
         };
         var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
         leftItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = true);
