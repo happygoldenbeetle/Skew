@@ -25,10 +25,6 @@
             <CompositeTransform x:Name="RootTransform" />
         </Grid.RenderTransform>
 
-        <Grid.ContextFlyout>
-            <MenuFlyout x:Name="TabMenuFlyout" Opening="TabMenuFlyout_Opening" />
-        </Grid.ContextFlyout>
-
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="CommonStates">
                 <VisualStateGroup.Transitions>

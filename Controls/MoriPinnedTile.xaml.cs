@@ -128,14 +128,12 @@ public sealed partial class MoriPinnedTile : UserControl
 
     private void RootGrid_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        // ContextMenu is shown via ContextFlyout on the RootGrid.
-    }
-
-    private void TabMenuFlyout_Opening(object sender, object e)
-    {
-        if (sender is MenuFlyout flyout && Tab is not null)
+        if (Tab is not null)
         {
+            var flyout = new MenuFlyout();
             Mori.Helpers.MenuBuilder.BuildTabMenu(flyout, Tab);
+            flyout.ShowAt((FrameworkElement)sender, e.GetPosition((FrameworkElement)sender));
+            e.Handled = true;
         }
     }
 
