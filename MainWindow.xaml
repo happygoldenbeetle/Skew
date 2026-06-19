@@ -131,7 +131,7 @@
         </Grid>
         
         <!-- ═══ Sidebar Peek Popup ═══ -->
-        <Popup x:Name="SidebarPeekPopup" IsOpen="False" ShouldConstrainToRootBounds="False">
+        <Popup x:Name="SidebarPeekPopup" ShouldConstrainToRootBounds="False">
             <Grid x:Name="SidebarPeekHost" Width="268">
                 <Border x:Name="SidebarPeekBorder"
                         Background="#22201c"

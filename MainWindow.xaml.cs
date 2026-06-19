@@ -35,6 +35,8 @@ public sealed partial class MainWindow : Window
         // Custom title bar — extend into content, no separate bar
         ExtendsContentIntoTitleBar = true;
 
+        this.Loaded += MainWindow_Loaded;
+
         // Set window size and icon
         var appWindow = AppWindow;
         appWindow.SetIcon("Assets/AppIcon.ico");
@@ -131,6 +133,19 @@ public sealed partial class MainWindow : Window
     public void UpdateGlobalTint(Windows.UI.Color color)
     {
         // Mica backdrop does not support dynamic tinting like Acrylic
+    }
+
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (SidebarPeekPopup.XamlRoot == null && this.Content != null)
+        {
+            SidebarPeekPopup.XamlRoot = this.Content.XamlRoot;
+        }
+        
+        if (!SidebarPeekPopup.IsOpen)
+        {
+            SidebarPeekPopup.IsOpen = true;
+        }
     }
 
     private void Cef_TitleChanged(object sender, string title)
@@ -371,7 +386,11 @@ public sealed partial class MainWindow : Window
         Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
         Sidebar.Width = 260;
         SidebarPeekBorder.Opacity = 1;
-        SidebarPeekPopup.IsOpen = true;
+
+        if (SidebarPeekPopup.XamlRoot != null && !SidebarPeekPopup.IsOpen)
+        {
+            SidebarPeekPopup.IsOpen = true;
+        }
 
         if (!_isPeeking)
         {
