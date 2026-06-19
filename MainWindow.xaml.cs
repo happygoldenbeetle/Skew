@@ -19,8 +19,13 @@ public sealed partial class MainWindow : Window
     // Removed Acrylic fields
 
     private bool _isPeeking = false;
-    private readonly DispatcherTimer _peekCloseTimer;
-    private Microsoft.UI.Xaml.Media.Animation.Storyboard _sidebarAnimStoryboard;
+    private DispatcherTimer _peekCloseTimer;
+    private DispatcherTimer _peekTimer;
+    private double _peekStartOffset;
+    private double _peekEndOffset;
+    private double _peekDurationMs;
+    private double _peekElapsedMs;
+    private Storyboard _sidebarAnimStoryboard;
 
     public MainWindow()
     {
@@ -640,7 +645,8 @@ public sealed partial class MainWindow : Window
         if (_isPeeking) return;
         _isPeeking = true;
         
-        _sidebarAnimStoryboard?.Stop();
+        if (_peekTimer != null) { _peekTimer.Stop(); }
+        _sidebarAnimStoryboard?.Stop(); // just in case
         
         // Remove Sidebar from layout flow and host in Popup to bypass CEF airspace
         if (Sidebar.Parent == RootGrid)
@@ -669,22 +675,34 @@ public sealed partial class MainWindow : Window
         SidebarTranslate.X = 0;
         SidebarPeekTranslate.X = 0;
         SidebarPeekBorder.Opacity = 1;
+
+        // Set initial position before opening to avoid flashing
+        _peekStartOffset = Store.SidebarOnLeft ? -260 : RootGrid.ActualWidth;
+        _peekEndOffset = Store.SidebarOnLeft ? 0 : RootGrid.ActualWidth - 260 - 8;
+        SidebarPeekPopup.HorizontalOffset = _peekStartOffset;
         SidebarPeekPopup.IsOpen = true;
 
-        // Animate the Popup HWND itself (HorizontalOffset) instead of TranslateTransform.
-        // This completely bypasses Windows 11 DWM Z-order glitches with CEF during DComp animations!
-        _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        _peekDurationMs = 200;
+        _peekElapsedMs = 0;
+
+        _peekTimer = new Microsoft.UI.Xaml.DispatcherTimer();
+        _peekTimer.Interval = TimeSpan.FromMilliseconds(16);
+        _peekTimer.Tick += (s, e) =>
         {
-            From = Store.SidebarOnLeft ? -260 : RootGrid.ActualWidth,
-            To = Store.SidebarOnLeft ? 0 : RootGrid.ActualWidth - 260 - 8,
-            Duration = TimeSpan.FromMilliseconds(200),
-            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
+            _peekElapsedMs += 16;
+            if (_peekElapsedMs >= _peekDurationMs)
+            {
+                _peekTimer.Stop();
+                SidebarPeekPopup.HorizontalOffset = _peekEndOffset;
+                return;
+            }
+            
+            // Exponential ease-out
+            double t = _peekElapsedMs / _peekDurationMs;
+            double ease = 1 - Math.Pow(1 - t, 4);
+            SidebarPeekPopup.HorizontalOffset = _peekStartOffset + (_peekEndOffset - _peekStartOffset) * ease;
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekPopup);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "HorizontalOffset");
-        _sidebarAnimStoryboard.Children.Add(anim);
-        _sidebarAnimStoryboard.Begin();
+        _peekTimer.Start();
     }
 
     private void ExitPeekMode()
@@ -692,42 +710,51 @@ public sealed partial class MainWindow : Window
         if (!_isPeeking) return;
         _isPeeking = false;
 
-        _sidebarAnimStoryboard?.Stop();
+        if (_peekTimer != null) { _peekTimer.Stop(); }
+        _sidebarAnimStoryboard?.Stop(); // just in case
 
-        _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        _peekStartOffset = SidebarPeekPopup.HorizontalOffset;
+        _peekEndOffset = Store.SidebarOnLeft ? -260 : RootGrid.ActualWidth;
+        _peekDurationMs = 200;
+        _peekElapsedMs = 0;
+
+        _peekTimer = new Microsoft.UI.Xaml.DispatcherTimer();
+        _peekTimer.Interval = TimeSpan.FromMilliseconds(16);
+        _peekTimer.Tick += (s, e) =>
         {
-            To = Store.SidebarOnLeft ? -260 : RootGrid.ActualWidth,
-            Duration = TimeSpan.FromMilliseconds(200),
-            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekPopup);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "HorizontalOffset");
-        _sidebarAnimStoryboard.Children.Add(anim);
-        
-        _sidebarAnimStoryboard.Completed += (s, e) => 
-        {
-            if (_isPeeking) return; // aborted by moving mouse back
-            
-            SidebarPeekPopup.IsOpen = false;
-            SidebarPeekBorder.Child = null;
-            
-            // Restore normal layout flow
-            if (!RootGrid.Children.Contains(Sidebar))
+            _peekElapsedMs += 16;
+            if (_peekElapsedMs >= _peekDurationMs)
             {
-                RootGrid.Children.Insert(0, Sidebar);
+                _peekTimer.Stop();
+                SidebarPeekPopup.HorizontalOffset = _peekEndOffset;
+                
+                if (_isPeeking) return; // aborted by moving mouse back
+                
+                SidebarPeekPopup.IsOpen = false;
+                SidebarPeekBorder.Child = null;
+                
+                // Restore normal layout flow
+                if (!RootGrid.Children.Contains(Sidebar))
+                {
+                    RootGrid.Children.Insert(0, Sidebar);
+                }
+                
+                if (!Store.SidebarVisible)
+                {
+                    Grid.SetColumnSpan(Sidebar, 1);
+                    Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    Sidebar.Width = double.NaN;
+                    Sidebar.Height = double.NaN;
+                    Canvas.SetZIndex(Sidebar, 0);
+                    SidebarTranslate.X = 0;
+                }
+                return;
             }
             
-            if (!Store.SidebarVisible)
-            {
-                Grid.SetColumnSpan(Sidebar, 1);
-                Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
-                Sidebar.Width = double.NaN;
-                Sidebar.Height = double.NaN;
-                Canvas.SetZIndex(Sidebar, 0);
-                SidebarTranslate.X = 0;
-            }
+            double t = _peekElapsedMs / _peekDurationMs;
+            double ease = 1 - Math.Pow(1 - t, 4);
+            SidebarPeekPopup.HorizontalOffset = _peekStartOffset + (_peekEndOffset - _peekStartOffset) * ease;
         };
-        _sidebarAnimStoryboard.Begin();
+        _peekTimer.Start();
     }
 }
