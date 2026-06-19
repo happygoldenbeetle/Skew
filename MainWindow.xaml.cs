@@ -54,6 +54,10 @@ public sealed partial class MainWindow : Window
             presenter.SetBorderAndTitleBar(true, false);
         }
 
+        // Ensure popup is always open to prevent WinUI 3 lag/flicker when peeking
+        SidebarPeekPopup.IsOpen = true;
+        SidebarPeekTranslate.X = -5000; // start off-screen
+
         // Wire up store state to UI
         Store.PropertyChanged += Store_PropertyChanged;
 
@@ -635,7 +639,7 @@ public sealed partial class MainWindow : Window
             _peekCloseTimer.Start();
     }
 
-    private async void EnterPeekMode()
+    private void EnterPeekMode()
     {
         if (_isPeeking) return;
         _isPeeking = true;
@@ -671,21 +675,13 @@ public sealed partial class MainWindow : Window
 
         // Ensure sidebar has no internal offset
         SidebarTranslate.X = 0;
-
-        // Hide entirely off-screen to absorb any 1-frame XAML render flash or background brush delays
         SidebarPeekBorder.Opacity = 1;
-        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -5000 : 5000;
-        SidebarPeekPopup.IsOpen = true;
 
-        // Wait a couple frames to ensure the WinUI compositor has fully prepared the popup HWND and evaluated background brushes
-        await System.Threading.Tasks.Task.Delay(50);
-
-        // Snap to animation start position
-        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
-        
+        // Animate the Border instead of the Sidebar
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
+            From = Store.SidebarOnLeft ? -260 : 260,
             To = 0,
             Duration = TimeSpan.FromMilliseconds(300),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
@@ -718,7 +714,6 @@ public sealed partial class MainWindow : Window
         {
             if (_isPeeking) return; // aborted by moving mouse back
             
-            SidebarPeekPopup.IsOpen = false;
             SidebarPeekBorder.Child = null;
             
             // Restore normal layout flow
