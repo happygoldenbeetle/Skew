@@ -312,6 +312,12 @@ public sealed partial class MainWindow : Window
         if (_isPeeking && Store.SidebarVisible)
         {
             _isPeeking = false;
+            if (SidebarPeekPopup.IsOpen)
+            {
+                SidebarPeekPopup.IsOpen = false;
+                SidebarPeekPopup.Child = null;
+                RootGrid.Children.Insert(0, Sidebar);
+            }
             Grid.SetColumnSpan(Sidebar, 1);
             Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
             Sidebar.Width = double.NaN;
@@ -612,11 +618,28 @@ public sealed partial class MainWindow : Window
     {
         _isPeeking = true;
         
-        // Remove Sidebar from layout flow
-        Grid.SetColumnSpan(Sidebar, 3);
-        Sidebar.HorizontalAlignment = Store.SidebarOnLeft ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        // Remove Sidebar from layout flow and host in Popup to bypass CEF airspace
+        if (Sidebar.Parent == RootGrid)
+        {
+            RootGrid.Children.Remove(Sidebar);
+        }
+        SidebarPeekPopup.Child = Sidebar;
+        
+        Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
         Sidebar.Width = 260;
-        Canvas.SetZIndex(Sidebar, 50);
+        Sidebar.Height = RootGrid.ActualHeight;
+        
+        // Set Popup position
+        if (Store.SidebarOnLeft)
+        {
+            SidebarPeekPopup.HorizontalOffset = 0;
+        }
+        else
+        {
+            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 260;
+        }
+        SidebarPeekPopup.VerticalOffset = 0;
+        SidebarPeekPopup.IsOpen = true;
 
         // Animate in
         SidebarTranslate.X = Store.SidebarOnLeft ? -260 : 260;
@@ -654,12 +677,21 @@ public sealed partial class MainWindow : Window
         {
             if (_isPeeking) return; // aborted by moving mouse back
             
-            // Restore normal layout flow
+            SidebarPeekPopup.IsOpen = false;
+            SidebarPeekPopup.Child = null;
+            
+            // Restore normal layout flow if we're not visible (if we are visible, UpdateColumnLayout handles it)
+            if (!RootGrid.Children.Contains(Sidebar))
+            {
+                RootGrid.Children.Insert(0, Sidebar);
+            }
+            
             if (!Store.SidebarVisible)
             {
                 Grid.SetColumnSpan(Sidebar, 1);
                 Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
                 Sidebar.Width = double.NaN;
+                Sidebar.Height = double.NaN;
                 Canvas.SetZIndex(Sidebar, 0);
                 SidebarTranslate.X = 0;
             }
