@@ -163,13 +163,17 @@ public static class MenuBuilder
         var aiPanelItem = new MenuFlyoutItem 
         { 
             Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel",
-            Icon = new FontIcon { Glyph = "\uE8EA" } // Magic wand icon (AutoEnhance)
+            Icon = new ImageIcon { Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(new Uri("ms-appx:///Assets/Icons/sparkles.svg")) }
         };
         aiPanelItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleAIPanel());
         flyout.Items.Add(aiPanelItem);
 
         // Sidebar Side
-        var sideItem = new MenuFlyoutSubItem { Text = "Sidebar Side", Icon = new FontIcon { Glyph = "\uE8A9" } }; // OpenPane icon
+        var sideItem = new MenuFlyoutSubItem 
+        { 
+            Text = "Sidebar Side", 
+            Icon = new ImageIcon { Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(new Uri("ms-appx:///Assets/Icons/sidebar-right.svg")) }
+        };
         var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
         leftItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = true);
         var rightItem = new MenuFlyoutItem { Text = "Right", Icon = !store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
@@ -179,7 +183,11 @@ public static class MenuBuilder
         flyout.Items.Add(sideItem);
 
         // Hide Sidebar
-        var hideSidebarItem = new MenuFlyoutItem { Text = "Hide Sidebar", Icon = new FontIcon { Glyph = "\uE76B" } }; // ClosePane
+        var hideSidebarItem = new MenuFlyoutItem 
+        { 
+            Text = "Hide Sidebar", 
+            Icon = new FontIcon { Glyph = store.SidebarOnLeft ? "\uE76B" : "\uE76C" } // ClosePane (points left) or OpenPane (points right)
+        };
         hideSidebarItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleSidebar());
         flyout.Items.Add(hideSidebarItem);
 
