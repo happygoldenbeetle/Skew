@@ -135,7 +135,7 @@
         <!-- ═══ Sidebar Peek Popup ═══ -->
         <Popup x:Name="SidebarPeekPopup" IsOpen="False" ShouldConstrainToRootBounds="False">
             <Border x:Name="SidebarPeekBorder"
-                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    Background="#22201c"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
