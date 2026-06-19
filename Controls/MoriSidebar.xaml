@@ -41,11 +41,14 @@
                     Click="SidebarToggle_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle sidebar">
-                    <BitmapIcon x:Name="SidebarToggleIcon" UriSource="ms-appx:///Assets/Icons/sidebar-right.svg" ShowAsMonochrome="True" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
-                        <BitmapIcon.RenderTransform>
+                    <ImageIcon x:Name="SidebarToggleIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                        <ImageIcon.Source>
+                            <SvgImageSource UriSource="ms-appx:///Assets/Icons/sidebar-right.svg" />
+                        </ImageIcon.Source>
+                        <ImageIcon.RenderTransform>
                             <ScaleTransform ScaleX="-1" />
-                        </BitmapIcon.RenderTransform>
-                    </BitmapIcon>
+                        </ImageIcon.RenderTransform>
+                    </ImageIcon>
                 </Button>
 
                 <StackPanel
