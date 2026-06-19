@@ -19,7 +19,8 @@ public sealed partial class MainWindow : Window
     // Removed Acrylic fields
 
     private bool _isPeeking = false;
-    private DispatcherTimer _peekCloseTimer;
+    private readonly DispatcherTimer _peekCloseTimer;
+    private Microsoft.UI.Xaml.Media.Animation.Storyboard _sidebarAnimStoryboard;
 
     public MainWindow()
     {
@@ -626,7 +627,12 @@ public sealed partial class MainWindow : Window
 
     private void EnterPeekMode()
     {
+        if (_isPeeking) return;
         _isPeeking = true;
+        
+        _sidebarAnimStoryboard?.Stop();
+        
+        Sidebar.Visibility = Visibility.Visible;
         
         // Remove Sidebar from layout flow and host in Popup to bypass CEF airspace
         if (Sidebar.Parent == RootGrid)
@@ -651,25 +657,33 @@ public sealed partial class MainWindow : Window
             SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 260 - 8;
         }
         SidebarPeekPopup.VerticalOffset = 0;
-        SidebarPeekPopup.IsOpen = true;
 
         // Ensure sidebar has no internal offset
         SidebarTranslate.X = 0;
 
-        // Animate the Border instead of the Sidebar
-        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
-        
-        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        // Hide initially to prevent frame flash
+        SidebarPeekBorder.Opacity = 0;
+        SidebarPeekPopup.IsOpen = true;
+
+        DispatcherQueue.TryEnqueue(() => 
         {
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(300),
-            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
-        sb.Children.Add(anim);
-        sb.Begin();
+            SidebarPeekBorder.Opacity = 1;
+            
+            // Animate the Border instead of the Sidebar
+            SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
+            
+            _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+            var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+            {
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(300),
+                EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
+            };
+            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
+            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
+            _sidebarAnimStoryboard.Children.Add(anim);
+            _sidebarAnimStoryboard.Begin();
+        });
     }
 
     private void ExitPeekMode()
@@ -677,7 +691,9 @@ public sealed partial class MainWindow : Window
         if (!_isPeeking) return;
         _isPeeking = false;
 
-        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        _sidebarAnimStoryboard?.Stop();
+
+        _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
             To = Store.SidebarOnLeft ? -260 : 260,
@@ -686,16 +702,16 @@ public sealed partial class MainWindow : Window
         };
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
-        sb.Children.Add(anim);
+        _sidebarAnimStoryboard.Children.Add(anim);
         
-        sb.Completed += (s, e) => 
+        _sidebarAnimStoryboard.Completed += (s, e) => 
         {
             if (_isPeeking) return; // aborted by moving mouse back
             
             SidebarPeekPopup.IsOpen = false;
             SidebarPeekBorder.Child = null;
             
-            // Restore normal layout flow if we're not visible (if we are visible, UpdateColumnLayout handles it)
+            // Restore normal layout flow
             if (!RootGrid.Children.Contains(Sidebar))
             {
                 RootGrid.Children.Insert(0, Sidebar);
@@ -711,6 +727,6 @@ public sealed partial class MainWindow : Window
                 SidebarTranslate.X = 0;
             }
         };
-        sb.Begin();
+        _sidebarAnimStoryboard.Begin();
     }
 }
