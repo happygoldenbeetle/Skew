@@ -395,7 +395,7 @@ public sealed partial class MoriSidebar : UserControl
         e.DragUIOverride.IsGlyphVisible = true;
         
         string folderName = "folder";
-        if (sender is FrameworkElement fe)
+        if (sender is Microsoft.UI.Xaml.Controls.Control fe)
         {
             // Highlight the folder header
             fe.Background = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources["SubtleFillColorSecondaryBrush"];
@@ -415,7 +415,7 @@ public sealed partial class MoriSidebar : UserControl
 
     private void FolderHeader_DragLeave(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement fe)
+        if (sender is Microsoft.UI.Xaml.Controls.Control fe)
         {
             // Restore transparent background
             fe.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
@@ -424,7 +424,7 @@ public sealed partial class MoriSidebar : UserControl
 
     private async void FolderHeader_Drop(object sender, DragEventArgs e)
     {
-        if (sender is FrameworkElement feDrop)
+        if (sender is Microsoft.UI.Xaml.Controls.Control feDrop)
         {
             // Restore transparent background
             feDrop.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
