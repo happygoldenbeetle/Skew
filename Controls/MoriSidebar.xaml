@@ -233,7 +233,7 @@
                                             Padding="4,2"
                                             MinHeight="24"
                                             BorderThickness="0"
-                                            Background="#40000000"
+                                            Background="Black"
                                             LostFocus="RenameFolder_LostFocus"
                                             KeyDown="RenameFolder_KeyDown"
                                             Loaded="RenameFolder_Loaded"
