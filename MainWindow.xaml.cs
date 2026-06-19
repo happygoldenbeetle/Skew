@@ -25,7 +25,7 @@ public sealed partial class MainWindow : Window
     private double _peekEndOffset;
     private double _peekDurationMs;
     private double _peekElapsedMs;
-    private Storyboard _sidebarAnimStoryboard;
+    private Microsoft.UI.Xaml.Media.Animation.Storyboard _sidebarAnimStoryboard;
 
     public MainWindow()
     {
