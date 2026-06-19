@@ -625,14 +625,12 @@ public sealed partial class MainWindow : Window
             _peekCloseTimer.Start();
     }
 
-    private void EnterPeekMode()
+    private async void EnterPeekMode()
     {
         if (_isPeeking) return;
         _isPeeking = true;
         
         _sidebarAnimStoryboard?.Stop();
-        
-        Sidebar.Visibility = Visibility.Visible;
         
         // Remove Sidebar from layout flow and host in Popup to bypass CEF airspace
         if (Sidebar.Parent == RootGrid)
@@ -640,6 +638,9 @@ public sealed partial class MainWindow : Window
             RootGrid.Children.Remove(Sidebar);
         }
         SidebarPeekBorder.Child = Sidebar;
+        
+        // Set visible only AFTER it's safely inside the hidden Popup
+        Sidebar.Visibility = Visibility.Visible;
         
         Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
         Sidebar.Width = 260;
@@ -661,29 +662,29 @@ public sealed partial class MainWindow : Window
         // Ensure sidebar has no internal offset
         SidebarTranslate.X = 0;
 
-        // Hide initially to prevent frame flash
+        // Hide entirely (both content and background) to prevent frame flash
         SidebarPeekBorder.Opacity = 0;
         SidebarPeekPopup.IsOpen = true;
 
-        DispatcherQueue.TryEnqueue(() => 
+        // Wait a couple frames to ensure the WinUI compositor has fully prepared the popup HWND and evaluated background brushes
+        await System.Threading.Tasks.Task.Delay(32);
+
+        SidebarPeekBorder.Opacity = 1;
+        
+        // Animate the Border instead of the Sidebar
+        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
+        
+        _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
-            SidebarPeekBorder.Opacity = 1;
-            
-            // Animate the Border instead of the Sidebar
-            SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
-            
-            _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-            var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-            {
-                To = 0,
-                Duration = TimeSpan.FromMilliseconds(300),
-                EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
-            };
-            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
-            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
-            _sidebarAnimStoryboard.Children.Add(anim);
-            _sidebarAnimStoryboard.Begin();
-        });
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(300),
+            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
+        _sidebarAnimStoryboard.Children.Add(anim);
+        _sidebarAnimStoryboard.Begin();
     }
 
     private void ExitPeekMode()
