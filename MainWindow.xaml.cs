@@ -315,7 +315,7 @@ public sealed partial class MainWindow : Window
             if (SidebarPeekPopup.IsOpen)
             {
                 SidebarPeekPopup.IsOpen = false;
-                SidebarPeekPopup.Child = null;
+                SidebarPeekBorder.Child = null;
                 RootGrid.Children.Insert(0, Sidebar);
             }
             Grid.SetColumnSpan(Sidebar, 1);
@@ -623,20 +623,22 @@ public sealed partial class MainWindow : Window
         {
             RootGrid.Children.Remove(Sidebar);
         }
-        SidebarPeekPopup.Child = Sidebar;
+        SidebarPeekBorder.Child = Sidebar;
         
         Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
         Sidebar.Width = 260;
-        Sidebar.Height = RootGrid.ActualHeight;
+        Sidebar.Height = RootGrid.ActualHeight - 16; // Account for vertical margin
         
         // Set Popup position
         if (Store.SidebarOnLeft)
         {
+            SidebarPeekBorder.Margin = new Thickness(8, 8, 0, 8);
             SidebarPeekPopup.HorizontalOffset = 0;
         }
         else
         {
-            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 260;
+            SidebarPeekBorder.Margin = new Thickness(0, 8, 8, 8);
+            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 260 - 8;
         }
         SidebarPeekPopup.VerticalOffset = 0;
         SidebarPeekPopup.IsOpen = true;
@@ -678,7 +680,7 @@ public sealed partial class MainWindow : Window
             if (_isPeeking) return; // aborted by moving mouse back
             
             SidebarPeekPopup.IsOpen = false;
-            SidebarPeekPopup.Child = null;
+            SidebarPeekBorder.Child = null;
             
             // Restore normal layout flow if we're not visible (if we are visible, UpdateColumnLayout handles it)
             if (!RootGrid.Children.Contains(Sidebar))

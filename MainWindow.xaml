@@ -132,7 +132,18 @@
         </Grid>
         
         <!-- ═══ Sidebar Peek Popup ═══ -->
-        <Popup x:Name="SidebarPeekPopup" IsOpen="False" ShouldConstrainToRootBounds="False" />
+        <Popup x:Name="SidebarPeekPopup" IsOpen="False" ShouldConstrainToRootBounds="False">
+            <Border x:Name="SidebarPeekBorder"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="0,8,8,8">
+                <Border.Shadow>
+                    <ThemeShadow />
+                </Border.Shadow>
+            </Border>
+        </Popup>
 
         <!-- ═══ AI Panel ═══ -->
         <controls:MoriAIPanel
