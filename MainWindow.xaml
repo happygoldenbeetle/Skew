@@ -33,9 +33,7 @@
             <ColumnDefinition x:Name="AIPanelColumn" Width="0" />
         </Grid.ColumnDefinitions>
 
-        <!-- Film Grain Overlay -->
-        <Image x:Name="FilmGrainImage" Grid.ColumnSpan="3" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.04" IsHitTestVisible="False" />
-
+        <!-- Film Grain Overlay Removed -->
         <!-- ═══ Sidebar ═══ -->
         <controls:MoriSidebar
             x:Name="Sidebar"

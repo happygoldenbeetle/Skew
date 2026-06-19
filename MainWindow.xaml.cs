@@ -16,29 +16,14 @@ public sealed partial class MainWindow : Window
 
     public static MainWindow Instance { get; private set; }
 
-    private Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController _acrylicController;
-    private Microsoft.UI.Composition.SystemBackdrops.SystemBackdropConfiguration _backdropConfiguration;
+    // Removed Acrylic fields
 
     public MainWindow()
     {
         Instance = this;
         this.InitializeComponent();
 
-        if (Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported())
-        {
-            _backdropConfiguration = new Microsoft.UI.Composition.SystemBackdrops.SystemBackdropConfiguration();
-            _backdropConfiguration.IsInputActive = true;
-            _backdropConfiguration.Theme = Microsoft.UI.Composition.SystemBackdrops.SystemBackdropTheme.Dark;
-
-            _acrylicController = new Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController();
-            _acrylicController.TintColor = Microsoft.UI.ColorHelper.FromArgb(77, 255, 255, 255);
-            _acrylicController.TintOpacity = 0.3f;
-            _acrylicController.FallbackColor = Microsoft.UI.Colors.Transparent;
-
-            var target = WinRT.CastExtensions.As<Microsoft.UI.Composition.ICompositionSupportsSystemBackdrop>(this);
-            _acrylicController.AddSystemBackdropTarget(target);
-            _acrylicController.SetSystemBackdropConfiguration(_backdropConfiguration);
-        }
+        SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
 
         // Custom title bar — extend into content, no separate bar
         ExtendsContentIntoTitleBar = true;
@@ -79,9 +64,7 @@ public sealed partial class MainWindow : Window
             ThemeService.Instance.SetTheme(Microsoft.UI.Xaml.ElementTheme.Dark);
         }
 
-        // Generate mathematical film grain dynamically
-        FilmGrainImage.Source = Mori.Helpers.FilmGrainGenerator.GenerateNoise(3840, 2160);
-
+        // Film grain generation removed
         // Listen for launcher keyboard shortcut
         Content.KeyDown += Content_KeyDown;
 
