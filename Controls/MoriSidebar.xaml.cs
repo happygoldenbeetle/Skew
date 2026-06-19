@@ -391,8 +391,9 @@ public sealed partial class MoriSidebar : UserControl
     private void FolderHeader_DragOver(object sender, DragEventArgs e)
     {
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
-        e.DragUIOverride.IsCaptionVisible = false;
-        e.DragUIOverride.IsGlyphVisible = false;
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.IsGlyphVisible = true;
+        e.DragUIOverride.Caption = "Add to folder";
     }
 
     private async void FolderHeader_Drop(object sender, DragEventArgs e)
