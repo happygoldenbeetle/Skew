@@ -137,9 +137,6 @@ public sealed partial class MainWindow : Window
     {
     }
 
-    private void RootGrid_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
-    {
-    }
 
     private void WebContentBorder_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
     {
@@ -308,27 +305,40 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        SidebarPeekHost.Height = e.NewSize.Height;
+        UpdateSidebarPopupPosition();
+    }
+
+    private void UpdateSidebarPopupPosition()
+    {
+        if (Store.SidebarOnLeft)
+        {
+            SidebarPeekBorder.Margin = new Thickness(8, 8, 0, 8);
+            SidebarPeekPopup.HorizontalOffset = 0;
+        }
+        else
+        {
+            SidebarPeekBorder.Margin = new Thickness(0, 8, 8, 8);
+            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 268;
+        }
+        SidebarPeekPopup.VerticalOffset = 0;
+    }
+
     private void UpdateColumnLayout()
     {
         if (_isPeeking && Store.SidebarVisible)
         {
             _isPeeking = false;
-            if (SidebarPeekPopup.IsOpen)
-            {
-                SidebarPeekPopup.IsOpen = false;
-                SidebarPeekBorder.Child = null;
-                RootGrid.Children.Insert(0, Sidebar);
-            }
-            Grid.SetColumnSpan(Sidebar, 1);
-            Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
-            Sidebar.Width = double.NaN;
-            Canvas.SetZIndex(Sidebar, 0);
-            SidebarTranslate.X = 0;
+            _sidebarAnimStoryboard?.Stop();
         }
+
+        UpdateSidebarPopupPosition();
 
         if (Store.SidebarOnLeft)
         {
-            Grid.SetColumn(Sidebar, 0);
+            Grid.SetColumn(SidebarPlaceholder, 0);
             Grid.SetColumn(AIPanel, 2);
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
@@ -337,22 +347,12 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            Grid.SetColumn(Sidebar, 2);
+            Grid.SetColumn(SidebarPlaceholder, 2);
             Grid.SetColumn(AIPanel, 0);
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
             SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
             PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Right;
-        }
-        
-        // Prevent Sidebar from overflowing its 0-width column and rendering under CEF
-        if (!Store.SidebarVisible && !_isPeeking)
-        {
-            Sidebar.Visibility = Visibility.Collapsed;
-        }
-        else
-        {
-            Sidebar.Visibility = Visibility.Visible;
         }
         
         SidebarColumn.Width = Store.SidebarOnLeft 
@@ -362,6 +362,21 @@ public sealed partial class MainWindow : Window
         AIPanelColumn.Width = Store.SidebarOnLeft
             ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
             : (Store.SidebarVisible ? new GridLength(260) : new GridLength(0));
+
+        SidebarPlaceholder.Width = Store.SidebarVisible ? 260 : 0;
+        SidebarPlaceholder.Visibility = Store.SidebarVisible ? Visibility.Visible : Visibility.Collapsed;
+
+        // Ensure popup is always open and styled correctly
+        Sidebar.Visibility = Visibility.Visible;
+        Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
+        Sidebar.Width = 260;
+        SidebarPeekBorder.Opacity = 1;
+        SidebarPeekPopup.IsOpen = true;
+
+        if (!_isPeeking)
+        {
+            SidebarPeekTranslate.X = Store.SidebarVisible ? 0 : (Store.SidebarOnLeft ? -260 : 260);
+        }
 
         SidebarRevealButton.Visibility = Store.SidebarVisible
             ? Visibility.Collapsed
@@ -642,40 +657,8 @@ public sealed partial class MainWindow : Window
         
         _sidebarAnimStoryboard?.Stop();
         
-        // Remove Sidebar from layout flow and host in Popup to bypass CEF airspace
-        if (Sidebar.Parent == RootGrid)
-        {
-            RootGrid.Children.Remove(Sidebar);
-        }
-        SidebarPeekBorder.Child = Sidebar;
+        UpdateSidebarPopupPosition();
         
-        Sidebar.Visibility = Visibility.Visible;
-        Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
-        Sidebar.Width = 260;
-        Sidebar.Height = RootGrid.ActualHeight - 16;
-        
-        // Lock the Popup HWND size to exactly fit the slide path
-        // This prevents the OS window manager from resizing the transparent HWND every frame
-        // which completely eliminates the Win11 CEF airspace Z-order glitch!
-        SidebarPeekHost.Height = RootGrid.ActualHeight;
-
-        if (Store.SidebarOnLeft)
-        {
-            SidebarPeekBorder.Margin = new Thickness(8, 8, 0, 8);
-            SidebarPeekPopup.HorizontalOffset = 0;
-        }
-        else
-        {
-            SidebarPeekBorder.Margin = new Thickness(0, 8, 8, 8);
-            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 268;
-        }
-        
-        SidebarPeekPopup.VerticalOffset = 0;
-        SidebarTranslate.X = 0;
-        SidebarPeekBorder.Opacity = 1;
-        SidebarPeekPopup.IsOpen = true;
-        Sidebar.UpdateLayout(); // Force synchronous realization of virtualized elements so they don't pop in late!
-
         // Animate the internal Transform freely inside the locked HWND
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
@@ -708,30 +691,6 @@ public sealed partial class MainWindow : Window
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
         _sidebarAnimStoryboard.Children.Add(anim);
-        
-        _sidebarAnimStoryboard.Completed += (s, e) => 
-        {
-            if (_isPeeking) return; // aborted by moving mouse back
-            
-            SidebarPeekPopup.IsOpen = false;
-            SidebarPeekBorder.Child = null;
-            
-            // Restore normal layout flow
-            if (!RootGrid.Children.Contains(Sidebar))
-            {
-                RootGrid.Children.Insert(0, Sidebar);
-            }
-            
-            if (!Store.SidebarVisible)
-            {
-                Grid.SetColumnSpan(Sidebar, 1);
-                Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
-                Sidebar.Width = double.NaN;
-                Sidebar.Height = double.NaN;
-                Canvas.SetZIndex(Sidebar, 0);
-                SidebarTranslate.X = 0;
-            }
-        };
         _sidebarAnimStoryboard.Begin();
     }
 }
