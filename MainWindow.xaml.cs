@@ -123,11 +123,7 @@ public sealed partial class MainWindow : Window
 
     public void UpdateGlobalTint(Windows.UI.Color color)
     {
-        if (_acrylicController != null)
-        {
-            _acrylicController.TintColor = color;
-            _acrylicController.TintOpacity = color.A / 255.0f;
-        }
+        // Mica backdrop does not support dynamic tinting like Acrylic
     }
 
     private void Cef_TitleChanged(object sender, string title)
