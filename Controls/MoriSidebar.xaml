@@ -232,10 +232,17 @@
                                             Visibility="{x:Bind RenameVisibility, Mode=OneWay}"
                                             Padding="4,2"
                                             MinHeight="24"
+                                            BorderThickness="0"
+                                            Background="Transparent"
                                             LostFocus="RenameFolder_LostFocus"
                                             KeyDown="RenameFolder_KeyDown"
                                             Loaded="RenameFolder_Loaded"
-                                            Tag="{x:Bind Id}" />
+                                            Tag="{x:Bind Id}">
+                                            <TextBox.Resources>
+                                                <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                                                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                                            </TextBox.Resources>
+                                        </TextBox>
                                     </Grid>
                                 </Button>
 
