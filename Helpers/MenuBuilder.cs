@@ -20,8 +20,7 @@ public static class MenuBuilder
         // Pin / Unpin
         var pinItem = new MenuFlyoutItem
         {
-            Text = isPinned ? "Unpin" : "Pin",
-            Icon = new FontIcon { Glyph = isPinned ? "\uE77A" : "\uE718" }
+            Text = isPinned ? "Unpin" : "Pin"
         };
         pinItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.TogglePin(tab.Id));
         flyout.Items.Add(pinItem);
@@ -31,8 +30,7 @@ public static class MenuBuilder
         {
             var folderMenu = new MenuFlyoutSubItem
             {
-                Text = "Add to Folder",
-                Icon = new FontIcon { Glyph = "\uE8B7" }
+                Text = "Add to Folder"
             };
             foreach (var folder in store.Folders)
             {
@@ -47,8 +45,7 @@ public static class MenuBuilder
         // New Folder with Tab
         var newFolderItem = new MenuFlyoutItem
         {
-            Text = "New Folder with Tab",
-            Icon = new FontIcon { Glyph = "\uE8F4" }
+            Text = "New Folder with Tab"
         };
         newFolderItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() =>
         {
@@ -63,8 +60,7 @@ public static class MenuBuilder
         {
             var remFolderItem = new MenuFlyoutItem
             {
-                Text = "Remove from Folder",
-                Icon = new FontIcon { Glyph = "\uE108" }
+                Text = "Remove from Folder"
             };
             remFolderItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.RemoveTabFromFolders(tab.Id));
             flyout.Items.Add(remFolderItem);
@@ -75,8 +71,7 @@ public static class MenuBuilder
         // Duplicate Tab
         var dupItem = new MenuFlyoutItem
         {
-            Text = "Duplicate Tab",
-            Icon = new FontIcon { Glyph = "\uE8C8" }
+            Text = "Duplicate Tab"
         };
         dupItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.DuplicateTab(tab.Id));
         flyout.Items.Add(dupItem);
@@ -84,8 +79,7 @@ public static class MenuBuilder
         // Copy URL
         var copyUrlItem = new MenuFlyoutItem
         {
-            Text = "Copy URL",
-            Icon = new FontIcon { Glyph = "\uE71B" }
+            Text = "Copy URL"
         };
         copyUrlItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.CopyUrl(tab.Id));
         flyout.Items.Add(copyUrlItem);
@@ -95,8 +89,7 @@ public static class MenuBuilder
         // Reload
         var reloadItem = new MenuFlyoutItem
         {
-            Text = "Reload",
-            Icon = new FontIcon { Glyph = "\uE72C" }
+            Text = "Reload"
         };
         reloadItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => tab.Reload());
         flyout.Items.Add(reloadItem);
@@ -104,8 +97,7 @@ public static class MenuBuilder
         // Close Other Tabs
         var closeOtherItem = new MenuFlyoutItem
         {
-            Text = "Close Other Tabs",
-            Icon = new FontIcon { Glyph = "\uE8E6" }
+            Text = "Close Other Tabs"
         };
         closeOtherItem.IsEnabled = store.Tabs.Any(t => t.Id != tab.Id && !store.IsPinned(t.Id));
         closeOtherItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.CloseOtherTabs(tab.Id));
@@ -114,8 +106,7 @@ public static class MenuBuilder
         // Close Tabs to Right
         var closeRightItem = new MenuFlyoutItem
         {
-            Text = "Close Tabs to Right",
-            Icon = new FontIcon { Glyph = "\uE8E4" }
+            Text = "Close Tabs to Right"
         };
         closeRightItem.IsEnabled = store.HasClosableTabsToRight(tab.Id);
         closeRightItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.CloseTabsToRight(tab.Id));
@@ -128,7 +119,6 @@ public static class MenuBuilder
         var closeItem = new MenuFlyoutItem
         {
             Text = "Close Tab",
-            Icon = new FontIcon { Glyph = "\uE8BB" }, // E8BB is the perfectly centered standard Close icon
             Foreground = new SolidColorBrush(macRed)
         };
         
@@ -148,29 +138,28 @@ public static class MenuBuilder
         flyout.Items.Clear();
 
         // New Tab
-        var newTabItem = new MenuFlyoutItem { Text = "New Tab", Icon = new FontIcon { Glyph = "\uE710" } };
+        var newTabItem = new MenuFlyoutItem { Text = "New Tab" };
         newTabItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.NewTab());
         flyout.Items.Add(newTabItem);
 
         // Add New Folder
-        var newFolderItem = new MenuFlyoutItem { Text = "Add New Folder", Icon = new FontIcon { Glyph = "\uE8F4" } };
-        newFolderItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.AddFolderForEditing());
-        flyout.Items.Add(newFolderItem);
+        var newFolderSidebarItem = new MenuFlyoutItem { Text = "Add New Folder" };
+        newFolderSidebarItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.AddFolderForEditing());
+        flyout.Items.Add(newFolderSidebarItem);
 
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         // Show/Hide AI Panel
         var aiPanelItem = new MenuFlyoutItem 
         { 
-            Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel",
-            Icon = new FontIcon { Glyph = "\uE8EA" } // Magic wand icon (AutoEnhance)
+            Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel"
         };
         aiPanelItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleAIPanel());
         flyout.Items.Add(aiPanelItem);
 
         // Sidebar Side
-        var sideItem = new MenuFlyoutSubItem { Text = "Sidebar Side", Icon = new FontIcon { Glyph = "\uE8A9" } }; // OpenPane icon
-        var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
+        var sideItem = new MenuFlyoutSubItem { Text = "Sidebar Side" };
+        var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark is fine to keep for selected state
         leftItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = true);
         var rightItem = new MenuFlyoutItem { Text = "Right", Icon = !store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
         rightItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = false);
@@ -179,14 +168,14 @@ public static class MenuBuilder
         flyout.Items.Add(sideItem);
 
         // Hide Sidebar
-        var hideSidebarItem = new MenuFlyoutItem { Text = "Hide Sidebar", Icon = new FontIcon { Glyph = "\uE76B" } }; // ClosePane
+        var hideSidebarItem = new MenuFlyoutItem { Text = "Hide Sidebar" };
         hideSidebarItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleSidebar());
         flyout.Items.Add(hideSidebarItem);
 
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         // Settings
-        var settingsItem = new MenuFlyoutItem { Text = "Settings", Icon = new FontIcon { Glyph = "\uE713" } };
+        var settingsItem = new MenuFlyoutItem { Text = "Settings" };
         settingsItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleSettings());
         flyout.Items.Add(settingsItem);
     }
