@@ -345,6 +345,16 @@ public sealed partial class MainWindow : Window
             PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Right;
         }
         
+        // Prevent Sidebar from overflowing its 0-width column and rendering under CEF
+        if (!Store.SidebarVisible && !_isPeeking)
+        {
+            Sidebar.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            Sidebar.Visibility = Visibility.Visible;
+        }
+        
         SidebarColumn.Width = Store.SidebarOnLeft 
             ? (Store.SidebarVisible ? new GridLength(260) : new GridLength(0))
             : (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0));
@@ -662,16 +672,15 @@ public sealed partial class MainWindow : Window
         // Ensure sidebar has no internal offset
         SidebarTranslate.X = 0;
 
-        // Hide entirely (both content and background) to prevent frame flash
-        SidebarPeekBorder.Opacity = 0;
+        // Hide entirely off-screen to absorb any 1-frame XAML render flash or background brush delays
+        SidebarPeekBorder.Opacity = 1;
+        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -5000 : 5000;
         SidebarPeekPopup.IsOpen = true;
 
         // Wait a couple frames to ensure the WinUI compositor has fully prepared the popup HWND and evaluated background brushes
-        await System.Threading.Tasks.Task.Delay(32);
+        await System.Threading.Tasks.Task.Delay(50);
 
-        SidebarPeekBorder.Opacity = 1;
-        
-        // Animate the Border instead of the Sidebar
+        // Snap to animation start position
         SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
         
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
