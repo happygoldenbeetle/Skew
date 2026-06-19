@@ -594,24 +594,34 @@ public sealed partial class MainWindow : Window
         {
             EnterPeekMode();
         }
-    }
-
-    private void RootGrid_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        if (!_isPeeking) return;
-        
-        var pos = e.GetCurrentPoint(RootGrid).Position;
-        bool inBand = Store.SidebarOnLeft ? pos.X <= 300 : pos.X >= RootGrid.ActualWidth - 300;
-        
-        if (inBand)
+        else if (_isPeeking)
         {
             _peekCloseTimer.Stop();
         }
-        else
+    }
+
+    private void PeekTriggerArea_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_isPeeking) return;
+        
+        if (!_peekCloseTimer.IsEnabled)
+            _peekCloseTimer.Start();
+    }
+
+    private void SidebarPeekBorder_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (_isPeeking)
         {
-            if (!_peekCloseTimer.IsEnabled)
-                _peekCloseTimer.Start();
+            _peekCloseTimer.Stop();
         }
+    }
+
+    private void SidebarPeekBorder_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_isPeeking) return;
+        
+        if (!_peekCloseTimer.IsEnabled)
+            _peekCloseTimer.Start();
     }
 
     private void EnterPeekMode()

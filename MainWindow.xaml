@@ -14,7 +14,7 @@
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged" PointerMoved="RootGrid_PointerMoved">
+    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />
@@ -50,6 +50,7 @@
               Width="12"
               Background="Transparent"
               PointerEntered="PeekTriggerArea_PointerEntered"
+              PointerExited="PeekTriggerArea_PointerExited"
               Visibility="Collapsed"
               Canvas.ZIndex="100" />
 
@@ -138,7 +139,9 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Margin="0,8,8,8">
+                    Margin="0,8,8,8"
+                    PointerEntered="SidebarPeekBorder_PointerEntered"
+                    PointerExited="SidebarPeekBorder_PointerExited">
                 <Border.Shadow>
                     <ThemeShadow />
                 </Border.Shadow>
