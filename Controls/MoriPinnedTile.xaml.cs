@@ -141,6 +141,7 @@ public sealed partial class MoriPinnedTile : UserControl
     {
         if (Tab == null) return;
         args.Data.SetText(Tab.Id.ToString());
+        args.Data.Properties.Add("tabId", Tab.Id);
         args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 

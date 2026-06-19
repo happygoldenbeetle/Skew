@@ -395,6 +395,17 @@ public sealed partial class MoriSidebar : UserControl
         e.DragUIOverride.IsGlyphVisible = true;
         
         string folderName = "folder";
+        string verb = "Add to";
+
+        if (e.DataView.Properties.TryGetValue("tabId", out var tIdObj) && tIdObj is Guid tabId && Store != null)
+        {
+            // If it's already in ANY folder, use "Move"
+            if (Store.Folders.Any(f => f.Tabs.Any(t => t.Id == tabId)))
+            {
+                verb = "Move to";
+            }
+        }
+
         if (sender is Microsoft.UI.Xaml.Controls.Control fe)
         {
             // Highlight the folder header
@@ -410,7 +421,7 @@ public sealed partial class MoriSidebar : UserControl
             }
         }
         
-        e.DragUIOverride.Caption = $"Add to {folderName}";
+        e.DragUIOverride.Caption = $"{verb} {folderName}";
     }
 
     private void FolderHeader_DragLeave(object sender, DragEventArgs e)
