@@ -130,6 +130,9 @@
                 <controls:SwipeIndicatorOverlay x:Name="SwipeOverlay" />
             </Popup>
         </Grid>
+        
+        <!-- ═══ Sidebar Peek Popup ═══ -->
+        <Popup x:Name="SidebarPeekPopup" IsOpen="False" ShouldConstrainToRootBounds="False" />
 
         <!-- ═══ AI Panel ═══ -->
         <controls:MoriAIPanel
