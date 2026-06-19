@@ -130,10 +130,10 @@ public static class MenuBuilder
         };
         
         // Destructive macOS styling: red background with white text on hover
-        closeItem.Resources.Add("MenuFlyoutItemBackgroundPointerOver", new SolidColorBrush(Colors.Salmon));
-        closeItem.Resources.Add("MenuFlyoutItemForegroundPointerOver", new SolidColorBrush(Colors.White));
-        closeItem.Resources.Add("MenuFlyoutItemBackgroundPressed", new SolidColorBrush(Colors.IndianRed));
-        closeItem.Resources.Add("MenuFlyoutItemForegroundPressed", new SolidColorBrush(Colors.White));
+        closeItem.Resources["MenuFlyoutItemBackgroundPointerOver"] = new SolidColorBrush(Colors.Salmon);
+        closeItem.Resources["MenuFlyoutItemForegroundPointerOver"] = new SolidColorBrush(Colors.White);
+        closeItem.Resources["MenuFlyoutItemBackgroundPressed"] = new SolidColorBrush(Colors.IndianRed);
+        closeItem.Resources["MenuFlyoutItemForegroundPressed"] = new SolidColorBrush(Colors.White);
         
         closeItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.CloseTab(tab.Id));
         flyout.Items.Add(closeItem);
