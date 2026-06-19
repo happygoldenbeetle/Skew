@@ -390,7 +390,7 @@ public sealed partial class MainWindow : Window
 
     private bool _wasMaximizedBeforeFullScreen = false;
 
-    private void ToggleFullScreen()
+    private async void ToggleFullScreen()
     {
         if (AppWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
         {
@@ -404,6 +404,7 @@ public sealed partial class MainWindow : Window
 
                 if (_wasMaximizedBeforeFullScreen)
                 {
+                    await System.Threading.Tasks.Task.Delay(50);
                     presenter.Maximize();
                 }
             }
@@ -416,6 +417,8 @@ public sealed partial class MainWindow : Window
                 if (_wasMaximizedBeforeFullScreen)
                 {
                     presenter.Restore();
+                    // Wait for the native window to process the restore
+                    await System.Threading.Tasks.Task.Delay(50);
                 }
             }
             AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
