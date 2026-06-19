@@ -319,14 +319,6 @@ public sealed partial class MoriSidebar : UserControl
         _themeWindow.Activate();
     }
 
-    private void FolderHeader_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
-        {
-            Store?.ToggleFolder(folderId);
-        }
-    }
-
     private void RenameFolder_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
