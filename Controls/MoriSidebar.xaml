@@ -41,11 +41,11 @@
                     Click="SidebarToggle_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle sidebar">
-                    <PathIcon x:Name="SidebarToggleIcon" Data="F1 M 12.2222 7.33333 a 0.666667 0.666667 0 0 1 0 1.33333 h -1.33333 a 0.666667 0.666667 0 0 1 0 -1.33333 z M 12.2222 4.88889 a 0.666667 0.666667 0 0 1 0 1.33333 h -1.33333 a 0.666667 0.666667 0 0 1 0 -1.33333 z M 12.6667 1.77778 A 2.44444 2.44444 0 0 1 15.1111 4.22222 v 7.55556 A 2.44444 2.44444 0 0 1 12.6667 14.2222 H 3.33333 A 2.44444 2.44444 0 0 1 0.888889 11.7778 v -7.55556 A 2.44444 2.44444 0 0 1 3.33333 1.77778 z M 3.33333 3.11111 c -0.613333 0 -1.11111 0.497778 -1.11111 1.11111 v 7.55556 c 0 0.613333 0.497778 1.11111 1.11111 1.11111 H 8 v -9.77778 z m 6 9.77778 h 3.33333 c 0.613333 0 1.11111 -0.497778 1.11111 -1.11111 v -7.55556 c 0 -0.613333 -0.497778 -1.11111 -1.11111 -1.11111 H 9.33333 z" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
-                        <PathIcon.RenderTransform>
+                    <BitmapIcon x:Name="SidebarToggleIcon" UriSource="ms-appx:///Assets/Icons/sidebar-right.svg" ShowAsMonochrome="True" Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                        <BitmapIcon.RenderTransform>
                             <ScaleTransform ScaleX="-1" />
-                        </PathIcon.RenderTransform>
-                    </PathIcon>
+                        </BitmapIcon.RenderTransform>
+                    </BitmapIcon>
                 </Button>
 
                 <StackPanel
