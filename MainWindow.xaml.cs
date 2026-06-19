@@ -388,6 +388,8 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private bool _wasMaximizedBeforeFullScreen = false;
+
     private void ToggleFullScreen()
     {
         if (AppWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
@@ -399,10 +401,23 @@ public sealed partial class MainWindow : Window
                 presenter.IsMaximizable = true;
                 presenter.IsMinimizable = true;
                 presenter.SetBorderAndTitleBar(true, false);
+
+                if (_wasMaximizedBeforeFullScreen)
+                {
+                    presenter.Maximize();
+                }
             }
         }
         else
         {
+            if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            {
+                _wasMaximizedBeforeFullScreen = presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Maximized;
+                if (_wasMaximizedBeforeFullScreen)
+                {
+                    presenter.Restore();
+                }
+            }
             AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
         }
     }
