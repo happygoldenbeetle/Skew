@@ -674,6 +674,7 @@ public sealed partial class MainWindow : Window
         SidebarTranslate.X = 0;
         SidebarPeekBorder.Opacity = 1;
         SidebarPeekPopup.IsOpen = true;
+        Sidebar.UpdateLayout(); // Force synchronous realization of virtualized elements so they don't pop in late!
 
         // Animate the internal Transform freely inside the locked HWND
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();

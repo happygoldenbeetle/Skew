@@ -135,7 +135,6 @@
                     </GridView.ItemContainerStyle>
                     <GridView.ItemContainerTransitions>
                         <TransitionCollection>
-                            <AddDeleteThemeTransition />
                             <ReorderThemeTransition />
                             <RepositionThemeTransition IsStaggeringEnabled="False" />
                         </TransitionCollection>
@@ -312,7 +311,6 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemContainerTransitions>
                         <TransitionCollection>
-                            <AddDeleteThemeTransition />
                             <ReorderThemeTransition />
                             <RepositionThemeTransition IsStaggeringEnabled="False" />
                         </TransitionCollection>
