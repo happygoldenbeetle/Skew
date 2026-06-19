@@ -35,7 +35,7 @@ public sealed partial class MainWindow : Window
         // Custom title bar — extend into content, no separate bar
         ExtendsContentIntoTitleBar = true;
 
-        this.Loaded += MainWindow_Loaded;
+        RootGrid.Loaded += MainWindow_Loaded;
 
         // Set window size and icon
         var appWindow = AppWindow;
