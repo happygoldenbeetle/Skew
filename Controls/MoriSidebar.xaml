@@ -182,6 +182,7 @@
                                     Click="FolderHeader_Click"
                                     AllowDrop="True"
                                     DragOver="FolderHeader_DragOver"
+                                    DragLeave="FolderHeader_DragLeave"
                                     Drop="FolderHeader_Drop">
                                     
                                     <Button.ContextFlyout>

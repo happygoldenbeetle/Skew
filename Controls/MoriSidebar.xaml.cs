@@ -395,28 +395,46 @@ public sealed partial class MoriSidebar : UserControl
         e.DragUIOverride.IsGlyphVisible = true;
         
         string folderName = "folder";
-        if (sender is FrameworkElement fe && fe.Tag is Guid folderId && Store != null)
+        if (sender is FrameworkElement fe)
         {
-            var folder = Store.Folders.FirstOrDefault(f => f.Id == folderId);
-            if (folder != null)
+            // Highlight the folder header
+            fe.Background = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources["SubtleFillColorSecondaryBrush"];
+
+            if (fe.Tag is Guid folderId && Store != null)
             {
-                folderName = folder.Name;
+                var folder = Store.Folders.FirstOrDefault(f => f.Id == folderId);
+                if (folder != null)
+                {
+                    folderName = folder.Name;
+                }
             }
         }
         
         e.DragUIOverride.Caption = $"Add to {folderName}";
     }
 
+    private void FolderHeader_DragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            // Restore transparent background
+            fe.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        }
+    }
+
     private async void FolderHeader_Drop(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
+        if (sender is FrameworkElement feDrop)
         {
-            var text = await e.DataView.GetTextAsync();
-            if (Guid.TryParse(text, out Guid draggedTabId))
+            // Restore transparent background
+            feDrop.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            
+            if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
             {
-                if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+                var text = await e.DataView.GetTextAsync();
+                if (Guid.TryParse(text, out Guid draggedTabId))
                 {
-                    if (Store != null)
+                    if (feDrop.Tag is Guid folderId && Store != null)
                     {
                         var folder = Store.Folders.FirstOrDefault(f => f.Id == folderId);
                         if (folder != null)
