@@ -160,7 +160,6 @@ public static class MenuBuilder
         flyout.Items.Add(new MenuFlyoutSeparator());
 
         var sparklesXaml = @"<ImageIcon xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" Source=""{ThemeResource SparklesIconSource}"" />";
-        var sidebarXaml = @"<ImageIcon xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" Source=""{ThemeResource SidebarRightIconSource}"" />";
 
         // Show/Hide AI Panel
         var aiPanelItem = new MenuFlyoutItem 
@@ -175,7 +174,7 @@ public static class MenuBuilder
         var sideItem = new MenuFlyoutSubItem 
         { 
             Text = "Sidebar Side", 
-            Icon = (ImageIcon)Microsoft.UI.Xaml.Markup.XamlReader.Load(sidebarXaml)
+            Icon = new FontIcon { Glyph = "\uE90C" }
         };
         var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
         leftItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = true);
