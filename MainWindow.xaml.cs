@@ -379,6 +379,31 @@ public sealed partial class MainWindow : Window
         {
             if (Store.LauncherVisible) { Store.DismissLauncher(); e.Handled = true; }
             else if (Store.FindBarVisible) { Store.ToggleFindBar(); e.Handled = true; }
+            else if (AppWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen) { ToggleFullScreen(); e.Handled = true; }
+        }
+        else if (e.Key == Windows.System.VirtualKey.F11)
+        {
+            ToggleFullScreen();
+            e.Handled = true;
+        }
+    }
+
+    private void ToggleFullScreen()
+    {
+        if (AppWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
+        {
+            AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Overlapped);
+            if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+            {
+                presenter.IsResizable = true;
+                presenter.IsMaximizable = true;
+                presenter.IsMinimizable = true;
+                presenter.SetBorderAndTitleBar(true, false);
+            }
+        }
+        else
+        {
+            AppWindow.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
         }
     }
 
