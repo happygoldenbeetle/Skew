@@ -208,7 +208,11 @@ public sealed partial class MainWindow : Window
 
         System.IO.File.AppendAllText("keys.log", $"HandleCefShortcut: key={windowsKeyCode}, ctrl={ctrl}, alt={alt}\n");
 
-        if (!ctrl && !alt) return false;
+        if (!ctrl && !alt)
+        {
+            if (windowsKeyCode != (int)Windows.System.VirtualKey.F11 && windowsKeyCode != (int)Windows.System.VirtualKey.Escape)
+                return false;
+        }
 
         var key = (Windows.System.VirtualKey)windowsKeyCode;
         bool handled = false;
@@ -226,6 +230,13 @@ public sealed partial class MainWindow : Window
         else if (alt)
         {
             if (key == Windows.System.VirtualKey.Left || key == Windows.System.VirtualKey.Right)
+            {
+                handled = true;
+            }
+        }
+        else
+        {
+            if (key == Windows.System.VirtualKey.F11 || key == Windows.System.VirtualKey.Escape)
             {
                 handled = true;
             }
@@ -255,6 +266,19 @@ public sealed partial class MainWindow : Window
                 {
                     if (key == Windows.System.VirtualKey.Left) Store.GoBack();
                     else if (key == Windows.System.VirtualKey.Right) Store.GoForward();
+                }
+                else
+                {
+                    if (key == Windows.System.VirtualKey.F11)
+                    {
+                        ToggleFullScreen();
+                    }
+                    else if (key == Windows.System.VirtualKey.Escape)
+                    {
+                        if (Store.LauncherVisible) { Store.DismissLauncher(); }
+                        else if (Store.FindBarVisible) { Store.ToggleFindBar(); }
+                        else if (AppWindow.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen) { ToggleFullScreen(); }
+                    }
                 }
             });
         }
