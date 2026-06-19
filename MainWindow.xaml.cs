@@ -653,8 +653,11 @@ public sealed partial class MainWindow : Window
         SidebarPeekPopup.VerticalOffset = 0;
         SidebarPeekPopup.IsOpen = true;
 
-        // Animate in
-        SidebarTranslate.X = Store.SidebarOnLeft ? -260 : 260;
+        // Ensure sidebar has no internal offset
+        SidebarTranslate.X = 0;
+
+        // Animate the Border instead of the Sidebar
+        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
         
         var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
@@ -663,7 +666,7 @@ public sealed partial class MainWindow : Window
             Duration = TimeSpan.FromMilliseconds(300),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
         sb.Children.Add(anim);
         sb.Begin();
@@ -681,7 +684,7 @@ public sealed partial class MainWindow : Window
             Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
         sb.Children.Add(anim);
         

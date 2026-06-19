@@ -135,13 +135,16 @@
         <!-- ═══ Sidebar Peek Popup ═══ -->
         <Popup x:Name="SidebarPeekPopup" IsOpen="False" ShouldConstrainToRootBounds="False">
             <Border x:Name="SidebarPeekBorder"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
                     Margin="0,8,8,8"
                     PointerEntered="SidebarPeekBorder_PointerEntered"
                     PointerExited="SidebarPeekBorder_PointerExited">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="SidebarPeekTranslate" X="0" Y="0" />
+                </Border.RenderTransform>
                 <Border.Shadow>
                     <ThemeShadow />
                 </Border.Shadow>
