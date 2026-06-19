@@ -34,7 +34,7 @@ public partial class TabFolder : ObservableObject
 
     public ObservableCollection<BrowserTab> Tabs { get; } = [];
 
-    public TabFolder(string name = "Folder", string symbol = "\uE8B7", bool isExpanded = true)
+    public TabFolder(string name = "Folder", string symbol = "\uE8B7", bool isExpanded = false)
     {
         Name = name;
         Symbol = symbol;
