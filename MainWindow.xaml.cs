@@ -635,7 +635,7 @@ public sealed partial class MainWindow : Window
             _peekCloseTimer.Start();
     }
 
-    private async void EnterPeekMode()
+    private void EnterPeekMode()
     {
         if (_isPeeking) return;
         _isPeeking = true;
@@ -656,42 +656,33 @@ public sealed partial class MainWindow : Window
         Sidebar.Width = 260;
         Sidebar.Height = RootGrid.ActualHeight - 16; // Account for vertical margin
         
-        // Set Popup position
         if (Store.SidebarOnLeft)
         {
             SidebarPeekBorder.Margin = new Thickness(8, 8, 0, 8);
-            SidebarPeekPopup.HorizontalOffset = 0;
         }
         else
         {
             SidebarPeekBorder.Margin = new Thickness(0, 8, 8, 8);
-            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 260 - 8;
         }
         SidebarPeekPopup.VerticalOffset = 0;
 
-        // Force render inside the HWND bounds with 1% opacity to trigger compositor brush rasterization silently
         SidebarTranslate.X = 0;
         SidebarPeekTranslate.X = 0;
-        SidebarPeekBorder.Opacity = 0.01;
+        SidebarPeekBorder.Opacity = 1;
         SidebarPeekPopup.IsOpen = true;
 
-        // Wait a couple frames to ensure the WinUI compositor has fully prepared the popup HWND and evaluated background brushes
-        await System.Threading.Tasks.Task.Delay(50);
-
-        // Snap to animation start position and restore full opacity
-        SidebarPeekBorder.Opacity = 1;
-        SidebarPeekTranslate.X = Store.SidebarOnLeft ? -260 : 260;
-        
-        // Animate the Border instead of the Sidebar
+        // Animate the Popup HWND itself (HorizontalOffset) instead of TranslateTransform.
+        // This completely bypasses Windows 11 DWM Z-order glitches with CEF during DComp animations!
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(300),
+            From = Store.SidebarOnLeft ? -260 : RootGrid.ActualWidth,
+            To = Store.SidebarOnLeft ? 0 : RootGrid.ActualWidth - 260 - 8,
+            Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekPopup);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "HorizontalOffset");
         _sidebarAnimStoryboard.Children.Add(anim);
         _sidebarAnimStoryboard.Begin();
     }
@@ -706,12 +697,12 @@ public sealed partial class MainWindow : Window
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
-            To = Store.SidebarOnLeft ? -260 : 260,
+            To = Store.SidebarOnLeft ? -260 : RootGrid.ActualWidth,
             Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekPopup);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "HorizontalOffset");
         _sidebarAnimStoryboard.Children.Add(anim);
         
         _sidebarAnimStoryboard.Completed += (s, e) => 
