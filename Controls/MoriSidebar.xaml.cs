@@ -383,7 +383,9 @@ public sealed partial class MoriSidebar : UserControl
                 {
                     folder.IsRenaming = false;
                 }
+                }
             }
+            this.Focus(FocusState.Programmatic);
             e.Handled = true;
         }
     }
