@@ -60,8 +60,7 @@ public partial class BrowserStore : ObservableObject
     [ObservableProperty]
     private bool _sidebarOnLeft;
 
-    [ObservableProperty]
-    private Guid? _folderIdPendingRename;
+
 
     // ── Initialization ──
 
@@ -146,7 +145,7 @@ public partial class BrowserStore : ObservableObject
         LooseTabs.Remove(tab);
 
         foreach (var folder in Folders)
-            folder.TabIds.Remove(tabId);
+            folder.Tabs.Remove(tab);
 
         tab.Dispose(); // tear down the per-tab CEF browser
 
@@ -266,7 +265,7 @@ public partial class BrowserStore : ObservableObject
         {
             LooseTabs.Remove(tab);
             foreach (var folder in Folders)
-                folder.TabIds.Remove(tabId);
+                folder.Tabs.Remove(tab);
             PinnedTabs.Add(tab);
         }
     }
@@ -285,11 +284,7 @@ public partial class BrowserStore : ObservableObject
     {
         var folder = Folders.FirstOrDefault(f => f.Id == folderId);
         if (folder is null) return [];
-        return folder.TabIds
-            .Select(id => Tabs.FirstOrDefault(t => t.Id == id))
-            .Where(t => t is not null)
-            .Cast<BrowserTab>()
-            .ToList();
+        return folder.Tabs.ToList();
     }
 
     public TabFolder AddFolder(string name = "New Folder")
@@ -303,7 +298,7 @@ public partial class BrowserStore : ObservableObject
     {
         var folder = new TabFolder("New Folder");
         Folders.Add(folder);
-        FolderIdPendingRename = folder.Id;
+        folder.IsRenaming = true;
         return folder;
     }
 
@@ -315,7 +310,7 @@ public partial class BrowserStore : ObservableObject
         if (folder is null) return;
 
         RemoveTabFromFolders(tabId);
-        folder.TabIds.Add(tabId);
+        folder.Tabs.Add(tab);
         if (PinnedTabs.Contains(tab)) PinnedTabs.Remove(tab);
         if (LooseTabs.Contains(tab)) LooseTabs.Remove(tab);
         folder.IsExpanded = true;
@@ -329,7 +324,7 @@ public partial class BrowserStore : ObservableObject
 
         foreach (var folder in Folders)
         {
-            folder.TabIds.Remove(tabId);
+            folder.Tabs.Remove(tab);
         }
         
         if (!PinnedTabs.Contains(tab) && !LooseTabs.Contains(tab))
@@ -395,10 +390,9 @@ public partial class BrowserStore : ObservableObject
         if (folder is null) return;
 
         // Move tabs back to loose
-        foreach (var tabId in folder.TabIds)
+        foreach (var tab in folder.Tabs.ToList())
         {
-            var tab = Tabs.FirstOrDefault(t => t.Id == tabId);
-            if (tab is not null && !PinnedTabs.Contains(tab) && !LooseTabs.Contains(tab))
+            if (!PinnedTabs.Contains(tab) && !LooseTabs.Contains(tab))
                 LooseTabs.Add(tab);
         }
         Folders.Remove(folder);

@@ -318,4 +318,81 @@ public sealed partial class MoriSidebar : UserControl
         _themeWindow.Closed += (s, args) => _themeWindow = null;
         _themeWindow.Activate();
     }
+
+    private void FolderHeader_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+        {
+            Store?.ToggleFolder(folderId);
+        }
+    }
+
+    private void RenameFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+        {
+            var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);
+            if (folder != null)
+            {
+                folder.IsRenaming = true;
+            }
+        }
+    }
+
+    private void DeleteFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+        {
+            Store?.DeleteFolder(folderId);
+        }
+    }
+
+    private void RenameFolder_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            tb.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (s, dp) =>
+            {
+                if (tb.Visibility == Visibility.Visible)
+                {
+                    tb.SelectAll();
+                    tb.Focus(FocusState.Programmatic);
+                }
+            });
+            
+            if (tb.Visibility == Visibility.Visible)
+            {
+                tb.SelectAll();
+                tb.Focus(FocusState.Programmatic);
+            }
+        }
+    }
+
+    private void RenameFolder_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb && tb.Tag is Guid folderId)
+        {
+            var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);
+            if (folder != null)
+            {
+                folder.IsRenaming = false;
+            }
+        }
+    }
+
+    private void RenameFolder_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Enter || e.Key == Windows.System.VirtualKey.Escape)
+        {
+            if (sender is TextBox tb && tb.Tag is Guid folderId)
+            {
+                var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);
+                if (folder != null)
+                {
+                    folder.IsRenaming = false;
+                }
+            }
+            e.Handled = true;
+        }
+    }
 }

@@ -167,28 +167,85 @@
                 <!-- Folders -->
                 <muxc:ItemsRepeater x:Name="FolderList">
                     <muxc:ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:TabFolder">
                             <StackPanel Spacing="2">
                                 <!-- Folder header -->
                                 <Button
                                     Height="32"
                                     Padding="9,0"
                                     HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Left"
+                                    HorizontalContentAlignment="Stretch"
                                     Background="Transparent"
                                     BorderThickness="0"
                                     CornerRadius="6"
-                                    Tag="{Binding Id}"
+                                    Tag="{x:Bind Id}"
                                     Click="FolderHeader_Click">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon FontSize="14" Glyph="{Binding Symbol}" />
+                                    
+                                    <Button.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem Text="Rename Folder" Click="RenameFolder_Click" Tag="{x:Bind Id}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE8AC;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem Text="Delete Folder" Click="DeleteFolder_Click" Tag="{x:Bind Id}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE74D;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Button.ContextFlyout>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Chevron -->
+                                        <FontIcon Grid.Column="0" FontSize="10" Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+
+                                        <!-- Folder Icon -->
+                                        <FontIcon Grid.Column="1" FontSize="14" Glyph="{x:Bind Symbol, Mode=OneWay}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+
+                                        <!-- Folder Name (Normal mode) -->
                                         <TextBlock
+                                            Grid.Column="2"
                                             FontSize="13"
                                             FontWeight="Medium"
-                                            Text="{Binding Name}"
-                                            VerticalAlignment="Center" />
-                                    </StackPanel>
+                                            Text="{x:Bind Name, Mode=OneWay}"
+                                            VerticalAlignment="Center"
+                                            Visibility="{x:Bind NormalVisibility, Mode=OneWay}" />
+
+                                        <!-- Folder Rename (Editing mode) -->
+                                        <TextBox
+                                            Grid.Column="2"
+                                            FontSize="13"
+                                            FontWeight="Medium"
+                                            Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            VerticalAlignment="Center"
+                                            Visibility="{x:Bind RenameVisibility, Mode=OneWay}"
+                                            Padding="4,2"
+                                            MinHeight="24"
+                                            LostFocus="RenameFolder_LostFocus"
+                                            KeyDown="RenameFolder_KeyDown"
+                                            Loaded="RenameFolder_Loaded"
+                                            Tag="{x:Bind Id}" />
+                                    </Grid>
                                 </Button>
+
+                                <!-- Tabs in Folder -->
+                                <muxc:ItemsRepeater
+                                    ItemsSource="{x:Bind Tabs, Mode=OneWay}"
+                                    Visibility="{x:Bind ExpandedVisibility, Mode=OneWay}"
+                                    Margin="16,0,0,0">
+                                    <muxc:ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="models:BrowserTab">
+                                            <controls:MoriTabRow Tab="{x:Bind}" Margin="0,0,0,2"/>
+                                        </DataTemplate>
+                                    </muxc:ItemsRepeater.ItemTemplate>
+                                </muxc:ItemsRepeater>
                             </StackPanel>
                         </DataTemplate>
                     </muxc:ItemsRepeater.ItemTemplate>
