@@ -18,9 +18,15 @@ public sealed partial class MainWindow : Window
 
     // Removed Acrylic fields
 
+    private bool _isPeeking = false;
+    private DispatcherTimer _peekCloseTimer;
+
     public MainWindow()
     {
         Instance = this;
+        _peekCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(160) };
+        _peekCloseTimer.Tick += (s, e) => { _peekCloseTimer.Stop(); ExitPeekMode(); };
+
         this.InitializeComponent();
 
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
@@ -303,6 +309,16 @@ public sealed partial class MainWindow : Window
 
     private void UpdateColumnLayout()
     {
+        if (_isPeeking && Store.SidebarVisible)
+        {
+            _isPeeking = false;
+            Grid.SetColumnSpan(Sidebar, 1);
+            Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
+            Sidebar.Width = double.NaN;
+            Canvas.SetZIndex(Sidebar, 0);
+            SidebarTranslate.X = 0;
+        }
+
         if (Store.SidebarOnLeft)
         {
             Grid.SetColumn(Sidebar, 0);
@@ -310,6 +326,7 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
             SidebarRevealButton.Margin = new Thickness(16, 16, 0, 0);
+            PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Left;
         }
         else
         {
@@ -318,6 +335,7 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
             SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
+            PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Right;
         }
         
         SidebarColumn.Width = Store.SidebarOnLeft 
@@ -329,6 +347,10 @@ public sealed partial class MainWindow : Window
             : (Store.SidebarVisible ? new GridLength(260) : new GridLength(0));
 
         SidebarRevealButton.Visibility = Store.SidebarVisible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        PeekTriggerArea.Visibility = Store.SidebarVisible
             ? Visibility.Collapsed
             : Visibility.Visible;
 
@@ -558,5 +580,90 @@ public sealed partial class MainWindow : Window
         _horizontalScrollDeltaAccumulator = 0;
         _lastSwipeTime = DateTime.Now;
         SwipeOverlay.AnimateOut(navigated);
+    }
+
+    private void PeekTriggerArea_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!Store.SidebarVisible && !_isPeeking)
+        {
+            EnterPeekMode();
+        }
+    }
+
+    private void RootGrid_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_isPeeking) return;
+        
+        var pos = e.GetCurrentPoint(RootGrid).Position;
+        bool inBand = Store.SidebarOnLeft ? pos.X <= 300 : pos.X >= RootGrid.ActualWidth - 300;
+        
+        if (inBand)
+        {
+            _peekCloseTimer.Stop();
+        }
+        else
+        {
+            if (!_peekCloseTimer.IsEnabled)
+                _peekCloseTimer.Start();
+        }
+    }
+
+    private void EnterPeekMode()
+    {
+        _isPeeking = true;
+        
+        // Remove Sidebar from layout flow
+        Grid.SetColumnSpan(Sidebar, 3);
+        Sidebar.HorizontalAlignment = Store.SidebarOnLeft ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        Sidebar.Width = 260;
+        Canvas.SetZIndex(Sidebar, 50);
+
+        // Animate in
+        SidebarTranslate.X = Store.SidebarOnLeft ? -260 : 260;
+        
+        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            To = 0,
+            Duration = TimeSpan.FromMilliseconds(300),
+            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
+        sb.Children.Add(anim);
+        sb.Begin();
+    }
+
+    private void ExitPeekMode()
+    {
+        if (!_isPeeking) return;
+        _isPeeking = false;
+
+        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            To = Store.SidebarOnLeft ? -260 : 260,
+            Duration = TimeSpan.FromMilliseconds(200),
+            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
+        sb.Children.Add(anim);
+        
+        sb.Completed += (s, e) => 
+        {
+            if (_isPeeking) return; // aborted by moving mouse back
+            
+            // Restore normal layout flow
+            if (!Store.SidebarVisible)
+            {
+                Grid.SetColumnSpan(Sidebar, 1);
+                Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
+                Sidebar.Width = double.NaN;
+                Canvas.SetZIndex(Sidebar, 0);
+                SidebarTranslate.X = 0;
+            }
+        };
+        sb.Begin();
     }
 }

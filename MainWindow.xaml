@@ -14,7 +14,7 @@
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged">
+    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged" PointerMoved="RootGrid_PointerMoved">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />
@@ -37,7 +37,21 @@
         <!-- ═══ Sidebar ═══ -->
         <controls:MoriSidebar
             x:Name="Sidebar"
-            Grid.Column="0" />
+            Grid.Column="0">
+            <controls:MoriSidebar.RenderTransform>
+                <TranslateTransform x:Name="SidebarTranslate" X="0" Y="0" />
+            </controls:MoriSidebar.RenderTransform>
+        </controls:MoriSidebar>
+
+        <!-- Peek Trigger Area -->
+        <Grid x:Name="PeekTriggerArea"
+              Grid.ColumnSpan="3"
+              HorizontalAlignment="Left"
+              Width="12"
+              Background="Transparent"
+              PointerEntered="PeekTriggerArea_PointerEntered"
+              Visibility="Collapsed"
+              Canvas.ZIndex="100" />
 
         <!-- ═══ Web Content Area ═══ -->
         <Grid Grid.Column="1" Margin="0">
