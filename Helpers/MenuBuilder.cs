@@ -58,7 +58,7 @@ public static class MenuBuilder
         flyout.Items.Add(newFolderItem);
 
         // Remove from Folder
-        bool inFolder = store.Folders.Any(f => f.TabIds.Contains(tab.Id));
+        bool inFolder = store.Folders.Any(f => f.Tabs.Contains(tab));
         if (inFolder)
         {
             var remFolderItem = new MenuFlyoutItem
