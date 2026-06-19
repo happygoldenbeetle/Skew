@@ -75,9 +75,12 @@ public sealed partial class MainWindow : Window
         // Apply theme
         if (Content is FrameworkElement root)
         {
-            root.RequestedTheme = ElementTheme.Dark;
-            ThemeService.Instance.SetTheme(ElementTheme.Dark);
+            root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Dark;
+            ThemeService.Instance.SetTheme(Microsoft.UI.Xaml.ElementTheme.Dark);
         }
+
+        // Generate mathematical film grain dynamically
+        FilmGrainImage.Source = Mori.Helpers.FilmGrainGenerator.GenerateNoise(3840, 2160);
 
         // Listen for launcher keyboard shortcut
         Content.KeyDown += Content_KeyDown;
