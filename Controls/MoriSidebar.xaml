@@ -233,7 +233,6 @@
                                             Padding="4,2"
                                             MinHeight="24"
                                             BorderThickness="0"
-                                            Background="#35312e"
                                             LostFocus="RenameFolder_LostFocus"
                                             KeyDown="RenameFolder_KeyDown"
                                             Loaded="RenameFolder_Loaded"
@@ -241,6 +240,9 @@
                                             <TextBox.Resources>
                                                 <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
                                                 <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                                                <SolidColorBrush x:Key="TextControlBackground" Color="#35312e" />
+                                                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#35312e" />
+                                                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#35312e" />
                                             </TextBox.Resources>
                                         </TextBox>
                                     </Grid>
