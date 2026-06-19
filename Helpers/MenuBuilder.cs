@@ -129,7 +129,8 @@ public static class MenuBuilder
         {
             Text = "Close Tab",
             Icon = new FontIcon { Glyph = "\uE8BB" }, // E8BB is the perfectly centered standard Close icon
-            Foreground = new SolidColorBrush(macRed)
+            Foreground = new SolidColorBrush(macRed),
+            IsEnabled = tab.HasBrowserView
         };
         
         // Destructive macOS styling: red background with white text on hover
