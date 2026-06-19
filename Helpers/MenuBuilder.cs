@@ -141,4 +141,53 @@ public static class MenuBuilder
         closeItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.CloseTab(tab.Id));
         flyout.Items.Add(closeItem);
     }
+
+    public static void BuildSidebarMenu(MenuFlyout flyout)
+    {
+        var store = BrowserStore.Shared;
+        flyout.Items.Clear();
+
+        // New Tab
+        var newTabItem = new MenuFlyoutItem { Text = "New Tab", Icon = new FontIcon { Glyph = "\uE710" } };
+        newTabItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.NewTab());
+        flyout.Items.Add(newTabItem);
+
+        // Add New Folder
+        var newFolderItem = new MenuFlyoutItem { Text = "Add New Folder", Icon = new FontIcon { Glyph = "\uE8F4" } };
+        newFolderItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.AddFolderForEditing());
+        flyout.Items.Add(newFolderItem);
+
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // Show/Hide AI Panel
+        var aiPanelItem = new MenuFlyoutItem 
+        { 
+            Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel",
+            Icon = new FontIcon { Glyph = "\uE8EA" } // Magic wand icon (AutoEnhance)
+        };
+        aiPanelItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleAIPanel());
+        flyout.Items.Add(aiPanelItem);
+
+        // Sidebar Side
+        var sideItem = new MenuFlyoutSubItem { Text = "Sidebar Side", Icon = new FontIcon { Glyph = "\uE8A9" } }; // OpenPane icon
+        var leftItem = new MenuFlyoutItem { Text = "Left", Icon = store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
+        leftItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = true);
+        var rightItem = new MenuFlyoutItem { Text = "Right", Icon = !store.SidebarOnLeft ? new FontIcon { Glyph = "\uE73E" } : null }; // CheckMark
+        rightItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.SidebarOnLeft = false);
+        sideItem.Items.Add(leftItem);
+        sideItem.Items.Add(rightItem);
+        flyout.Items.Add(sideItem);
+
+        // Hide Sidebar
+        var hideSidebarItem = new MenuFlyoutItem { Text = "Hide Sidebar", Icon = new FontIcon { Glyph = "\uE76B" } }; // ClosePane
+        hideSidebarItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleSidebar());
+        flyout.Items.Add(hideSidebarItem);
+
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
+        // Settings
+        var settingsItem = new MenuFlyoutItem { Text = "Settings", Icon = new FontIcon { Glyph = "\uE713" } };
+        settingsItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleSettings());
+        flyout.Items.Add(settingsItem);
+    }
 }

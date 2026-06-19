@@ -9,7 +9,7 @@
     xmlns:controls="using:Mori.Controls"
     xmlns:models="using:Mori.Models"
     mc:Ignorable="d">
-    <Grid Background="Transparent">
+    <Grid Background="Transparent" RightTapped="RootGrid_RightTapped">
         <Grid.RowDefinitions>
             <!-- Header: toggle + nav buttons + omnibox -->
             <RowDefinition Height="Auto" />

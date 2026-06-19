@@ -120,6 +120,14 @@ public sealed partial class MoriSidebar : UserControl
         UpdatePositionIcons();
     }
 
+    private void RootGrid_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    {
+        var flyout = new Microsoft.UI.Xaml.Controls.MenuFlyout();
+        Mori.Helpers.MenuBuilder.BuildSidebarMenu(flyout);
+        flyout.ShowAt((Microsoft.UI.Xaml.FrameworkElement)sender, e.GetPosition((Microsoft.UI.Xaml.FrameworkElement)sender));
+        e.Handled = true;
+    }
+
     private void UpdatePositionIcons()
     {
         if (Store == null) return;
