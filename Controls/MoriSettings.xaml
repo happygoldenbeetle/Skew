@@ -7,6 +7,27 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
+    <!-- Reusable Styles for Sections -->
+    <UserControl.Resources>
+        <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <Setter Property="CharacterSpacing" Value="40"/>
+        </Style>
+        <Style x:Key="SectionCardStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Visibility="{x:Bind Store.SettingsVisible, Mode=OneWay}">
         <Border Background="#66000000" Tapped="Scrim_Tapped" />
 
@@ -41,16 +62,65 @@
                         
                         <!-- General -->
                         <StackPanel Spacing="12">
-                            <TextBlock Text="GENERAL" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" CharacterSpacing="40"/>
-                            <Border CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="16">
+                            <TextBlock Text="GENERAL" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <!-- Homepage -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Homepage" Style="{StaticResource FieldLabelStyle}" />
+                                        <TextBox Grid.Column="1" Text="{x:Bind Settings.HomepageURL, Mode=TwoWay}" PlaceholderText="https://..." />
+                                    </Grid>
+                                    
+                                    <!-- New tab opens -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="New tab opens" Style="{StaticResource FieldLabelStyle}" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind NewTabBehaviorIndex, Mode=TwoWay, BindBack=SetNewTabBehaviorIndex}">
+                                            <ComboBoxItem Content="Open homepage" />
+                                            <ComboBoxItem Content="Open a blank page" />
+                                        </ComboBox>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Search -->
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="SEARCH" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
                                 <StackPanel Spacing="14">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="150" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Homepage" VerticalAlignment="Center" />
-                                        <TextBox Grid.Column="1" Text="{x:Bind Settings.HomepageURL, Mode=TwoWay}" PlaceholderText="https://..." />
+                                        <TextBlock Text="Search engine" Style="{StaticResource FieldLabelStyle}" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind SearchEngineIndex, Mode=TwoWay, BindBack=SetSearchEngineIndex}">
+                                            <ComboBoxItem Content="Google" />
+                                            <ComboBoxItem Content="Bing" />
+                                            <ComboBoxItem Content="DuckDuckGo" />
+                                            <ComboBoxItem Content="Custom..." />
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Custom URL (visible only if Custom is selected) -->
+                                    <Grid Visibility="{x:Bind CustomSearchVisibility, Mode=OneWay}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Custom URL" Style="{StaticResource FieldLabelStyle}" />
+                                        <StackPanel Grid.Column="1" Spacing="4">
+                                            <TextBox Text="{x:Bind Settings.CustomSearchTemplate, Mode=TwoWay}" PlaceholderText="https://example.com/?q={query}" />
+                                            <TextBlock Text="Use {query} where the search terms should go." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                                        </StackPanel>
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -58,11 +128,116 @@
 
                         <!-- Appearance -->
                         <StackPanel Spacing="12">
-                            <TextBlock Text="APPEARANCE" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" CharacterSpacing="40"/>
-                            <Border CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="16">
+                            <TextBlock Text="APPEARANCE" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
                                 <StackPanel Spacing="14">
-                                    <ToggleSwitch Header="Show sidebar on launch" IsOn="{x:Bind Settings.ShowSidebarOnLaunch, Mode=TwoWay}" />
+                                    <!-- Theme -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Theme" Style="{StaticResource FieldLabelStyle}" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind ThemeIndex, Mode=TwoWay, BindBack=SetThemeIndex}">
+                                            <ComboBoxItem Content="System" />
+                                            <ComboBoxItem Content="Light" />
+                                            <ComboBoxItem Content="Dark" />
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Sidebar side -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Sidebar side" Style="{StaticResource FieldLabelStyle}" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind SidebarPositionIndex, Mode=TwoWay, BindBack=SetSidebarPositionIndex}">
+                                            <ComboBoxItem Content="Left" />
+                                            <ComboBoxItem Content="Right" />
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Show sidebar on launch -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Show tab sidebar on launch" Style="{StaticResource FieldLabelStyle}" />
+                                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.ShowSidebarOnLaunch, Mode=TwoWay}" />
+                                    </Grid>
+
+                                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,4" />
+
+                                    <!-- Color theme -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Color theme" Style="{StaticResource FieldLabelStyle}" />
+                                        <TextBlock Text="Pick an anime-inspired theme to wash the chrome and accent." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        
+                                        <!-- Placeholder for ThemePicker -->
+                                        <Border CornerRadius="6" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" Height="60" Margin="0,8,0,0">
+                                            <TextBlock Text="Theme Grid coming soon..." Foreground="{ThemeResource TextFillColorDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                    </StackPanel>
                                 </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Media -->
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="MEDIA" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Automatic Picture in Picture" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock Text="Pop a playing video out when you switch tabs." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsOn="{x:Bind Settings.AutoPiP, Mode=TwoWay}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Extensions -->
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="EXTENSIONS" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <TextBlock Text="No extensions installed." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    
+                                    <Button Content="Add Extension..." Style="{ThemeResource DefaultButtonStyle}" Margin="0,4,0,0" />
+                                    
+                                    <TextBlock Text="Load unpacked Chrome extensions (the folder containing manifest.json). Mori runs supported content scripts, extension pages, popups, and background/event scripts inside its own Chromium engine." 
+                                               FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- About -->
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="ABOUT" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Mori Logo placeholder using FontIcon for now -->
+                                    <FontIcon Glyph="&#xE8A5;" FontSize="40" Foreground="{ThemeResource SystemAccentColor}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                                    
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="Mori" FontSize="15" FontWeight="SemiBold" />
+                                        <TextBlock Text="A native Windows browser powered by Chromium (CefSharp)." FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="Version 0.1.0" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
                             </Border>
                         </StackPanel>
 
