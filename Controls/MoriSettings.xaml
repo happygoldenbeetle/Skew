@@ -36,7 +36,7 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             CornerRadius="10"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1">
             <Border.Shadow>
