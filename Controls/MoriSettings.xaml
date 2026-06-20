@@ -106,6 +106,7 @@
                                             <ComboBoxItem Content="Google" />
                                             <ComboBoxItem Content="Bing" />
                                             <ComboBoxItem Content="DuckDuckGo" />
+                                            <ComboBoxItem Content="Brave" />
                                             <ComboBoxItem Content="Custom..." />
                                         </ComboBox>
                                     </Grid>
@@ -121,6 +122,26 @@
                                             <TextBox Text="{x:Bind Settings.CustomSearchTemplate, Mode=TwoWay}" PlaceholderText="https://example.com/?q={query}" />
                                             <TextBlock Text="Use {query} where the search terms should go." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                                         </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Privacy -->
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="PRIVACY" Style="{StaticResource SectionHeaderStyle}" />
+                            <Border Style="{StaticResource SectionCardStyle}">
+                                <StackPanel Spacing="14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Block ads" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock Text="Use Mori's bundled Block List Project ads list." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsOn="{x:Bind Settings.BlockAds, Mode=TwoWay}" />
                                     </Grid>
                                 </StackPanel>
                             </Border>

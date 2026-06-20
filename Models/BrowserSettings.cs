@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 namespace Mori.Models;
 
 public enum NewTabBehavior { Homepage, Blank, Dashboard }
-public enum SearchEngine { Google, Bing, DuckDuckGo, Custom }
+public enum SearchEngine { Google, Bing, DuckDuckGo, Brave, Custom }
 public enum SidebarPosition { Left, Right }
 
 public partial class BrowserSettings : ObservableObject
@@ -31,6 +31,9 @@ public partial class BrowserSettings : ObservableObject
 
     [ObservableProperty]
     private bool _showSidebarOnLaunch = true;
+
+    [ObservableProperty]
+    private bool _blockAds = true;
 
     [ObservableProperty]
     private bool _autoPiP = false;
