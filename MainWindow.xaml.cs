@@ -323,10 +323,10 @@ public sealed partial class MainWindow : Window
     private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         SidebarPeekHost.Height = e.NewSize.Height;
-        UpdateSidebarPopupPosition();
+        UpdateSidebarPopupPosition(e.NewSize.Width);
     }
 
-    private void UpdateSidebarPopupPosition()
+    private void UpdateSidebarPopupPosition(double width)
     {
         if (Store.SidebarOnLeft)
         {
@@ -336,7 +336,7 @@ public sealed partial class MainWindow : Window
         else
         {
             SidebarPeekBorder.Margin = new Thickness(0, 8, 8, 8);
-            SidebarPeekPopup.HorizontalOffset = RootGrid.ActualWidth - 268;
+            SidebarPeekPopup.HorizontalOffset = width - 268;
         }
         SidebarPeekPopup.VerticalOffset = 0;
     }
@@ -349,7 +349,7 @@ public sealed partial class MainWindow : Window
             _sidebarAnimStoryboard?.Stop();
         }
 
-        UpdateSidebarPopupPosition();
+        UpdateSidebarPopupPosition(RootGrid.ActualWidth);
 
         if (Store.SidebarOnLeft)
         {
@@ -676,7 +676,7 @@ public sealed partial class MainWindow : Window
         
         _sidebarAnimStoryboard?.Stop();
         
-        UpdateSidebarPopupPosition();
+        UpdateSidebarPopupPosition(RootGrid.ActualWidth);
         
         // Animate the internal Transform freely inside the locked HWND
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
