@@ -201,6 +201,17 @@
                                             <TextBlock Text="Theme Grid coming soon..." Foreground="{ThemeResource TextFillColorDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                     </StackPanel>
+
+                                    <!-- Solid color -->
+                                    <StackPanel Spacing="4" Margin="0,8,0,0">
+                                        <TextBlock Text="Solid color" Style="{StaticResource FieldLabelStyle}" />
+                                        <TextBlock Text="Or wash the chrome in a single flat color." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        
+                                        <!-- Placeholder for SolidThemeSwatches -->
+                                        <Border CornerRadius="6" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" Height="40" Margin="0,8,0,0">
+                                            <TextBlock Text="Solid Swatches coming soon..." Foreground="{ThemeResource TextFillColorDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -232,9 +243,12 @@
                                 <StackPanel Spacing="14">
                                     <TextBlock Text="No extensions installed." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     
-                                    <Button Content="Add Extension..." Style="{ThemeResource DefaultButtonStyle}" Margin="0,4,0,0" />
+                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                                        <Button Content="Load Unpacked..." Style="{ThemeResource DefaultButtonStyle}" />
+                                        <Button Content="Manage..." Style="{ThemeResource DefaultButtonStyle}" />
+                                    </StackPanel>
                                     
-                                    <TextBlock Text="Load unpacked Chrome extensions (the folder containing manifest.json). Mori runs supported content scripts, extension pages, popups, and background/event scripts inside its own Chromium engine." 
+                                    <TextBlock Text="Extensions are installed and managed by Chrome's native extension service." 
                                                FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                                 </StackPanel>
                             </Border>
