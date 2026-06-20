@@ -17,7 +17,7 @@ public sealed partial class MoriSettings : UserControl
         Settings.PropertyChanged += Settings_PropertyChanged;
     }
 
-    private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+    private void Settings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(Settings.SearchEngine))
         {

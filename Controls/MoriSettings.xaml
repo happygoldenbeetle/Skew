@@ -82,7 +82,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="New tab opens" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind NewTabBehaviorIndex, Mode=TwoWay, BindBack=SetNewTabBehaviorIndex}">
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind NewTabBehaviorIndex, Mode=TwoWay}">
                                             <ComboBoxItem Content="Open homepage" />
                                             <ComboBoxItem Content="Open a blank page" />
                                         </ComboBox>
@@ -102,7 +102,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Search engine" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind SearchEngineIndex, Mode=TwoWay, BindBack=SetSearchEngineIndex}">
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind SearchEngineIndex, Mode=TwoWay}">
                                             <ComboBoxItem Content="Google" />
                                             <ComboBoxItem Content="Bing" />
                                             <ComboBoxItem Content="DuckDuckGo" />
@@ -138,7 +138,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Theme" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind ThemeIndex, Mode=TwoWay, BindBack=SetThemeIndex}">
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind ThemeIndex, Mode=TwoWay}">
                                             <ComboBoxItem Content="System" />
                                             <ComboBoxItem Content="Light" />
                                             <ComboBoxItem Content="Dark" />
@@ -152,7 +152,7 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Sidebar side" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind SidebarPositionIndex, Mode=TwoWay, BindBack=SetSidebarPositionIndex}">
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{x:Bind SidebarPositionIndex, Mode=TwoWay}">
                                             <ComboBoxItem Content="Left" />
                                             <ComboBoxItem Content="Right" />
                                         </ComboBox>
