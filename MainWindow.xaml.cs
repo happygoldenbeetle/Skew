@@ -315,7 +315,6 @@ public sealed partial class MainWindow : Window
             _isPeeking = false;
             _sidebarAnimStoryboard?.Stop();
             SidebarTranslate.X = 0;
-            SidebarBorder.Width = double.NaN; // stretch to fill column
         }
 
         // Position sidebar and AI panel based on side preference
@@ -351,13 +350,11 @@ public sealed partial class MainWindow : Window
         if (Store.SidebarVisible)
         {
             SidebarBorder.Visibility = Visibility.Visible;
-            SidebarBorder.Width = double.NaN; // stretch to fill column
             SidebarTranslate.X = 0;
         }
         else if (!_isPeeking)
         {
             SidebarBorder.Visibility = Visibility.Collapsed;
-            SidebarBorder.Width = 0;
         }
 
         // Reveal button and peek trigger
@@ -641,45 +638,31 @@ public sealed partial class MainWindow : Window
 
         _sidebarAnimStoryboard?.Stop();
 
-        // Make sidebar visible, set column to Auto so it grows with the border width
+        // Make sidebar visible and push CEF aside
         SidebarBorder.Visibility = Visibility.Visible;
         if (Store.SidebarOnLeft)
-            SidebarColumn.Width = GridLength.Auto;
+            SidebarColumn.Width = new GridLength(260);
         else
-            AIPanelColumn.Width = GridLength.Auto;
+            AIPanelColumn.Width = new GridLength(260);
 
-        // Create synchronized dual animation:
-        // 1. Border width: 0 → 260 (smoothly pushes CEF aside via Auto column)
-        // 2. Content translate: -260 → 0 (sidebar content slides in)
-        // The math ensures sidebar right edge = border right edge at every frame
+        // Animate the sidebar sliding in from off-screen
         var easing = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase
         {
             EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut,
             Exponent = 4
         };
-        var duration = TimeSpan.FromMilliseconds(200);
-
-        var widthAnim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            From = 0, To = 260,
-            Duration = duration,
-            EasingFunction = easing
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(widthAnim, SidebarBorder);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(widthAnim, "Width");
 
         var slideAnim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
             From = Store.SidebarOnLeft ? -260 : 260,
             To = 0,
-            Duration = duration,
+            Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = easing
         };
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(slideAnim, SidebarTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(slideAnim, "X");
 
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        _sidebarAnimStoryboard.Children.Add(widthAnim);
         _sidebarAnimStoryboard.Children.Add(slideAnim);
         _sidebarAnimStoryboard.Begin();
     }
@@ -696,28 +679,17 @@ public sealed partial class MainWindow : Window
             EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut,
             Exponent = 4
         };
-        var duration = TimeSpan.FromMilliseconds(200);
-
-        var widthAnim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            To = 0,
-            Duration = duration,
-            EasingFunction = easing
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(widthAnim, SidebarBorder);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(widthAnim, "Width");
 
         var slideAnim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
             To = Store.SidebarOnLeft ? -260 : 260,
-            Duration = duration,
+            Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = easing
         };
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(slideAnim, SidebarTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(slideAnim, "X");
 
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        _sidebarAnimStoryboard.Children.Add(widthAnim);
         _sidebarAnimStoryboard.Children.Add(slideAnim);
 
         _sidebarAnimStoryboard.Completed += (s, e) =>
