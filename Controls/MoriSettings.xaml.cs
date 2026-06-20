@@ -36,17 +36,29 @@ public sealed partial class MoriSettings : UserControl
     }
 
     // Two-Way binding helpers
-    public int NewTabBehaviorIndex => (int)Settings.NewTabBehavior;
-    public void SetNewTabBehaviorIndex(int index) => Settings.NewTabBehavior = (NewTabBehavior)index;
+    public int NewTabBehaviorIndex
+    {
+        get => (int)Settings.NewTabBehavior;
+        set => Settings.NewTabBehavior = (NewTabBehavior)value;
+    }
 
-    public int SearchEngineIndex => (int)Settings.SearchEngine;
-    public void SetSearchEngineIndex(int index) => Settings.SearchEngine = (SearchEngine)index;
+    public int SearchEngineIndex
+    {
+        get => (int)Settings.SearchEngine;
+        set => Settings.SearchEngine = (SearchEngine)value;
+    }
 
-    public int ThemeIndex => (int)Settings.Theme;
-    public void SetThemeIndex(int index) => Settings.Theme = (ElementTheme)index;
+    public int ThemeIndex
+    {
+        get => (int)Settings.Theme;
+        set => Settings.Theme = (ElementTheme)value;
+    }
 
-    public int SidebarPositionIndex => (int)Settings.SidebarPosition;
-    public void SetSidebarPositionIndex(int index) => Settings.SidebarPosition = (SidebarPosition)index;
+    public int SidebarPositionIndex
+    {
+        get => (int)Settings.SidebarPosition;
+        set => Settings.SidebarPosition = (SidebarPosition)value;
+    }
 
     public Visibility CustomSearchVisibility => Settings.SearchEngine == SearchEngine.Custom ? Visibility.Visible : Visibility.Collapsed;
 }
