@@ -14,7 +14,7 @@
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="Transparent">
+    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />
@@ -172,9 +172,8 @@
         <Grid Grid.ColumnSpan="3" Height="12" VerticalAlignment="Top" Background="Transparent" DoubleTapped="TopDragArea_DoubleTapped" ToolTipService.ToolTip="Double-click to maximize" />
 
         <!-- ═══ Settings Flyout ═══ -->
-        <controls:MoriSettings
-            x:Name="SettingsFlyout"
-            Grid.ColumnSpan="3"
-            Canvas.ZIndex="1000" />
+        <Popup x:Name="SettingsPopup" IsOpen="{x:Bind Store.SettingsVisible, Mode=OneWay}" ShouldConstrainToRootBounds="False">
+            <controls:MoriSettings x:Name="SettingsFlyout" />
+        </Popup>
     </Grid>
 </Window>

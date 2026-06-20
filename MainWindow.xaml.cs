@@ -147,6 +147,15 @@ public sealed partial class MainWindow : Window
         SwipeOverlay.UpdateSize(e.NewSize.Width, e.NewSize.Height);
     }
 
+    private void RootGrid_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
+    {
+        if (SettingsFlyout != null)
+        {
+            SettingsFlyout.Width = e.NewSize.Width;
+            SettingsFlyout.Height = e.NewSize.Height;
+        }
+    }
+
     private void SyncLauncherPopupSize()
     {
         // Align the popup perfectly over the web content card
