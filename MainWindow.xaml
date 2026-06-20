@@ -170,5 +170,11 @@
 
         <!-- Top Drag Area (Double-click to Maximize) -->
         <Grid Grid.ColumnSpan="3" Height="12" VerticalAlignment="Top" Background="Transparent" DoubleTapped="TopDragArea_DoubleTapped" ToolTipService.ToolTip="Double-click to maximize" />
+
+        <!-- ═══ Settings Flyout ═══ -->
+        <controls:MoriSettings
+            x:Name="SettingsFlyout"
+            Grid.ColumnSpan="3"
+            Canvas.ZIndex="1000" />
     </Grid>
 </Window>
