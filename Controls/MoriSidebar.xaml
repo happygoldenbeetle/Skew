@@ -38,8 +38,7 @@
                     Grid.Column="0"
                     Width="28" Height="28"
                     Padding="0"
-                    Background="Transparent"
-                    BorderThickness="0"
+                    Style="{StaticResource MoriGhostButtonStyle}"
                     Click="SidebarToggle_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle sidebar">
@@ -58,8 +57,7 @@
                         x:Name="BackButton"
                         Width="28" Height="28"
                         Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
+                        Style="{StaticResource MoriGhostButtonStyle}"
                         Click="Back_Click"
                         CornerRadius="8"
                         ToolTipService.ToolTip="Go back">
@@ -69,8 +67,7 @@
                         x:Name="ForwardButton"
                         Width="28" Height="28"
                         Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
+                        Style="{StaticResource MoriGhostButtonStyle}"
                         Click="Forward_Click"
                         CornerRadius="8"
                         ToolTipService.ToolTip="Go forward">
@@ -80,8 +77,7 @@
                         x:Name="ReloadButton"
                         Width="28" Height="28"
                         Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
+                        Style="{StaticResource MoriGhostButtonStyle}"
                         Click="Reload_Click"
                         CornerRadius="8"
                         ToolTipService.ToolTip="Reload">
@@ -382,8 +378,7 @@
                     x:Name="ThemeToggle"
                     Width="30" Height="30"
                     Padding="0"
-                    Background="Transparent"
-                    BorderThickness="0"
+                    Style="{StaticResource MoriGhostButtonStyle}"
                     Click="ThemeToggle_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Toggle light / dark">
@@ -393,8 +388,7 @@
                 <Button
                     Width="30" Height="30"
                     Padding="0"
-                    Background="Transparent"
-                    BorderThickness="0"
+                    Style="{StaticResource MoriGhostButtonStyle}"
                     Click="Settings_Click"
                     CornerRadius="8"
                     ToolTipService.ToolTip="Settings">
