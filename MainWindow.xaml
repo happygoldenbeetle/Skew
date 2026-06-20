@@ -14,7 +14,7 @@
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged">
+    <Grid x:Name="RootGrid" Background="Transparent">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />
@@ -34,12 +34,17 @@
         </Grid.ColumnDefinitions>
 
         <!-- Film Grain Overlay Removed -->
-        <!-- ═══ Sidebar Placeholder ═══ -->
-        <Border
-            x:Name="SidebarPlaceholder"
-            Grid.Column="0"
-            Width="0"
-            Visibility="Collapsed" />
+        <!-- ═══ Sidebar ═══ -->
+        <Border x:Name="SidebarBorder"
+                Grid.Column="0"
+                Margin="0"
+                PointerEntered="SidebarBorder_PointerEntered"
+                PointerExited="SidebarBorder_PointerExited">
+            <controls:MoriSidebar x:Name="Sidebar" />
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="SidebarTranslate" X="0" Y="0" />
+            </Border.RenderTransform>
+        </Border>
 
         <!-- Peek Trigger Area -->
         <Grid x:Name="PeekTriggerArea"
@@ -129,28 +134,7 @@
                 <controls:SwipeIndicatorOverlay x:Name="SwipeOverlay" />
             </Popup>
         </Grid>
-        
-        <!-- ═══ Sidebar Peek Popup ═══ -->
-        <Popup x:Name="SidebarPeekPopup" ShouldConstrainToRootBounds="False">
-            <Grid x:Name="SidebarPeekHost" Width="268">
-                <Border x:Name="SidebarPeekBorder"
-                        Background="#22201c"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Margin="0,8,8,8"
-                        PointerEntered="SidebarPeekBorder_PointerEntered"
-                        PointerExited="SidebarPeekBorder_PointerExited">
-                    <controls:MoriSidebar x:Name="Sidebar" />
-                    <Border.RenderTransform>
-                        <TranslateTransform x:Name="SidebarPeekTranslate" X="0" Y="0" />
-                    </Border.RenderTransform>
-                    <Border.Shadow>
-                        <ThemeShadow />
-                    </Border.Shadow>
-                </Border>
-            </Grid>
-        </Popup>
+
 
         <!-- ═══ AI Panel ═══ -->
         <controls:MoriAIPanel

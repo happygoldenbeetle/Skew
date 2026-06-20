@@ -35,8 +35,6 @@ public sealed partial class MainWindow : Window
         // Custom title bar — extend into content, no separate bar
         ExtendsContentIntoTitleBar = true;
 
-        RootGrid.Loaded += MainWindow_Loaded;
-
         // Set window size and icon
         var appWindow = AppWindow;
         appWindow.SetIcon("Assets/AppIcon.ico");
@@ -135,18 +133,7 @@ public sealed partial class MainWindow : Window
         // Mica backdrop does not support dynamic tinting like Acrylic
     }
 
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (SidebarPeekPopup.XamlRoot == null && this.Content != null)
-        {
-            SidebarPeekPopup.XamlRoot = this.Content.XamlRoot;
-        }
-        
-        if (!SidebarPeekPopup.IsOpen)
-        {
-            SidebarPeekPopup.IsOpen = true;
-        }
-    }
+
 
     private void Cef_TitleChanged(object sender, string title)
     {
@@ -320,40 +307,20 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        SidebarPeekHost.Height = e.NewSize.Height;
-        UpdateSidebarPopupPosition(e.NewSize.Width);
-    }
-
-    private void UpdateSidebarPopupPosition(double width)
-    {
-        if (Store.SidebarOnLeft)
-        {
-            SidebarPeekBorder.Margin = new Thickness(8, 8, 0, 8);
-            SidebarPeekPopup.HorizontalOffset = 0;
-        }
-        else
-        {
-            SidebarPeekBorder.Margin = new Thickness(0, 8, 8, 8);
-            SidebarPeekPopup.HorizontalOffset = width - 268;
-        }
-        SidebarPeekPopup.VerticalOffset = 0;
-    }
-
     private void UpdateColumnLayout()
     {
+        // If user docks sidebar while peeking, cancel peek
         if (_isPeeking && Store.SidebarVisible)
         {
             _isPeeking = false;
             _sidebarAnimStoryboard?.Stop();
+            SidebarTranslate.X = 0;
         }
 
-        UpdateSidebarPopupPosition(RootGrid.ActualWidth);
-
+        // Position sidebar and AI panel based on side preference
         if (Store.SidebarOnLeft)
         {
-            Grid.SetColumn(SidebarPlaceholder, 0);
+            Grid.SetColumn(SidebarBorder, 0);
             Grid.SetColumn(AIPanel, 2);
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
@@ -362,41 +329,35 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            Grid.SetColumn(SidebarPlaceholder, 2);
+            Grid.SetColumn(SidebarBorder, 2);
             Grid.SetColumn(AIPanel, 0);
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
             SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
             PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Right;
         }
-        
-        SidebarColumn.Width = Store.SidebarOnLeft 
+
+        // Set column widths
+        SidebarColumn.Width = Store.SidebarOnLeft
             ? (Store.SidebarVisible ? new GridLength(260) : new GridLength(0))
             : (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0));
-            
+
         AIPanelColumn.Width = Store.SidebarOnLeft
             ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
             : (Store.SidebarVisible ? new GridLength(260) : new GridLength(0));
 
-        SidebarPlaceholder.Width = Store.SidebarVisible ? 260 : 0;
-        SidebarPlaceholder.Visibility = Store.SidebarVisible ? Visibility.Visible : Visibility.Collapsed;
-
-        // Ensure popup is always open and styled correctly
-        Sidebar.Visibility = Visibility.Visible;
-        Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
-        Sidebar.Width = 260;
-        SidebarPeekBorder.Opacity = 1;
-
-        if (SidebarPeekPopup.XamlRoot != null && !SidebarPeekPopup.IsOpen)
+        // Sidebar visibility
+        if (Store.SidebarVisible)
         {
-            SidebarPeekPopup.IsOpen = true;
+            SidebarBorder.Visibility = Visibility.Visible;
+            SidebarTranslate.X = 0;
+        }
+        else if (!_isPeeking)
+        {
+            SidebarBorder.Visibility = Visibility.Collapsed;
         }
 
-        if (!_isPeeking)
-        {
-            SidebarPeekTranslate.X = Store.SidebarVisible ? 0 : (Store.SidebarOnLeft ? -260 : 260);
-        }
-
+        // Reveal button and peek trigger
         SidebarRevealButton.Visibility = Store.SidebarVisible
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -405,6 +366,7 @@ public sealed partial class MainWindow : Window
             ? Visibility.Collapsed
             : Visibility.Visible;
 
+        // AI Panel
         AIPanel.Visibility = Store.AiPanelVisible
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -653,7 +615,7 @@ public sealed partial class MainWindow : Window
             _peekCloseTimer.Start();
     }
 
-    private void SidebarPeekBorder_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void SidebarBorder_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (_isPeeking)
         {
@@ -661,7 +623,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void SidebarPeekBorder_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void SidebarBorder_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (!_isPeeking) return;
         
@@ -673,12 +635,17 @@ public sealed partial class MainWindow : Window
     {
         if (_isPeeking) return;
         _isPeeking = true;
-        
+
         _sidebarAnimStoryboard?.Stop();
-        
-        UpdateSidebarPopupPosition(RootGrid.ActualWidth);
-        
-        // Animate the internal Transform freely inside the locked HWND
+
+        // Make sidebar visible and reserve column space (pushes CEF aside)
+        SidebarBorder.Visibility = Visibility.Visible;
+        if (Store.SidebarOnLeft)
+            SidebarColumn.Width = new GridLength(260);
+        else
+            AIPanelColumn.Width = new GridLength(260);
+
+        // Animate sidebar sliding in from off-screen
         _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
         var anim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
         {
@@ -687,7 +654,7 @@ public sealed partial class MainWindow : Window
             Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
         _sidebarAnimStoryboard.Children.Add(anim);
         _sidebarAnimStoryboard.Begin();
@@ -707,9 +674,16 @@ public sealed partial class MainWindow : Window
             Duration = TimeSpan.FromMilliseconds(200),
             EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase { EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut, Exponent = 4 }
         };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarPeekTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(anim, SidebarTranslate);
         Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(anim, "X");
         _sidebarAnimStoryboard.Children.Add(anim);
+
+        _sidebarAnimStoryboard.Completed += (s, e) =>
+        {
+            if (_isPeeking) return; // Re-entered peek during exit animation
+            UpdateColumnLayout(); // Properly collapses sidebar and releases column space
+        };
+
         _sidebarAnimStoryboard.Begin();
     }
 }
