@@ -40,10 +40,11 @@
                 Margin="0"
                 PointerEntered="SidebarBorder_PointerEntered"
                 PointerExited="SidebarBorder_PointerExited">
-            <controls:MoriSidebar x:Name="Sidebar" />
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="SidebarTranslate" X="0" Y="0" />
-            </Border.RenderTransform>
+            <controls:MoriSidebar x:Name="Sidebar" Width="260" HorizontalAlignment="Left">
+                <controls:MoriSidebar.RenderTransform>
+                    <TranslateTransform x:Name="SidebarTranslate" X="0" Y="0" />
+                </controls:MoriSidebar.RenderTransform>
+            </controls:MoriSidebar>
         </Border>
 
         <!-- Peek Trigger Area -->
