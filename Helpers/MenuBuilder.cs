@@ -92,6 +92,25 @@ public static class MenuBuilder
 
         flyout.Items.Add(new MenuFlyoutSeparator());
 
+        // Add to Folder
+        if (store.Folders.Any())
+        {
+            var addToFolderItem = new MenuFlyoutSubItem
+            {
+                Text = "Add to Folder",
+                Icon = new FontIcon { Glyph = "\uE8B7" } // Folder icon
+            };
+            foreach (var folder in store.Folders)
+            {
+                var folderItem = new MenuFlyoutItem { Text = folder.Name };
+                // Capture the folder ID explicitly for the closure
+                var fId = folder.Id;
+                folderItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.MoveTab(tab.Id, new FolderTarget(fId, int.MaxValue)));
+                addToFolderItem.Items.Add(folderItem);
+            }
+            flyout.Items.Add(addToFolderItem);
+            flyout.Items.Add(new MenuFlyoutSeparator());
+        }
         // Reload
         var reloadItem = new MenuFlyoutItem
         {
