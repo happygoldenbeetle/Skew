@@ -319,6 +319,14 @@ public sealed partial class MoriSidebar : UserControl
         _themeWindow.Activate();
     }
 
+    private void NewTabInFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+        {
+            Store?.NewTabInFolder(folderId);
+        }
+    }
+
     private void RenameFolder_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is Guid folderId)

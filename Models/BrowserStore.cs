@@ -141,6 +141,20 @@ public partial class BrowserStore : ObservableObject
         return tab;
     }
 
+    public BrowserTab NewTabInFolder(Guid folderId, string url = "mori://newtab/")
+    {
+        var folder = Folders.FirstOrDefault(f => f.Id == folderId);
+        if (folder is null) return NewTab(url);
+
+        string formatted = FormatUrl(url);
+        var tab = new BrowserTab(formatted);
+        Tabs.Add(tab);
+        folder.Tabs.Add(tab);
+        folder.IsExpanded = true;
+        SelectTab(tab.Id);
+        return tab;
+    }
+
     [RelayCommand]
     public void CloseTab(Guid tabId)
     {

@@ -188,6 +188,11 @@
                                     
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
+                                            <MenuFlyoutItem Text="New Tab in Folder" Click="NewTabInFolder_Click" Tag="{x:Bind Id}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE710;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
                                             <MenuFlyoutItem Text="Rename Folder" Click="RenameFolder_Click" Tag="{x:Bind Id}">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xE8AC;" />
