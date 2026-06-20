@@ -52,7 +52,7 @@
 
                 <Grid Grid.Row="0" Height="56" Padding="18,0">
                     <TextBlock Text="Settings" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" />
-                    <Button Content="Done" HorizontalAlignment="Right" VerticalAlignment="Center" Click="Done_Click" Style="{ThemeResource AccentButtonStyle}"/>
+                    <Button x:Name="DoneButton" Content="Done" HorizontalAlignment="Right" VerticalAlignment="Center" Click="Done_Click" Style="{ThemeResource AccentButtonStyle}"/>
                 </Grid>
 
                 <Border Grid.Row="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />

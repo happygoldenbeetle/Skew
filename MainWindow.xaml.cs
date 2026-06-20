@@ -121,6 +121,13 @@ public sealed partial class MainWindow : Window
                     : Visibility.Collapsed;
                 break;
 
+            case nameof(BrowserStore.SettingsVisible):
+                if (Store.SettingsVisible)
+                {
+                    SettingsFlyout.FocusPanel();
+                }
+                break;
+
             case nameof(BrowserStore.SelectedTab):
                 UpdateLoadingBar();
                 ShowSelectedBrowserView();

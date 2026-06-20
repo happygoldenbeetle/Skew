@@ -35,6 +35,11 @@ public sealed partial class MoriSettings : UserControl
         Store.SettingsVisible = false;
     }
 
+    public void FocusPanel()
+    {
+        DoneButton.Focus(FocusState.Programmatic);
+    }
+
     // Two-Way binding helpers
     public int NewTabBehaviorIndex
     {
