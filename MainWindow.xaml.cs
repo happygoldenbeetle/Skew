@@ -128,10 +128,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    public void UpdateGlobalTint(Windows.UI.Color color)
-    {
-        // Mica backdrop does not support dynamic tinting like Acrylic
-    }
+
 
 
 
