@@ -81,7 +81,7 @@
                         Click="Reload_Click"
                         CornerRadius="8"
                         ToolTipService.ToolTip="Reload">
-                        <FontIcon x:Name="ReloadIcon" Glyph="&#xE72C;" FontSize="14" />
+                        <FontIcon x:Name="ReloadIcon" Glyph="&#xE72C;" FontSize="12" />
                     </Button>
                 </StackPanel>
             </Grid>
