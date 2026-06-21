@@ -101,6 +101,9 @@ public static class CefRuntimeHost
             MultiThreadedMessageLoop = false,
             ExternalMessagePump = false,
             BrowserSubprocessPath = Path.Combine(AppContext.BaseDirectory, "Mori.exe"),
+            Locale = "en-US",
+            LocalesDirPath = Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native", "locales"),
+            ResourcesDirPath = AppContext.BaseDirectory
         };
 
         CefRuntime.Initialize(mainArgs, settings, s_app, IntPtr.Zero);

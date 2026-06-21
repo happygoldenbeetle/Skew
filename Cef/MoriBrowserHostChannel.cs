@@ -29,8 +29,8 @@ public static class MoriBrowserHostChannel
     /// <summary>Present a beforeunload confirmation, then continue the callback.</summary>
     public static Action<CefBrowser, string, CefJSDialogCallback>? BeforeUnloadHandler;
 
-    /// <summary>Report download progress (id, path, percent 0-100, complete, canceled).</summary>
-    public static Action<uint, string, int, bool, bool>? DownloadUpdateHandler;
+    /// <summary>Report download progress (id, url, path, received, total, percent 0-100, speed, complete, canceled).</summary>
+    public static Action<uint, string, string, long, long, int, long, bool, bool>? DownloadUpdateHandler;
 
     /// <summary>Present an auth prompt; return true if handled asynchronously.</summary>
     public static Func<CefBrowser, string, int, string, bool, CefAuthCallback, bool>? AuthHandler;
@@ -61,8 +61,8 @@ public static class MoriBrowserHostChannel
     }
 
     internal static void HandleDownloadUpdate(
-        uint id, string path, int percent, bool complete, bool canceled)
-        => DownloadUpdateHandler?.Invoke(id, path ?? "", percent, complete, canceled);
+        uint id, string url, string path, long received, long total, int percent, long speed, bool complete, bool canceled)
+        => DownloadUpdateHandler?.Invoke(id, url ?? "", path ?? "", received, total, percent, speed, complete, canceled);
 
     internal static bool HandleAuthCredentials(
         CefBrowser browser, string host, int port, string realm, bool isProxy,

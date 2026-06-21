@@ -50,6 +50,13 @@ public sealed class BrowserClient : CefClient
     private readonly MoriRequestHandler _request;
     private readonly MoriContextMenuHandler _contextMenu;
 
+    public event EventHandler<BrowserContextMenuEventArgs>? ContextMenuRequested;
+
+    public void InvokeContextMenu(CefBrowser browser, CefFrame frame, BrowserContextMenuEventArgs args)
+    {
+        ContextMenuRequested?.Invoke(this, args);
+    }
+
     public BrowserClient(IBrowserViewDelegate viewDelegate)
     {
         _delegate = viewDelegate;
@@ -105,4 +112,23 @@ public sealed class BrowserClient : CefClient
         => s_downloads[id] = callback;
 
     internal static void ForgetDownload(uint id) => s_downloads.TryRemove(id, out _);
+}
+
+public class BrowserContextMenuEventArgs : EventArgs
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public List<ContextMenuItemModel> Items { get; set; } = new();
+    public Action<int?>? Callback { get; set; }
+}
+
+public class ContextMenuItemModel
+{
+    public int CommandId { get; set; }
+    public string Label { get; set; } = "";
+    public CefMenuItemType Type { get; set; }
+    public bool IsEnabled { get; set; }
+    public bool IsChecked { get; set; }
+    public bool IsVisible { get; set; }
+    public List<ContextMenuItemModel>? SubMenuItems { get; set; }
 }

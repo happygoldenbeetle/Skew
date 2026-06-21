@@ -135,12 +135,103 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
 
         var settings = new CefBrowserSettings();
         _client = new BrowserClient(this);
+        _client.ContextMenuRequested += Client_ContextMenuRequested;
+
         if (ExtensionTabId != 0)
             _client.SetExtensionTabId(ExtensionTabId);
 
         System.IO.File.AppendAllText("crash.log", $"Calling CefBrowserHost.CreateBrowser\n");
         CefBrowserHost.CreateBrowser(windowInfo, _client, settings, _pendingUrl);
         System.IO.File.AppendAllText("crash.log", $"CefBrowserHost.CreateBrowser returned successfully\n");
+    }
+
+    private void Client_ContextMenuRequested(object? sender, BrowserContextMenuEventArgs e)
+    {
+        _dispatcher.TryEnqueue(() =>
+        {
+            var menu = new MenuFlyout();
+
+            bool[] actionChosen = new bool[1] { false };
+
+            foreach (var item in e.Items)
+            {
+                var flyoutItem = CreateMenuItem(item, e.Callback, actionChosen);
+                if (flyoutItem != null)
+                {
+                    menu.Items.Add(flyoutItem);
+                }
+            }
+
+            menu.Closed += (s, args) =>
+            {
+                if (!actionChosen[0])
+                {
+                    e.Callback?.Invoke(null);
+                }
+            };
+
+            menu.ShowAt(this, new Windows.Foundation.Point(e.X, e.Y));
+        });
+    }
+
+    private MenuFlyoutItemBase? CreateMenuItem(ContextMenuItemModel model, Action<int?>? callback, bool[] actionChosen)
+    {
+        if (!model.IsVisible) return null;
+
+        if (model.Type == Xilium.CefGlue.CefMenuItemType.Separator)
+        {
+            return new MenuFlyoutSeparator();
+        }
+        else if (model.Type == Xilium.CefGlue.CefMenuItemType.SubMenu)
+        {
+            var subMenu = new MenuFlyoutSubItem
+            {
+                Text = (model.Label ?? "").Replace("&", ""),
+                IsEnabled = model.IsEnabled
+            };
+
+            if (model.SubMenuItems != null)
+            {
+                foreach (var child in model.SubMenuItems)
+                {
+                    var childItem = CreateMenuItem(child, callback, actionChosen);
+                    if (childItem != null)
+                    {
+                        subMenu.Items.Add(childItem);
+                    }
+                }
+            }
+            return subMenu;
+        }
+        else if (model.Type == Xilium.CefGlue.CefMenuItemType.Check || model.Type == Xilium.CefGlue.CefMenuItemType.Radio)
+        {
+            var toggle = new ToggleMenuFlyoutItem
+            {
+                Text = (model.Label ?? "").Replace("&", ""),
+                IsChecked = model.IsChecked,
+                IsEnabled = model.IsEnabled
+            };
+            toggle.Click += (s, args) =>
+            {
+                actionChosen[0] = true;
+                callback?.Invoke(model.CommandId);
+            };
+            return toggle;
+        }
+        else
+        {
+            var item = new MenuFlyoutItem
+            {
+                Text = (model.Label ?? "").Replace("&", ""),
+                IsEnabled = model.IsEnabled
+            };
+            item.Click += (s, args) =>
+            {
+                actionChosen[0] = true;
+                callback?.Invoke(model.CommandId);
+            };
+            return item;
+        }
     }
 
     private void SyncBrowserFrame()
@@ -198,14 +289,14 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         if (_browser != null && _browser.Identifier == browser.Identifier)
         {
             _browser = null;
+            
+            // CEF has officially destroyed the main browser, now it is safe to destroy the parent HWND.
+            Post(() => 
+            {
+                _hostWindow?.Dispose();
+                _hostWindow = null;
+            });
         }
-        
-        // CEF has officially destroyed the browser, now it is safe to destroy the parent HWND.
-        Post(() => 
-        {
-            _hostWindow?.Dispose();
-            _hostWindow = null;
-        });
     }
 
     void IBrowserViewDelegate.OnTitleChange(string title)
@@ -324,7 +415,12 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         if (targetHwnd == nint.Zero) return;
         HostPanel.CapturePointer(e.Pointer);
         var pt = e.GetCurrentPoint(this);
-        PostMessage(targetHwnd, 0x0201, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        
+        uint msg = 0x0201; // WM_LBUTTONDOWN
+        if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.RightButtonPressed) msg = 0x0204; // WM_RBUTTONDOWN
+        else if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.MiddleButtonPressed) msg = 0x0207; // WM_MBUTTONDOWN
+        
+        PostMessage(targetHwnd, msg, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
         _browser?.GetHost().SetFocus(true);
         e.Handled = true;
     }
@@ -344,7 +440,12 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         if (targetHwnd == nint.Zero) return;
         HostPanel.ReleasePointerCapture(e.Pointer);
         var pt = e.GetCurrentPoint(this);
-        PostMessage(targetHwnd, 0x0202, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        
+        uint msg = 0x0202; // WM_LBUTTONUP
+        if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.RightButtonReleased) msg = 0x0205; // WM_RBUTTONUP
+        else if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.MiddleButtonReleased) msg = 0x0208; // WM_MBUTTONUP
+        
+        PostMessage(targetHwnd, msg, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
         e.Handled = true;
     }
 

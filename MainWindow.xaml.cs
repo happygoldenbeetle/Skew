@@ -81,9 +81,16 @@ public sealed partial class MainWindow : Window
         // Listen for trackpad swipes globally
         Content.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Content_PointerWheelChanged), true);
 
-        // Route CEF in-page shortcut presses to the same handler as native
-        // chrome (mac OnPreKeyEvent → MoriRoot.handleShortcutEvent).
+        // Wire CEF callbacks
         Mori.Cef.MoriBrowserHostChannel.ShortcutHandler = HandleCefShortcut;
+        Mori.Cef.MoriBrowserHostChannel.DownloadUpdateHandler = (id, url, path, received, total, percent, speed, complete, canceled) =>
+        {
+            DispatcherQueue.TryEnqueue(() => 
+            {
+                var filename = System.IO.Path.GetFileName(path);
+                Mori.Models.DownloadStore.Shared.Ingest(id, url, filename, path, received, total, percent, speed, complete, canceled, !complete && !canceled);
+            });
+        };
 
         // Show the selected tab's CEF browser view in the web-content card.
         ShowSelectedBrowserView();

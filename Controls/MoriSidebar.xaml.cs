@@ -38,15 +38,48 @@ public sealed partial class MoriSidebar : UserControl
 
     public bool HasPins => Store?.PinnedTabs.Count > 0;
 
+    private bool _downloadsAcknowledged = false;
+
     public MoriSidebar()
     {
         InitializeComponent();
         Loaded += MoriSidebar_Loaded;
+        DownloadStore.Shared.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(DownloadStore.ActivityToken))
+            {
+                _downloadsAcknowledged = false;
+                UpdateDownloadPulse();
+            }
+            else if (e.PropertyName == nameof(DownloadStore.HasActiveDownloads))
+            {
+                UpdateDownloadPulse();
+            }
+        };
+    }
+
+    private void UpdateDownloadPulse()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (DownloadStore.Shared.HasActiveDownloads && !_downloadsAcknowledged)
+            {
+                DownloadPulseAnim.Begin();
+            }
+            else
+            {
+                DownloadPulseAnim.Stop();
+                DownloadsButton.ClearValue(UIElement.OpacityProperty);
+                DownloadsButton.Opacity = 1.0;
+            }
+        });
     }
 
     private void MoriSidebar_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshUI();
+        DownloadsButton.Visibility = Visibility.Visible;
+        UpdateDownloadPulse();
     }
 
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -157,6 +190,12 @@ public sealed partial class MoriSidebar : UserControl
 
     private void Reload_Click(object sender, RoutedEventArgs e)
         => Store?.Reload();
+
+    private void DownloadsFlyout_Opened(object sender, object e)
+    {
+        _downloadsAcknowledged = true;
+        UpdateDownloadPulse();
+    }
 
     private void Omnibox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
     {

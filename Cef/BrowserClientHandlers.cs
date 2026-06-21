@@ -129,7 +129,7 @@ internal sealed class MoriDownloadHandler : CefDownloadHandler
             BrowserClient.RegisterDownload(id, callback);
 
         MoriBrowserHostChannel.HandleDownloadUpdate(
-            id, downloadItem.FullPath, downloadItem.PercentComplete,
+            id, downloadItem.Url, downloadItem.FullPath, downloadItem.ReceivedBytes, downloadItem.TotalBytes, downloadItem.PercentComplete, downloadItem.CurrentSpeed,
             downloadItem.IsComplete, downloadItem.IsCanceled);
     }
 }
@@ -245,10 +245,197 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
     protected override void OnBeforeContextMenu(
         CefBrowser browser, CefFrame frame, CefContextMenuParams state, CefMenuModel model)
     {
+        bool isImage = state.HasImageContents;
+        bool isLink = !string.IsNullOrEmpty(state.UnfilteredLinkUrl);
+
+        if (isImage || isLink)
+        {
+            // Remove generic CEF items that don't belong on links/images
+            model.Remove((int)CefMenuId.Back);
+            model.Remove((int)CefMenuId.Forward);
+            model.Remove((int)CefMenuId.Reload);
+            model.Remove((int)CefMenuId.ReloadNoCache);
+            model.Remove((int)CefMenuId.StopLoad);
+            model.Remove((int)CefMenuId.Print);
+            model.Remove((int)CefMenuId.ViewSource);
+            model.Remove((int)CefMenuId.Undo);
+            model.Remove((int)CefMenuId.Redo);
+            model.Remove((int)CefMenuId.Cut);
+            model.Remove((int)CefMenuId.Copy);
+            model.Remove((int)CefMenuId.Paste);
+            model.Remove((int)CefMenuId.Delete);
+            model.Remove((int)CefMenuId.SelectAll);
+            model.Remove((int)CefMenuId.Find);
+        }
+
+        if (isImage)
+        {
+            model.InsertSeparatorAt(0);
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 6, "Copy image address");
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 5, "Save image as...");
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 4, "Open image in new tab");
+        }
+
+        if (isLink)
+        {
+            model.InsertSeparatorAt(0);
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 3, "Copy link address");
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 2, "Save link as...");
+            model.InsertSeparatorAt(0);
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 9, "Open link in incognito window");
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 8, "Open link in new window");
+            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 1, "Open link in new tab");
+        }
+
+        // Add "Reload" for standard page clicks if it's missing (usually below Forward)
+        if ((state.ContextMenuType & CefContextMenuTypeFlags.Page) != 0 && !isImage && !isLink)
+        {
+            model.InsertItemAt(2, (int)CefMenuId.Reload, "Reload");
+        }
+
+        // Add Inspect at the bottom
+        model.AddSeparator();
+        model.AddItem((int)CefMenuId.CustomFirst + 7, "Inspect");
+
+        // Clean up any consecutive/trailing separators left over from removing generic items
+        bool lastWasSeparator = true; // true initially to strip leading separators
+        for (int i = 0; i < (int)model.Count;)
+        {
+            nuint idx = (nuint)i;
+            if (model.GetItemTypeAt(idx) == CefMenuItemType.Separator)
+            {
+                if (lastWasSeparator)
+                {
+                    model.RemoveAt(idx);
+                }
+                else
+                {
+                    lastWasSeparator = true;
+                    i++;
+                }
+            }
+            else
+            {
+                lastWasSeparator = false;
+                i++;
+            }
+        }
+        
+        // Strip trailing separator
+        if ((int)model.Count > 0 && model.GetItemTypeAt((nuint)((int)model.Count - 1)) == CefMenuItemType.Separator)
+        {
+            model.RemoveAt((nuint)((int)model.Count - 1));
+        }
     }
 
     protected override bool OnContextMenuCommand(
-        CefBrowser browser, CefFrame frame, CefContextMenuParams state, int commandId,
-        CefEventFlags eventFlags)
-        => false;
+        CefBrowser browser, CefFrame frame, CefContextMenuParams state, int commandId, CefEventFlags eventFlags)
+    {
+        if (commandId == (int)CefMenuId.CustomFirst + 1) // Open link in new tab
+        {
+            _client.Delegate?.OnOpenUrlFromTab(state.UnfilteredLinkUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 8) // Open link in new window
+        {
+            // Fallback to new tab for now since we are single-window
+            _client.Delegate?.OnOpenUrlFromTab(state.UnfilteredLinkUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 9) // Open link in incognito window
+        {
+            // Fallback to new tab for now
+            _client.Delegate?.OnOpenUrlFromTab(state.UnfilteredLinkUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 2) // Save link as
+        {
+            browser.GetHost().StartDownload(state.UnfilteredLinkUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 3) // Copy link address
+        {
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            dp.SetText(state.UnfilteredLinkUrl);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 4) // Open image in new tab
+        {
+            _client.Delegate?.OnOpenUrlFromTab(state.SourceUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 5) // Save image as
+        {
+            browser.GetHost().StartDownload(state.SourceUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 6) // Copy image address
+        {
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            dp.SetText(state.SourceUrl);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 7) // Inspect
+        {
+            var windowInfo = CefWindowInfo.Create();
+            browser.GetHost().ShowDevTools(windowInfo, new BrowserClient(null!), new CefBrowserSettings(), new CefPoint(state.X, state.Y));
+            return true;
+        }
+        return false;
+    }
+
+    protected override bool RunContextMenu(
+        CefBrowser browser, CefFrame frame, CefContextMenuParams state, CefMenuModel model,
+        CefRunContextMenuCallback callback)
+    {
+        var items = ParseMenuModel(model);
+        var args = new BrowserContextMenuEventArgs
+        {
+            X = state.X,
+            Y = state.Y,
+            Items = items,
+            Callback = (cmdId) =>
+            {
+                if (cmdId.HasValue)
+                    callback.Continue(cmdId.Value, CefEventFlags.None);
+                else
+                    callback.Cancel();
+            }
+        };
+
+        _client.InvokeContextMenu(browser, frame, args);
+        return true; // Return true to indicate we handled the context menu display
+    }
+
+    private List<ContextMenuItemModel> ParseMenuModel(CefMenuModel model)
+    {
+        var items = new List<ContextMenuItemModel>();
+        for (int i = 0; i < (int)model.Count; i++)
+        {
+            nuint idx = (nuint)i;
+            var item = new ContextMenuItemModel
+            {
+                CommandId = model.GetCommandIdAt(idx),
+                Label = model.GetLabelAt(idx),
+                Type = model.GetItemTypeAt(idx),
+                IsEnabled = model.IsEnabledAt(idx),
+                IsChecked = model.IsCheckedAt(idx),
+                IsVisible = model.IsVisibleAt(idx)
+            };
+
+            if (item.Type == CefMenuItemType.SubMenu)
+            {
+                var subModel = model.GetSubMenuAt(idx);
+                if (subModel != null)
+                {
+                    item.SubMenuItems = ParseMenuModel(subModel);
+                }
+            }
+            items.Add(item);
+        }
+        return items;
+    }
+
 }

@@ -11,6 +11,19 @@
     mc:Ignorable="d"
     IsTabStop="True"
     UseSystemFocusVisuals="False">
+    
+    <UserControl.Resources>
+        <Storyboard x:Name="DownloadPulseAnim" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="DownloadsButton"
+                             Storyboard.TargetProperty="Opacity"
+                             From="1.0" To="0.4" Duration="0:0:0.7">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </UserControl.Resources>
+
     <Grid Background="Transparent" RightTapped="RootGrid_RightTapped">
         <Grid.RowDefinitions>
             <!-- Header: toggle + nav buttons + omnibox -->
@@ -363,6 +376,27 @@
                 Grid.Column="2"
                 Orientation="Horizontal"
                 Spacing="2">
+                <Button
+                        x:Name="DownloadsButton"
+                        Width="30"
+                        Height="30"
+                        Padding="0"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        CornerRadius="8"
+                        ToolTipService.ToolTip="Downloads"
+                        Visibility="Visible">
+                        <Button.Content>
+                            <Grid>
+                                <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}" IsIndeterminate="False" Width="18" Height="18" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"/>
+                                <FontIcon x:Name="DownloadsIcon" Glyph="&#xE896;" FontSize="12" />
+                            </Grid>
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout Placement="TopEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="DownloadsFlyout_Opened">
+                                <controls:DownloadsPanel />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                 <Button
                     x:Name="PositionToggle"
                     Width="30" Height="30"

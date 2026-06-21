@@ -23,6 +23,8 @@ public partial class BrowserStore : ObservableObject
     /// </summary>
     public ObservableCollection<BrowserTab> LooseTabs { get; } = [];
 
+    public DownloadStore Downloads => DownloadStore.Shared;
+
     [ObservableProperty]
     private BrowserTab? _selectedTab;
 
