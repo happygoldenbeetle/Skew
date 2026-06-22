@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:models="using:Mori.Models"
     mc:Ignorable="d">
 
     <!-- Reusable Styles for Sections -->
@@ -241,14 +242,39 @@
                             <TextBlock Text="EXTENSIONS" Style="{StaticResource SectionHeaderStyle}" />
                             <Border Style="{StaticResource SectionCardStyle}">
                                 <StackPanel Spacing="14">
-                                    <TextBlock Text="No extensions installed." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    
+                                    <ItemsControl ItemsSource="{x:Bind ExtensionsStore.Extensions, Mode=OneWay}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:BrowserExtension">
+                                                <Grid Margin="0,0,0,12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="14" />
+                                                        <TextBlock Text="{x:Bind Detail}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{x:Bind Path}" FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsOn="{x:Bind Enabled, Mode=TwoWay}" Toggled="ExtensionToggle_Toggled" Tag="{x:Bind Id}" Margin="12,0" />
+                                                    <Button Grid.Column="2" Content="Remove" VerticalAlignment="Center" Click="RemoveExtension_Click" Tag="{x:Bind Id}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
                                     <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
-                                        <Button Content="Load Unpacked..." Style="{ThemeResource DefaultButtonStyle}" />
-                                        <Button Content="Manage..." Style="{ThemeResource DefaultButtonStyle}" />
+                                        <Button Content="Load unpacked extension..." Click="LoadUnpackedExtension_Click" />
                                     </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                                        <TextBox x:Name="WebStoreUrlBox" PlaceholderText="Paste Web Store URL or ID" Width="250" />
+                                        <Button Content="Install from Web Store" Click="InstallFromWebStore_Click" />
+                                        <ProgressRing x:Name="WebStoreInstallProgress" IsActive="False" Visibility="Collapsed" Width="20" Height="20" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="WebStoreErrorText" Foreground="Red" Visibility="Collapsed" TextWrapping="Wrap" />
                                     
-                                    <TextBlock Text="Extensions are installed and managed by Chrome's native extension service." 
+                                    <TextBlock Text="Load unpacked Chrome extensions (the folder containing manifest.json). Mori runs supported content scripts inside its own Chromium engine." 
                                                FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                                 </StackPanel>
                             </Border>

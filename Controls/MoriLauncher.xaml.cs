@@ -96,6 +96,7 @@ public sealed partial class MoriLauncher : UserControl
         if (store is null) return;
 
         var text = SearchBox.Text?.Trim().ToLowerInvariant();
+        var rawText = SearchBox.Text?.Trim();
         
         _launcherItems.Clear();
 
@@ -108,6 +109,17 @@ public sealed partial class MoriLauncher : UserControl
         {
             foreach (var t in store.Tabs.Where(t => (t.Title?.ToLowerInvariant().Contains(text) ?? false) || (t.UrlString?.ToLowerInvariant().Contains(text) ?? false)).Take(7))
                 _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "", Subtitle = t.DisplayUrl });
+            
+            // Fallback action
+            bool isUrl = rawText != null && (rawText.Contains("://") || rawText.StartsWith("about:") || (rawText.Contains('.') && !rawText.Contains(' ')));
+            if (isUrl)
+            {
+                _launcherItems.Add(new LauncherItem { Title = $"Open {rawText}", Subtitle = "Open URL" });
+            }
+            else
+            {
+                _launcherItems.Add(new LauncherItem { Title = $"Search for \"{rawText}\"", Subtitle = "Google Search" });
+            }
         }
 
         if (_launcherItems.Count > 0)
@@ -160,7 +172,7 @@ public sealed partial class MoriLauncher : UserControl
             var text = SearchBox.Text?.Trim();
             if (!string.IsNullOrEmpty(text))
             {
-                GetStore()?.NewTab($"https://google.com/search?q={System.Uri.EscapeDataString(text)}");
+                GetStore()?.NewTab(text);
             }
         }
         else if (item.Tab != null)

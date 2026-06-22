@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Xilium.CefGlue;
@@ -35,42 +36,10 @@ internal static class MoriExtensionCatalog
         if (string.IsNullOrEmpty(extensionId))
             return null;
 
-        string? json = Environment.GetEnvironmentVariable(EnvironmentCatalogKey);
-        if (string.IsNullOrEmpty(json))
-            return null;
-
-        try
+        var ext = Mori.Models.ExtensionStore.Shared.Extensions.FirstOrDefault(x => string.Equals(x.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        if (ext != null && ext.Enabled)
         {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                return null;
-
-            foreach (var item in doc.RootElement.EnumerateArray())
-            {
-                if (item.ValueKind != JsonValueKind.Object)
-                    continue;
-                if (!item.TryGetProperty("id", out var idEl) ||
-                    !item.TryGetProperty("path", out var pathEl) ||
-                    !item.TryGetProperty("enabled", out var enabledEl))
-                    continue;
-                if (enabledEl.ValueKind != JsonValueKind.True)
-                    continue;
-
-                string? id = idEl.GetString();
-                string? path = pathEl.GetString();
-                if (id is null || path is null)
-                    continue;
-                if (!string.Equals(id, extensionId, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                string standardized = Path.GetFullPath(path);
-                if (Directory.Exists(standardized))
-                    return standardized;
-            }
-        }
-        catch (JsonException)
-        {
-            return null;
+            return ext.Path;
         }
 
         return null;

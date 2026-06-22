@@ -53,6 +53,12 @@ public partial class BrowserTab : ObservableObject
         {
             if (UrlString == "about:blank") return "";
             if (UrlString.StartsWith("mori://")) return "";
+            if (System.Uri.TryCreate(UrlString, System.UriKind.Absolute, out var uri))
+            {
+                var host = uri.Host;
+                if (host.StartsWith("www.")) host = host.Substring(4);
+                return host;
+            }
             return UrlString;
         }
     }
@@ -99,18 +105,20 @@ public partial class BrowserTab : ObservableObject
         view.UrlChanged += u =>
         {
             UrlString = u;
-            AccentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(u);
+            _accentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(u);
+            OnPropertyChanged(nameof(DisplayUrl));
+            OnPropertyChanged(nameof(IsInternal));
+            OnPropertyChanged(nameof(AccentColorBrush));
             if (!IsInternal && Uri.TryCreate(u, UriKind.Absolute, out var uri))
             {
                 FaviconUrl = $"https://www.google.com/s2/favicons?domain={uri.Host}&sz=128";
             }
-            OnPropertyChanged(nameof(DisplayUrl));
         };
-        view.LoadingStateChanged += (loading, back, forward) =>
+        view.LoadingStateChanged += (isLoading, canGoBack, canGoForward) =>
         {
-            IsLoading = loading;
-            CanGoBack = back;
-            CanGoForward = forward;
+            IsLoading = isLoading;
+            CanGoBack = canGoBack;
+            CanGoForward = canGoForward;
         };
         view.FaviconUrlsChanged += urls =>
         {
@@ -119,10 +127,7 @@ public partial class BrowserTab : ObservableObject
             foreach (var url in urls)
             {
                 var lower = url.ToLower();
-                // SVGs are the highest quality since they are resolution-independent
                 if (lower.EndsWith(".svg")) { best = url; break; }
-                
-                // Fallback to high-res PNGs
                 if (lower.Contains("apple-touch-icon") && !best.ToLower().EndsWith(".svg")) { best = url; }
                 if (lower.EndsWith(".png") && !best.ToLower().EndsWith(".svg") && !best.ToLower().Contains("apple-touch-icon")) { best = url; }
             }
@@ -130,7 +135,19 @@ public partial class BrowserTab : ObservableObject
         };
         view.LoadFailed += (_, _) => { DidFail = true; IsLoading = false; };
         view.NavigationFinished += (_, _) => DidFail = false;
+        view.RequestsNewTab += url => Mori.Models.BrowserStore.Shared.NewTab(url);
+        view.FindMatchUpdated += (count, ordinal) =>
+        {
+            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() =>
+            {
+                FindMatchCount = count;
+                FindMatchOrdinal = ordinal;
+            });
+        };
     }
+
+    [ObservableProperty] private int _findMatchCount;
+    [ObservableProperty] private int _findMatchOrdinal;
 
     // ── Navigation (delegates to the CEF browser view) ──
 
@@ -156,6 +173,7 @@ public partial class BrowserTab : ObservableObject
     public void GoForward() => _browserView?.GoForward();
     public void Reload() => _browserView?.Reload();
     public void Stop() => _browserView?.StopLoading();
+    public void ShowDevTools() => _browserView?.ShowDevTools();
 
     /// <summary>Tear down the CEF browser when the tab closes.</summary>
     public void Dispose()
@@ -173,4 +191,34 @@ public partial class BrowserTab : ObservableObject
             ZoomPercent = (int)Math.Round(Math.Pow(1.2, rawLevel) * 100);
         }
     }
+
+    public void ZoomIn()
+    {
+        if (_browserView != null)
+        {
+            _browserView.ZoomIn();
+            SyncZoom();
+        }
+    }
+
+    public void ZoomOut()
+    {
+        if (_browserView != null)
+        {
+            _browserView.ZoomOut();
+            SyncZoom();
+        }
+    }
+
+    public void ZoomReset()
+    {
+        if (_browserView != null)
+        {
+            _browserView.ResetZoom();
+            SyncZoom();
+        }
+    }
+
+    public void Find(string text, bool forward) => _browserView?.FindText(text, forward);
+    public void StopFinding(bool clearSelection) => _browserView?.StopFinding(clearSelection);
 }

@@ -54,6 +54,14 @@ internal sealed class MoriLoadHandler : CefLoadHandler
     {
         // Inject the media/PiP agent into each frame once it finishes loading.
         BrowserClient.InjectMediaAgent(frame);
+        
+        // Inject extension content scripts.
+        BrowserClient.InjectContentScripts(frame);
+
+        // If this is an extension page (mori-extension://), inject the runtime
+        // shim and background scripts so chrome.contextMenus etc. work.
+        BrowserClient.InjectExtensionPageShim(frame);
+
         if (frame.IsMain)
             _client.Delegate?.OnLoadEnd(frame.Url, httpStatusCode);
     }
@@ -94,8 +102,45 @@ internal sealed class MoriDisplayHandler : CefDisplayHandler
             MoriBrowserHostChannel.HandleConsoleMarker(browser, message);
             return true;
         }
+
+        // Extension API bridge: intercept __MORI_EXTENSION__ prefixed messages
+        const string kExtPrefix = "__MORI_EXTENSION__";
+        if (message is not null && message.StartsWith(kExtPrefix, StringComparison.Ordinal))
+        {
+            try
+            {
+                var json = message.Substring(kExtPrefix.Length);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                var requestId = root.GetProperty("requestId").GetString() ?? "";
+                var extensionId = root.GetProperty("extensionId").GetString() ?? "";
+                var method = root.GetProperty("method").GetString() ?? "";
+                var args = root.GetProperty("args");
+
+                var response = ExtensionBridge.HandleRequest(requestId, extensionId, method, args);
+                if (response != null)
+                {
+                    var responseJson = System.Text.Json.JsonSerializer.Serialize(response);
+                    var js = $"if(window.__moriExtResolve)window.__moriExtResolve({responseJson});";
+
+                    var frameIds = browser.GetFrameIdentifiers();
+                    foreach (var fid in frameIds)
+                    {
+                        var f = browser.GetFrame(fid);
+                        f?.ExecuteJavaScript(js, f.Url, 0);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Extension bridge error: {ex.Message}");
+            }
+            return true;
+        }
+
         return false;
     }
+
 
     protected override bool OnCursorChange(CefBrowser browser, IntPtr cursorHandle, CefCursorType type, CefCursorInfo customCursorInfo)
     {
@@ -187,12 +232,34 @@ internal sealed class MoriKeyboardHandler : CefKeyboardHandler
 
         bool ctrl = (keyEvent.Modifiers & CefEventFlags.ControlDown) != 0;
         bool alt = (keyEvent.Modifiers & CefEventFlags.AltDown) != 0;
-        if (!ctrl && !alt)
+        
+        bool isSpecialSingleKey = keyEvent.WindowsKeyCode == (int)Windows.System.VirtualKey.F11 ||
+                                  keyEvent.WindowsKeyCode == (int)Windows.System.VirtualKey.F12 ||
+                                  keyEvent.WindowsKeyCode == (int)Windows.System.VirtualKey.Escape;
+
+        if (!ctrl && !alt && !isSpecialSingleKey)
             return false;
 
         bool handled = MoriBrowserHostChannel.HandleShortcut(
             keyEvent.WindowsKeyCode, keyEvent.Modifiers);
         return handled; // true => don't deliver to the page.
+    }
+}
+
+internal sealed class MoriFocusHandler : CefFocusHandler
+{
+    private readonly BrowserClient _client;
+    public MoriFocusHandler(BrowserClient client) => _client = client;
+
+    protected override void OnGotFocus(CefBrowser browser)
+    {
+        Mori.MainWindow.Instance.DispatcherQueue?.TryEnqueue(() =>
+        {
+            if (Mori.Models.BrowserStore.Shared.FindBarVisible)
+            {
+                Mori.Models.BrowserStore.Shared.FindBarVisible = false;
+            }
+        });
     }
 }
 
@@ -240,6 +307,9 @@ internal sealed class MoriResourceRequestHandler : CefResourceRequestHandler
 internal sealed class MoriContextMenuHandler : CefContextMenuHandler
 {
     private readonly BrowserClient _client;
+    // Map from CefMenuModel command ID → (extensionId, menuItemId) for dispatch
+    private readonly Dictionary<int, (string extensionId, string itemId)> _extensionMenuMap = new();
+
     public MoriContextMenuHandler(BrowserClient client) => _client = client;
 
     protected override void OnBeforeContextMenu(
@@ -326,6 +396,41 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
         {
             model.RemoveAt((nuint)((int)model.Count - 1));
         }
+
+        // ── Extension context menu items ──────────────────────────────────
+        try
+        {
+            _extensionMenuMap.Clear();
+            string pageUrl = frame.Url ?? "";
+            string? linkUrl = string.IsNullOrEmpty(state.UnfilteredLinkUrl) ? null : state.UnfilteredLinkUrl;
+            string? mediaType = isImage ? "image" : null;
+
+            var extItems = ExtensionBridge.GetMenuItemsForContext(pageUrl, linkUrl, mediaType);
+            if (extItems.Count > 0)
+            {
+                model.AddSeparator();
+                int cmdBase = (int)CefMenuId.CustomFirst + 100;
+                for (int i = 0; i < extItems.Count && i < 50; i++)
+                {
+                    int cmdId = cmdBase + i;
+                    // Substitute %s in title with selection text
+                    var title = extItems[i].title;
+                    var selText = state.SelectionText;
+                    if (!string.IsNullOrEmpty(selText))
+                        title = title.Replace("%s", selText);
+                    
+                    if (string.IsNullOrEmpty(title))
+                        title = "Extension Item";
+
+                    model.AddItem(cmdId, title);
+                    _extensionMenuMap[cmdId] = (extItems[i].extensionId, extItems[i].itemId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.IO.File.AppendAllText("crash.log", $"[CRASH OnBeforeContextMenu] {ex}\n");
+        }
     }
 
     protected override bool OnContextMenuCommand(
@@ -380,9 +485,43 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
         if (commandId == (int)CefMenuId.CustomFirst + 7) // Inspect
         {
             var windowInfo = CefWindowInfo.Create();
+            windowInfo.SetAsPopup(App.WindowHandle, "DevTools");
+            windowInfo.Style = (Xilium.CefGlue.Platform.Windows.WindowStyle)((uint)windowInfo.Style | 0x10000000); // WS_VISIBLE
+            windowInfo.Bounds = new CefRectangle(0, 0, 800, 600);
             browser.GetHost().ShowDevTools(windowInfo, new BrowserClient(null!), new CefBrowserSettings(), new CefPoint(state.X, state.Y));
             return true;
         }
+
+        // Extension context menu items
+        if (_extensionMenuMap.TryGetValue(commandId, out var extInfo))
+        {
+            // Build the info object that chrome.contextMenus.onClicked expects
+            var clickInfo = new Dictionary<string, object?>
+            {
+                ["menuItemId"] = extInfo.itemId,
+                ["pageUrl"] = frame.Url ?? "",
+            };
+            if (!string.IsNullOrEmpty(state.UnfilteredLinkUrl))
+                clickInfo["linkUrl"] = state.UnfilteredLinkUrl;
+            if (state.HasImageContents && !string.IsNullOrEmpty(state.SourceUrl))
+                clickInfo["srcUrl"] = state.SourceUrl;
+            if (!string.IsNullOrEmpty(state.SelectionText))
+                clickInfo["selectionText"] = state.SelectionText;
+
+            var infoJson = System.Text.Json.JsonSerializer.Serialize(clickInfo);
+            var tabJson = System.Text.Json.JsonSerializer.Serialize(new { id = 1, url = frame.Url ?? "" });
+            var js = $"if(chrome&&chrome.contextMenus&&chrome.contextMenus.onClicked&&chrome.contextMenus.onClicked._fire)chrome.contextMenus.onClicked._fire({infoJson},{tabJson});";
+
+            // Dispatch to all frames in this browser
+            var frameIds = browser.GetFrameIdentifiers();
+            foreach (var fid in frameIds)
+            {
+                var f = browser.GetFrame(fid);
+                f?.ExecuteJavaScript(js, f.Url, 0);
+            }
+            return true;
+        }
+
         return false;
     }
 

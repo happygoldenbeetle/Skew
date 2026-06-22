@@ -33,6 +33,7 @@ public partial class App : Application
 
     private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
+        try { System.IO.File.WriteAllText("crash.log", $"[CRASH] {e.Exception.Message}\n{e.Exception.StackTrace}"); } catch {}
         System.Console.WriteLine($"[CRASH] {e.Exception.Message}\n{e.Exception.StackTrace}");
     }
 
@@ -43,6 +44,10 @@ public partial class App : Application
         Mori.Cef.CefRuntimeHost.Initialize(
             System.Environment.GetCommandLineArgs(),
             Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+
+        // Pre-initialize ExtensionStore on the UI thread so its ObservableCollection
+        // captures the correct dispatcher, preventing crashes when CEF threads read it.
+        _ = Mori.Models.ExtensionStore.Shared;
 
         Window = new MainWindow();
         Window.Closed += (_, _) => Mori.Cef.CefRuntimeHost.Shutdown();

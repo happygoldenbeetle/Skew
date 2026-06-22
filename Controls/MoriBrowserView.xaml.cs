@@ -537,7 +537,11 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         if (_browser is null)
             return;
         var windowInfo = CefWindowInfo.Create(); // own window
-        _browser.GetHost().ShowDevTools(windowInfo, _client, new CefBrowserSettings(), default);
+        windowInfo.SetAsPopup(App.WindowHandle, "DevTools");
+        windowInfo.Style = (Xilium.CefGlue.Platform.Windows.WindowStyle)((uint)windowInfo.Style | 0x10000000); // WS_VISIBLE
+        windowInfo.Bounds = new CefRectangle(0, 0, 800, 600);
+
+        _browser.GetHost().ShowDevTools(windowInfo, new Cef.BrowserClient(null!), new CefBrowserSettings(), default);
     }
 
     public void CloseDevTools() => _browser?.GetHost().CloseDevTools();

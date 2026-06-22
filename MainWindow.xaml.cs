@@ -123,9 +123,14 @@ public sealed partial class MainWindow : Window
                 break;
 
             case nameof(BrowserStore.FindBarVisible):
-                FindBar.Visibility = Store.FindBarVisible
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                if (Store.FindBarVisible)
+                {
+                    DispatcherQueue.TryEnqueue(() => FindBar.FocusSearchBox());
+                }
+                else
+                {
+                    Store.SelectedTab?.StopFinding(clearSelection: true);
+                }
                 break;
 
             case nameof(BrowserStore.SettingsVisible):
@@ -262,7 +267,7 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            if (key == Windows.System.VirtualKey.F11 || key == Windows.System.VirtualKey.Escape)
+            if (key == Windows.System.VirtualKey.F11 || key == Windows.System.VirtualKey.F12 || key == Windows.System.VirtualKey.Escape)
             {
                 handled = true;
             }
@@ -463,6 +468,11 @@ public sealed partial class MainWindow : Window
         else if (e.Key == Windows.System.VirtualKey.F11)
         {
             ToggleFullScreen();
+            e.Handled = true;
+        }
+        else if (e.Key == Windows.System.VirtualKey.F12)
+        {
+            Store.ShowDevTools();
             e.Handled = true;
         }
     }

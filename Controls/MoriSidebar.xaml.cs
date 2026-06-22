@@ -115,14 +115,7 @@ public sealed partial class MoriSidebar : UserControl
 
     private void SelectedTab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(BrowserTab.DisplayUrl) || e.PropertyName == nameof(BrowserTab.UrlString))
-        {
-            if (Store?.SelectedTab != null)
-            {
-                OmniboxField.Text = Store.SelectedTab.DisplayUrl;
-            }
-        }
-        else if (e.PropertyName == nameof(BrowserTab.CanGoBack) || e.PropertyName == nameof(BrowserTab.CanGoForward))
+        if (e.PropertyName == nameof(BrowserTab.CanGoBack) || e.PropertyName == nameof(BrowserTab.CanGoForward))
         {
             BackButton.IsEnabled = Store?.SelectedTab?.CanGoBack ?? false;
             ForwardButton.IsEnabled = Store?.SelectedTab?.CanGoForward ?? false;
@@ -139,12 +132,6 @@ public sealed partial class MoriSidebar : UserControl
         PinnedGrid.ItemsSource = Store.PinnedTabs;
         FolderList.ItemsSource = Store.Folders;
         LooseTabList.ItemsSource = Store.LooseTabs;
-
-        // Update omnibox with selected tab URL
-        if (Store.SelectedTab is not null)
-        {
-            OmniboxField.Text = Store.SelectedTab.DisplayUrl;
-        }
 
         // Update nav button states
         BackButton.IsEnabled = Store.SelectedTab?.CanGoBack ?? false;
@@ -174,7 +161,7 @@ public sealed partial class MoriSidebar : UserControl
 
     public void FocusOmnibox()
     {
-        OmniboxField.Focus(FocusState.Programmatic);
+        OmniboxField.FocusProgrammatically();
     }
 
     // ── Event Handlers ──
@@ -195,15 +182,6 @@ public sealed partial class MoriSidebar : UserControl
     {
         _downloadsAcknowledged = true;
         UpdateDownloadPulse();
-    }
-
-    private void Omnibox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-    {
-        var text = args.QueryText?.Trim();
-        if (!string.IsNullOrEmpty(text))
-        {
-            Store?.Navigate(text);
-        }
     }
 
     private void NewTab_Click(object sender, RoutedEventArgs e)

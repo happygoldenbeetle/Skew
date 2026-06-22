@@ -18,20 +18,24 @@
                 x:Name="FindTextBox"
                 Width="220"
                 PlaceholderText="Find on page…"
-                CornerRadius="6" />
+                CornerRadius="6"
+                TextChanged="FindTextBox_TextChanged"
+                KeyDown="FindTextBox_KeyDown" />
             <TextBlock
+                x:Name="MatchCountText"
                 Margin="4,0"
                 VerticalAlignment="Center"
                 FontSize="11"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="0 / 0" />
+                Text="{x:Bind FormatMatchCount(Store.SelectedTab.FindMatchCount, Store.SelectedTab.FindMatchOrdinal), Mode=OneWay}" />
             <Button
                 Width="28" Height="28"
                 Padding="0"
                 Background="Transparent"
                 BorderThickness="0"
                 CornerRadius="6"
-                ToolTipService.ToolTip="Previous">
+                ToolTipService.ToolTip="Previous"
+                Click="Prev_Click">
                 <FontIcon FontSize="10" Glyph="&#xE70E;" />
             </Button>
             <Button
@@ -40,7 +44,8 @@
                 Background="Transparent"
                 BorderThickness="0"
                 CornerRadius="6"
-                ToolTipService.ToolTip="Next">
+                ToolTipService.ToolTip="Next"
+                Click="Next_Click">
                 <FontIcon FontSize="10" Glyph="&#xE70D;" />
             </Button>
             <Button

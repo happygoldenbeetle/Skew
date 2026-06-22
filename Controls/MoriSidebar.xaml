@@ -100,14 +100,10 @@
             </Grid>
 
             <!-- Omnibox (address/search bar) -->
-            <AutoSuggestBox
+            <controls:MoriOmnibox
                 x:Name="OmniboxField"
-                PlaceholderText="Search or enter address"
-                QueryIcon="Find"
-                QuerySubmitted="Omnibox_QuerySubmitted"
-                CornerRadius="6"
-                Height="30"
-                MinHeight="30"
+                Store="{x:Bind Store, Mode=OneWay}"
+                Tab="{x:Bind Store.SelectedTab, Mode=OneWay}"
                 VerticalAlignment="Center" />
         </StackPanel>
 

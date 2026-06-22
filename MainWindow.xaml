@@ -122,7 +122,7 @@
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Margin="0,12,20,0"
-                Visibility="Collapsed" />
+                Visibility="{x:Bind Store.FindBarVisible, Mode=OneWay}" />
 
             <!-- ═══ Launcher Overlay (command palette) ═══ -->
             <Popup x:Name="LauncherPopup" Grid.Row="1" Margin="4" IsOpen="False" ShouldConstrainToRootBounds="False">

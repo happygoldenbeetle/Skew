@@ -73,27 +73,6 @@ public partial class BrowserStore : ObservableObject
         Tabs.Add(homeTab);
         LooseTabs.Add(homeTab);
         SelectTab(homeTab.Id);
-
-        // Add sample data for UI development
-        AddSampleData();
-    }
-
-    private void AddSampleData()
-    {
-        // Pinned tabs
-        var pin1 = new BrowserTab("https://github.com", "GitHub");
-        pin1.FaviconUrl = "https://github.githubassets.com/favicons/favicon.svg";
-        var pin2 = new BrowserTab("https://youtube.com", "YouTube");
-        pin2.FaviconUrl = "https://www.youtube.com/s/desktop/favicon.ico";
-        var pin3 = new BrowserTab("https://discord.com", "Discord");
-        pin3.FaviconUrl = "https://discord.com/assets/favicon.ico";
-
-        Tabs.Add(pin1);
-        Tabs.Add(pin2);
-        Tabs.Add(pin3);
-        PinnedTabs.Add(pin1);
-        PinnedTabs.Add(pin2);
-        PinnedTabs.Add(pin3);
     }
 
     // ── Tab actions ──
@@ -179,6 +158,13 @@ public partial class BrowserStore : ObservableObject
 
         tab.Dispose(); // tear down the per-tab CEF browser
 
+        if (Tabs.Count == 0)
+        {
+            // If the last tab was closed, close the application window
+            Mori.App.Window.Close();
+            return;
+        }
+
         // Select adjacent tab if the closed one was selected
         if (SelectedTabId == tabId)
         {
@@ -250,6 +236,18 @@ public partial class BrowserStore : ObservableObject
 
     [RelayCommand]
     public void Stop() => SelectedTab?.Stop();
+
+    [RelayCommand]
+    public void ShowDevTools() => SelectedTab?.ShowDevTools();
+
+    [RelayCommand]
+    public void ZoomIn() => SelectedTab?.ZoomIn();
+
+    [RelayCommand]
+    public void ZoomOut() => SelectedTab?.ZoomOut();
+
+    [RelayCommand]
+    public void ZoomReset() => SelectedTab?.ZoomReset();
 
     // ── Sidebar ──
 
