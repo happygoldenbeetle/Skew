@@ -26,7 +26,7 @@ public sealed partial class MainWindow : Window
     {
         Instance = this;
         _peekCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(160) };
-        _peekCloseTimer.Tick += (s, e) => { _peekCloseTimer.Stop(); ExitPeekMode(); };
+        _peekCloseTimer.Tick += (s, e) => { _peekCloseTimer.Stop(); ExitPeek(); };
 
         this.InitializeComponent();
 
@@ -54,12 +54,36 @@ public sealed partial class MainWindow : Window
             presenter.SetBorderAndTitleBar(true, false);
         }
 
+        // Recreate the floating peek popup whenever the window maximizes/restores
+        // (the windowed popup otherwise stops tracking the owner's bounds).
+        appWindow.Changed += AppWindow_Changed;
+
         // Wire up store state to UI
         Store.PropertyChanged += Store_PropertyChanged;
 
-        // Set initial sidebar data context
+        // Set initial sidebar data context. There are two MoriSidebar instances
+        // bound to the same store: the docked one (visible state) and the one
+        // inside the floating peek popup (hidden state) — mirroring mac, which
+        // instantiates a separate Sidebar inside its peek overlay.
         Sidebar.DataContext = Store;
         Sidebar.Store = Store;
+        PeekSidebar.DataContext = Store;
+        PeekSidebar.Store = Store;
+
+        // Pre-warm the peek popup once the visual tree (and XamlRoot) is ready,
+        // so the first hover doesn't pay the popup-creation lag.
+        RootGrid.Loaded += (s, e) =>
+        {
+            EnsurePeekReady();
+            UpdateColumnLayout();
+        };
+
+        // Keep the floating peek card's themed brushes in sync with light/dark.
+        ThemeService.Instance.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(ThemeService.Palette))
+                DispatcherQueue.TryEnqueue(ApplyPeekTheme);
+        };
 
         // Apply initial layout state
         UpdateColumnLayout();
@@ -173,6 +197,9 @@ public sealed partial class MainWindow : Window
             SettingsFlyout.Width = e.NewSize.Width;
             SettingsFlyout.Height = e.NewSize.Height;
         }
+
+        if (_peekReady && !Store.SidebarVisible)
+            LayoutPeek();
     }
 
     private void SyncLauncherPopupSize()
@@ -338,8 +365,8 @@ public sealed partial class MainWindow : Window
         if (_isPeeking && Store.SidebarVisible)
         {
             _isPeeking = false;
+            _peekCloseTimer.Stop();
             _sidebarAnimStoryboard?.Stop();
-            SidebarTranslate.X = 0;
         }
 
         // Position sidebar and AI panel based on side preference
@@ -350,7 +377,6 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
             SidebarRevealButton.Margin = new Thickness(16, 16, 0, 0);
-            PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Left;
         }
         else
         {
@@ -359,7 +385,6 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
             SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
-            PeekTriggerArea.HorizontalAlignment = HorizontalAlignment.Right;
         }
 
         // Set column widths
@@ -371,25 +396,27 @@ public sealed partial class MainWindow : Window
             ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
             : (Store.SidebarVisible ? new GridLength(260) : new GridLength(0));
 
-        // Sidebar visibility
-        if (Store.SidebarVisible)
-        {
-            SidebarBorder.Visibility = Visibility.Visible;
-            SidebarTranslate.X = 0;
-        }
-        else if (!_isPeeking)
-        {
-            SidebarBorder.Visibility = Visibility.Collapsed;
-        }
+        // The docked sidebar owns the visible state; the floating peek popup owns
+        // the hidden state.
+        SidebarBorder.Visibility = Store.SidebarVisible ? Visibility.Visible : Visibility.Collapsed;
 
-        // Reveal button and peek trigger
+        // Reveal button
         SidebarRevealButton.Visibility = Store.SidebarVisible
             ? Visibility.Collapsed
             : Visibility.Visible;
 
-        PeekTriggerArea.Visibility = Store.SidebarVisible
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        // Peek overlay is live only while the sidebar is hidden.
+        if (Store.SidebarVisible)
+        {
+            PeekHost.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            EnsurePeekReady();
+            LayoutPeek();
+            if (_peekReady)
+                PeekHost.Visibility = Visibility.Visible;
+        }
 
         // AI Panel
         AIPanel.Visibility = Store.AiPanelVisible
@@ -625,109 +652,262 @@ public sealed partial class MainWindow : Window
         SwipeOverlay.AnimateOut(navigated);
     }
 
-    private void PeekTriggerArea_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    // ── Sidebar peek (mac-style floating overlay) ───────────────────────────
+    //
+    // The peek sidebar floats above the page as an inset rounded card and does
+    // NOT reflow the web content (mirroring SidebarPeek.swift). Because the CEF
+    // browser is a native child HWND that composites above XAML, the card is
+    // hosted in a pre-warmed Popup — the only surface that draws above it.
+
+    // Geometry mirrors SidebarPeek.swift: a 256pt card inset 8pt from the edge.
+    private const double PeekCardWidth = 256;
+    private const double PeekInset = 8;
+    private const double PeekHostWidth = 300; // mac panelBand
+    private bool _peekReady;
+    private OverlappedPresenterState _lastPresenterState = OverlappedPresenterState.Restored;
+
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if (!Store.SidebarVisible && !_isPeeking)
+        if (sender.Presenter is OverlappedPresenter p && p.State != _lastPresenterState)
         {
-            EnterPeekMode();
-        }
-        else if (_isPeeking)
-        {
-            _peekCloseTimer.Stop();
+            _lastPresenterState = p.State;
+            ReassertPeek();
         }
     }
 
-    private void PeekTriggerArea_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    // The peek lives in a Popup whose backing window is a SIBLING child-window of
+    // the CEF host window. CEF re-raises its own window to the top on focus/resize
+    // (HwndHostWindow.BringWindowToTop / SWP_SHOWWINDOW), which sinks the peek
+    // popup beneath the page after a few interactions. We counter that by raising
+    // the popup's window back to the top of the sibling z-order whenever we peek.
+    private nint _mainHwnd;
+    private nint _peekPopupHwnd;
+
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private static readonly nint HWND_TOP = nint.Zero;
+
+    private const uint GW_OWNER = 4;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowProc cb, nint lParam);
+    private delegate bool EnumWindowProc(nint hwnd, nint lParam);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern nint GetWindow(nint hwnd, uint cmd);
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int GetClassName(nint hwnd, System.Text.StringBuilder s, int n);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetWindowRect(nint hwnd, out RECT rect);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(nint hwnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    /// <summary>
+    /// Find the peek popup's backing window. A windowed WinUI Popup is hosted in a
+    /// TOP-LEVEL window owned by the main window, with class
+    /// "Microsoft.UI.Content.PopupWindowSiteBridge". We match the owned window of
+    /// that class whose width is ~PeekHostWidth (distinguishes it from any other
+    /// open popup such as the launcher/settings, which are full-card width).
+    /// </summary>
+    private nint FindPeekPopupHwnd()
+    {
+        if (_mainHwnd == nint.Zero) return nint.Zero;
+        double scale = Content?.XamlRoot?.RasterizationScale ?? 1.0;
+        int target = (int)Math.Round(PeekHostWidth * scale);
+        nint found = nint.Zero;
+        EnumWindows((h, _) =>
+        {
+            if (!IsWindowVisible(h)) return true;
+            if (GetWindow(h, GW_OWNER) != _mainHwnd) return true;
+            var sb = new System.Text.StringBuilder(128);
+            GetClassName(h, sb, sb.Capacity);
+            if (sb.ToString().IndexOf("PopupWindowSiteBridge", StringComparison.Ordinal) < 0) return true;
+            if (GetWindowRect(h, out var r) && Math.Abs((r.Right - r.Left) - target) <= 40)
+            {
+                found = h;
+                return false; // stop
+            }
+            return true;
+        }, nint.Zero);
+        return found;
+    }
+
+    /// <summary>Raise the peek popup to the top so the card draws above the CEF page.</summary>
+    private void RaisePeekPopup()
+    {
+        _peekPopupHwnd = FindPeekPopupHwnd();
+        if (_peekPopupHwnd == nint.Zero) return;
+        SetWindowPos(_peekPopupHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+
+    private double ClosedCardOffset =>
+        Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 16) : (PeekCardWidth + PeekInset + 16);
+    private double RestingHandleOffset => Store.SidebarOnLeft ? 6 : -6;
+    private double OpenHandleOffset =>
+        Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 8) : (PeekCardWidth + PeekInset + 8);
+
+    /// <summary>Open the pre-warmed popup once and apply themed brushes.</summary>
+    private void EnsurePeekReady()
+    {
+        if (_peekReady) return;
+        if (Content?.XamlRoot is null) return;
+
+        SidebarPeekPopup.XamlRoot = Content.XamlRoot;
+        _mainHwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        ApplyPeekTheme();
+        // Depth gives the ThemeShadow something to cast.
+        SidebarPeekCard.Translation = new System.Numerics.Vector3(0, 0, 32);
+        if (!SidebarPeekPopup.IsOpen)
+            SidebarPeekPopup.IsOpen = true;
+        _peekReady = true;
+    }
+
+    /// <summary>Position the popup at the active sidebar edge and orient the card.</summary>
+    private void LayoutPeek()
+    {
+        if (!_peekReady) return;
+
+        double w = RootGrid.ActualWidth;
+        double h = RootGrid.ActualHeight;
+        if (w <= 0 || h <= 0) return;
+
+        PeekHost.Height = h;
+        if (PeekHost.Visibility == Visibility.Visible)
+            RaisePeekPopup();
+
+        bool left = Store.SidebarOnLeft;
+        var edge = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        PeekEdgeStrip.HorizontalAlignment = edge;
+        PeekEdgeHandle.HorizontalAlignment = edge;
+        SidebarPeekCard.HorizontalAlignment = edge;
+        SidebarPeekCard.Margin = left ? new Thickness(8, 8, 0, 8) : new Thickness(0, 8, 8, 8);
+        PeekHandleChevron.Glyph = left ? "" : ""; // point toward the page
+
+        // Popup origin: hug the active edge.
+        SidebarPeekPopup.HorizontalOffset = left ? 0 : w - PeekHostWidth;
+        SidebarPeekPopup.VerticalOffset = 0;
+
+        // Settle into the resting position unless mid-peek.
+        if (!_isPeeking)
+        {
+            PeekCardTranslate.X = ClosedCardOffset;
+            PeekHandleTranslate.X = RestingHandleOffset;
+            PeekHandleCapsule.Opacity = 0.22;
+            PeekHandleChevron.Opacity = 0;
+        }
+    }
+
+    private void ApplyPeekTheme()
+    {
+        var p = ThemeService.Instance.Palette;
+        SidebarPeekCard.Background = p.Sidebar.ToBrush();
+        SidebarPeekCard.BorderBrush = p.SidebarBorder.ToBrush();
+    }
+
+    /// <summary>
+    /// Recreate the windowed peek popup after a maximize/restore. WinUI's windowed
+    /// Popup does not re-track its owner's bounds across a state change, so we
+    /// close and reopen it to rebuild the site-bridge window at the new size and
+    /// re-raise it above the CEF page.
+    /// </summary>
+    private void ReassertPeek()
+    {
+        if (Store.SidebarVisible || !_peekReady) return;
+        _isPeeking = false;
+        _peekCloseTimer.Stop();
+        SidebarPeekPopup.IsOpen = false;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (Store.SidebarVisible) return;
+            SidebarPeekPopup.IsOpen = true;
+            LayoutPeek();
+            RaisePeekPopup();
+        });
+    }
+
+    private void PeekEdgeStrip_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (Store.SidebarVisible) return;
+        // The strip is part of the keep-open zone: cancel any pending close (so
+        // sliding from the card onto the very window edge doesn't retract it) and
+        // open the peek if it isn't already.
+        _peekCloseTimer.Stop();
+        EnterPeek();
+    }
+
+    private void PeekEdgeStrip_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (!_isPeeking) return;
-        
         if (!_peekCloseTimer.IsEnabled)
             _peekCloseTimer.Start();
     }
 
-    private void SidebarBorder_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        if (_isPeeking)
-        {
-            _peekCloseTimer.Stop();
-        }
-    }
+    private void SidebarPeekCard_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => _peekCloseTimer.Stop();
 
-    private void SidebarBorder_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void SidebarPeekCard_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (!_isPeeking) return;
-        
         if (!_peekCloseTimer.IsEnabled)
             _peekCloseTimer.Start();
     }
 
-    private void EnterPeekMode()
+    private void EnterPeek()
     {
         if (_isPeeking) return;
         _isPeeking = true;
-
-        _sidebarAnimStoryboard?.Stop();
-
-        // Make sidebar visible and push CEF aside
-        SidebarBorder.Visibility = Visibility.Visible;
-        if (Store.SidebarOnLeft)
-            SidebarColumn.Width = new GridLength(260);
-        else
-            AIPanelColumn.Width = new GridLength(260);
-
-        // Animate the sidebar sliding in from off-screen
-        var easing = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase
-        {
-            EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut,
-            Exponent = 4
-        };
-
-        var slideAnim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            From = Store.SidebarOnLeft ? -260 : 260,
-            To = 0,
-            Duration = TimeSpan.FromMilliseconds(200),
-            EasingFunction = easing
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(slideAnim, SidebarTranslate);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(slideAnim, "X");
-
-        _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        _sidebarAnimStoryboard.Children.Add(slideAnim);
-        _sidebarAnimStoryboard.Begin();
+        _peekCloseTimer.Stop();
+        RaisePeekPopup(); // ensure the card draws above the live CEF page
+        AnimatePeek(open: true);
     }
 
-    private void ExitPeekMode()
+    private void ExitPeek()
     {
         if (!_isPeeking) return;
         _isPeeking = false;
+        AnimatePeek(open: false);
+    }
 
+    /// <summary>Slide the card in/out and morph the edge handle (capsule ⇄ chevron).</summary>
+    private void AnimatePeek(bool open)
+    {
         _sidebarAnimStoryboard?.Stop();
 
-        var easing = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase
+        var dur = TimeSpan.FromMilliseconds(220);
+        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+
+        void Add(Microsoft.UI.Xaml.DependencyObject target, string path, double to, bool eased)
         {
-            EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut,
-            Exponent = 4
-        };
+            var a = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+            {
+                To = to,
+                Duration = dur,
+                EnableDependentAnimation = true
+            };
+            if (eased)
+            {
+                a.EasingFunction = new Microsoft.UI.Xaml.Media.Animation.ExponentialEase
+                {
+                    EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut,
+                    Exponent = 4
+                };
+            }
+            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(a, target);
+            Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(a, path);
+            sb.Children.Add(a);
+        }
 
-        var slideAnim = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            To = Store.SidebarOnLeft ? -260 : 260,
-            Duration = TimeSpan.FromMilliseconds(200),
-            EasingFunction = easing
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(slideAnim, SidebarTranslate);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(slideAnim, "X");
+        Add(PeekCardTranslate, "X", open ? 0 : ClosedCardOffset, eased: true);
+        Add(PeekHandleTranslate, "X", open ? OpenHandleOffset : RestingHandleOffset, eased: true);
+        Add(PeekHandleCapsule, "Opacity", open ? 0 : 0.22, eased: false);
+        Add(PeekHandleChevron, "Opacity", open ? 1 : 0, eased: false);
 
-        _sidebarAnimStoryboard = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        _sidebarAnimStoryboard.Children.Add(slideAnim);
-
-        _sidebarAnimStoryboard.Completed += (s, e) =>
-        {
-            if (_isPeeking) return;
-            UpdateColumnLayout();
-        };
-
-        _sidebarAnimStoryboard.Begin();
+        _sidebarAnimStoryboard = sb;
+        sb.Begin();
     }
 }

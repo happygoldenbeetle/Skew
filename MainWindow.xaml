@@ -34,28 +34,12 @@
         </Grid.ColumnDefinitions>
 
         <!-- Film Grain Overlay Removed -->
-        <!-- ═══ Sidebar ═══ -->
+        <!-- ═══ Sidebar (docked / visible state) ═══ -->
         <Border x:Name="SidebarBorder"
                 Grid.Column="0"
-                Margin="0"
-                PointerEntered="SidebarBorder_PointerEntered"
-                PointerExited="SidebarBorder_PointerExited">
+                Margin="0">
             <controls:MoriSidebar x:Name="Sidebar" />
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="SidebarTranslate" X="0" Y="0" />
-            </Border.RenderTransform>
         </Border>
-
-        <!-- Peek Trigger Area -->
-        <Grid x:Name="PeekTriggerArea"
-              Grid.ColumnSpan="3"
-              HorizontalAlignment="Left"
-              Width="12"
-              Background="Transparent"
-              PointerEntered="PeekTriggerArea_PointerEntered"
-              PointerExited="PeekTriggerArea_PointerExited"
-              Visibility="Collapsed"
-              Canvas.ZIndex="100" />
 
         <!-- ═══ Web Content Area ═══ -->
         <Grid Grid.Column="1" Margin="0">
@@ -170,6 +154,71 @@
 
         <!-- Top Drag Area (Double-click to Maximize) -->
         <Grid Grid.ColumnSpan="3" Height="12" VerticalAlignment="Top" Background="Transparent" DoubleTapped="TopDragArea_DoubleTapped" ToolTipService.ToolTip="Double-click to maximize" />
+
+        <!-- ═══ Sidebar Peek (mac-style floating overlay) ═══ -->
+        <!--
+            The live CEF browser is hosted in a native child HWND that composites
+            ABOVE all XAML, so a normal in-grid overlay would render behind the
+            page (the same airspace problem mac solves with an AppKit hosting
+            view). A Popup with ShouldConstrainToRootBounds=False is the only
+            surface that floats above the CEF window, so the peek sidebar lives
+            here. The popup is pre-warmed (opened once, kept open) to avoid the
+            first-open lag; the card is just slid off-screen when idle.
+
+            The host has a null background so empty areas stay click-through to
+            the page; only the edge trigger strip and the floating card are
+            hit-testable (mac's hitTest gating).
+        -->
+        <Popup x:Name="SidebarPeekPopup" ShouldConstrainToRootBounds="False">
+            <Grid x:Name="PeekHost" Width="300" Background="{x:Null}" Visibility="Collapsed">
+                <!-- Edge trigger strip: hovering the window edge slides the peek in -->
+                <Border x:Name="PeekEdgeStrip"
+                        Width="12"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        PointerEntered="PeekEdgeStrip_PointerEntered"
+                        PointerExited="PeekEdgeStrip_PointerExited" />
+
+                <!-- Resting hint: a faint capsule that morphs into a chevron on peek -->
+                <Grid x:Name="PeekEdgeHandle"
+                      Width="18" Height="44"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center"
+                      IsHitTestVisible="False">
+                    <Grid.RenderTransform>
+                        <TranslateTransform x:Name="PeekHandleTranslate" X="-6" />
+                    </Grid.RenderTransform>
+                    <Rectangle x:Name="PeekHandleCapsule"
+                               Width="4" Height="40"
+                               RadiusX="2" RadiusY="2"
+                               Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                               Opacity="0.22" />
+                    <FontIcon x:Name="PeekHandleChevron"
+                              Glyph="&#xE76B;"
+                              FontSize="14"
+                              Opacity="0"
+                              Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                </Grid>
+
+                <!-- Floating sidebar card -->
+                <Border x:Name="SidebarPeekCard"
+                        Width="256"
+                        Margin="0,8,8,8"
+                        HorizontalAlignment="Right"
+                        CornerRadius="10"
+                        BorderThickness="1"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Shadow="{ThemeResource SharedShadow}"
+                        PointerEntered="SidebarPeekCard_PointerEntered"
+                        PointerExited="SidebarPeekCard_PointerExited">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="PeekCardTranslate" X="280" />
+                    </Border.RenderTransform>
+                    <controls:MoriSidebar x:Name="PeekSidebar" />
+                </Border>
+            </Grid>
+        </Popup>
 
         <!-- ═══ Settings Flyout ═══ -->
         <Popup x:Name="SettingsPopup" IsOpen="{x:Bind Store.SettingsVisible, Mode=OneWay}" ShouldConstrainToRootBounds="False">
