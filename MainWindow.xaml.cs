@@ -26,7 +26,7 @@ public sealed partial class MainWindow : Window
     {
         Instance = this;
         _peekCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(160) };
-        _peekCloseTimer.Tick += (s, e) => { _peekCloseTimer.Stop(); ExitPeek(); };
+        _peekCloseTimer.Tick += (s, e) => OnPeekCloseTick();
 
         this.InitializeComponent();
 
@@ -777,6 +777,13 @@ public sealed partial class MainWindow : Window
         if (w <= 0 || h <= 0) return;
 
         PeekHost.Height = h;
+        // Clip to the host's own bounds so the card slides out *under* the window
+        // edge instead of flashing in the popup window's shadow overhang (the
+        // windowed popup is a few px wider than the host and sits at the edge).
+        PeekHost.Clip = new Microsoft.UI.Xaml.Media.RectangleGeometry
+        {
+            Rect = new Windows.Foundation.Rect(0, 0, PeekHostWidth, h)
+        };
         if (PeekHost.Visibility == Visibility.Visible)
             RaisePeekPopup();
 
@@ -804,9 +811,19 @@ public sealed partial class MainWindow : Window
 
     private void ApplyPeekTheme()
     {
+        // Match SidebarPeek.swift: the panel is the sidebar color over a blur
+        // (sidebar @ 0.85 + .sidebar material), with a border @ 0.7. We approximate
+        // the blurred material with an AcrylicBrush tinted by the sidebar color and
+        // fall back to the opaque sidebar color where acrylic isn't available.
         var p = ThemeService.Instance.Palette;
-        SidebarPeekCard.Background = p.Sidebar.ToBrush();
-        SidebarPeekCard.BorderBrush = p.SidebarBorder.ToBrush();
+        var sidebar = p.Sidebar.ToColor();
+        SidebarPeekCard.Background = new Microsoft.UI.Xaml.Media.AcrylicBrush
+        {
+            TintColor = sidebar,
+            TintOpacity = 0.85,
+            FallbackColor = sidebar,
+        };
+        SidebarPeekCard.BorderBrush = p.Border.WithOpacity(0.7).ToBrush();
     }
 
     /// <summary>
@@ -873,18 +890,67 @@ public sealed partial class MainWindow : Window
         AnimatePeek(open: false);
     }
 
+    /// <summary>
+    /// Close-timer tick. If a context menu / flyout opened from the peek sidebar
+    /// is showing, keep the peek open and re-check next tick — opening the menu
+    /// moves the pointer off the card, which would otherwise retract the peek out
+    /// from under its own menu. Closes once the pointer is away and no menu is up.
+    /// </summary>
+    private void OnPeekCloseTick()
+    {
+        if (IsPeekFlyoutOpen()) return; // DispatcherTimer repeats; re-check next tick
+        _peekCloseTimer.Stop();
+        ExitPeek();
+    }
+
+    /// <summary>True while a flyout/context menu (not the peek popup itself) is open.</summary>
+    private bool IsPeekFlyoutOpen()
+    {
+        if (Content?.XamlRoot is null) return false;
+        foreach (var popup in Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(Content.XamlRoot))
+        {
+            if (popup == SidebarPeekPopup) continue;
+            if (popup.Child is Microsoft.UI.Xaml.Controls.MenuFlyoutPresenter
+                || popup.Child is Microsoft.UI.Xaml.Controls.FlyoutPresenter)
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>Slide the card in/out and morph the edge handle (capsule ⇄ chevron).</summary>
     private void AnimatePeek(bool open)
     {
+        // Capture the live values BEFORE stopping. These are dependent animations,
+        // so the property getters return the current animated value — animating
+        // from here means no snap, even mid-flight.
+        double cardNow = PeekCardTranslate.X;
+        double handleNow = PeekHandleTranslate.X;
+        double capNow = PeekHandleCapsule.Opacity;
+        double chevNow = PeekHandleChevron.Opacity;
+
         _sidebarAnimStoryboard?.Stop();
+
+        // Commit the captured values as the local base so Stop() above can't snap
+        // the card to a stale resting value — that snap was why the close had no
+        // visible out-animation (the card jumped shut, then "animated" in place).
+        PeekCardTranslate.X = cardNow;
+        PeekHandleTranslate.X = handleNow;
+        PeekHandleCapsule.Opacity = capNow;
+        PeekHandleChevron.Opacity = chevNow;
+
+        double cardTo = open ? 0 : ClosedCardOffset;
+        double handleTo = open ? OpenHandleOffset : RestingHandleOffset;
+        double capTo = open ? 0 : 0.22;
+        double chevTo = open ? 1 : 0;
 
         var dur = TimeSpan.FromMilliseconds(220);
         var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
 
-        void Add(Microsoft.UI.Xaml.DependencyObject target, string path, double to, bool eased)
+        void Add(Microsoft.UI.Xaml.DependencyObject target, string path, double from, double to, bool eased)
         {
             var a = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
             {
+                From = from,
                 To = to,
                 Duration = dur,
                 EnableDependentAnimation = true
@@ -902,10 +968,19 @@ public sealed partial class MainWindow : Window
             sb.Children.Add(a);
         }
 
-        Add(PeekCardTranslate, "X", open ? 0 : ClosedCardOffset, eased: true);
-        Add(PeekHandleTranslate, "X", open ? OpenHandleOffset : RestingHandleOffset, eased: true);
-        Add(PeekHandleCapsule, "Opacity", open ? 0 : 0.22, eased: false);
-        Add(PeekHandleChevron, "Opacity", open ? 1 : 0, eased: false);
+        Add(PeekCardTranslate, "X", cardNow, cardTo, eased: true);
+        Add(PeekHandleTranslate, "X", handleNow, handleTo, eased: true);
+        Add(PeekHandleCapsule, "Opacity", capNow, capTo, eased: false);
+        Add(PeekHandleChevron, "Opacity", chevNow, chevTo, eased: false);
+
+        // Commit the destination as the local base so the next Stop() starts clean.
+        sb.Completed += (s, e) =>
+        {
+            PeekCardTranslate.X = cardTo;
+            PeekHandleTranslate.X = handleTo;
+            PeekHandleCapsule.Opacity = capTo;
+            PeekHandleChevron.Opacity = chevTo;
+        };
 
         _sidebarAnimStoryboard = sb;
         sb.Begin();
