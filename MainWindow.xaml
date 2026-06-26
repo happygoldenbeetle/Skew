@@ -14,7 +14,7 @@
         3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
         The web content sits in a floating rounded card inset from the edges (Arc-style).
     -->
-    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged">
+    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.ChildrenTransitions>
             <TransitionCollection>
                 <RepositionThemeTransition />

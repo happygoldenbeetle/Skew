@@ -703,9 +703,38 @@ public sealed partial class MainWindow : Window
     private static extern bool IsWindowVisible(nint hwnd);
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetWindowLong(nint hwnd, int index);
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern int SetWindowLong(nint hwnd, int index, int value);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(nint hwnd);
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
+
+    /// <summary>
+    /// Activate the peek popup window so a click into it (e.g. the omnibox) gives
+    /// the focused TextBox a real caret. The windowed popup is created no-activate
+    /// and never takes focus on its own, so we clear WS_EX_NOACTIVATE and bring it
+    /// to the foreground on a user click.
+    /// </summary>
+    private void ActivatePeekPopup()
+    {
+        if (_peekPopupHwnd == nint.Zero || !IsWindowVisible(_peekPopupHwnd))
+            _peekPopupHwnd = FindPeekPopupHwnd();
+        if (_peekPopupHwnd == nint.Zero) return;
+        int ex = GetWindowLong(_peekPopupHwnd, GWL_EXSTYLE);
+        if ((ex & WS_EX_NOACTIVATE) != 0)
+            SetWindowLong(_peekPopupHwnd, GWL_EXSTYLE, ex & ~WS_EX_NOACTIVATE);
+        SetForegroundWindow(_peekPopupHwnd);
+    }
+
+    private void SidebarPeekCard_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => ActivatePeekPopup();
 
     /// <summary>
     /// Find the peek popup's backing window. A windowed WinUI Popup is hosted in a
@@ -764,6 +793,11 @@ public sealed partial class MainWindow : Window
         SidebarPeekCard.Translation = new System.Numerics.Vector3(0, 0, 32);
         if (!SidebarPeekPopup.IsOpen)
             SidebarPeekPopup.IsOpen = true;
+        // Clicking anywhere in the card activates its (otherwise no-activate) popup
+        // window so the omnibox can take keyboard focus. handledEventsToo so it
+        // still fires when inner controls (buttons/textbox) handle the press.
+        SidebarPeekCard.AddHandler(UIElement.PointerPressedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(SidebarPeekCard_PointerPressed), true);
         _peekReady = true;
     }
 
