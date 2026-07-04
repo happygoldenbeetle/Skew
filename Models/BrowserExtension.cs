@@ -15,8 +15,25 @@ namespace Mori.Models
         [JsonIgnore]
         public Uri? IconUri => string.IsNullOrEmpty(IconPath) ? null : new Uri(IconPath);
 
+        [JsonIgnore]
+        public Microsoft.UI.Xaml.Media.ImageSource? IconImage =>
+            IconUri is null ? null : new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(IconUri);
+
+        /// <summary>"v{version}" for the settings row, empty when unknown (mac ExtensionRow).</summary>
+        [JsonIgnore]
+        public string VersionLabel => string.IsNullOrEmpty(Version) ? string.Empty : $"v{Version}";
+
         public bool Enabled { get; set; } = true;
         public bool Pinned { get; set; } = false;
+
+        /// <summary>Segoe Fluent pin glyph: filled (0xE840) when pinned, outline (0xE718) otherwise.</summary>
+        [JsonIgnore]
+        public string PinGlyph => ((char)(Pinned ? 0xE840 : 0xE718)).ToString();
+
+        /// <summary>"Disabled" subtitle shows only when the extension is turned off (mac ExtensionMenuRow).</summary>
+        [JsonIgnore]
+        public Microsoft.UI.Xaml.Visibility DisabledLabelVisibility =>
+            Enabled ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
 
         // Internal property, not saved to settings, populated on load
         [JsonIgnore]

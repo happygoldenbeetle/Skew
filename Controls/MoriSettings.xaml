@@ -11,8 +11,8 @@
     <!-- Reusable Styles for Sections -->
     <UserControl.Resources>
         <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
             <Setter Property="CharacterSpacing" Value="40"/>
         </Style>
@@ -69,7 +69,7 @@
                                     <!-- Homepage -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Homepage" Style="{StaticResource FieldLabelStyle}" />
@@ -79,7 +79,7 @@
                                     <!-- New tab opens -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="New tab opens" Style="{StaticResource FieldLabelStyle}" />
@@ -99,7 +99,7 @@
                                 <StackPanel Spacing="14">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Search engine" Style="{StaticResource FieldLabelStyle}" />
@@ -115,7 +115,7 @@
                                     <!-- Custom URL (visible only if Custom is selected) -->
                                     <Grid Visibility="{x:Bind CustomSearchVisibility, Mode=OneWay}">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Custom URL" Style="{StaticResource FieldLabelStyle}" />
@@ -123,26 +123,6 @@
                                             <TextBox Text="{x:Bind Settings.CustomSearchTemplate, Mode=TwoWay}" PlaceholderText="https://example.com/?q={query}" />
                                             <TextBlock Text="Use {query} where the search terms should go." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <!-- Privacy -->
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="PRIVACY" Style="{StaticResource SectionHeaderStyle}" />
-                            <Border Style="{StaticResource SectionCardStyle}">
-                                <StackPanel Spacing="14">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="Block ads" Style="{StaticResource FieldLabelStyle}" />
-                                            <TextBlock Text="Use Mori's bundled Block List Project ads list." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsOn="{x:Bind Settings.BlockAds, Mode=TwoWay}" />
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -156,7 +136,7 @@
                                     <!-- Theme -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Theme" Style="{StaticResource FieldLabelStyle}" />
@@ -170,7 +150,7 @@
                                     <!-- Sidebar side -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="120" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Sidebar side" Style="{StaticResource FieldLabelStyle}" />
@@ -203,16 +183,6 @@
                                         </Border>
                                     </StackPanel>
 
-                                    <!-- Solid color -->
-                                    <StackPanel Spacing="4" Margin="0,8,0,0">
-                                        <TextBlock Text="Solid color" Style="{StaticResource FieldLabelStyle}" />
-                                        <TextBlock Text="Or wash the chrome in a single flat color." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        
-                                        <!-- Placeholder for SolidThemeSwatches -->
-                                        <Border CornerRadius="6" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" Height="40" Margin="0,8,0,0">
-                                            <TextBlock Text="Solid Swatches coming soon..." Foreground="{ThemeResource TextFillColorDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Border>
-                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -242,40 +212,68 @@
                             <TextBlock Text="EXTENSIONS" Style="{StaticResource SectionHeaderStyle}" />
                             <Border Style="{StaticResource SectionCardStyle}">
                                 <StackPanel Spacing="14">
+                                    <!-- Empty state (mac: "No extensions installed.") -->
+                                    <TextBlock x:Name="NoExtensionsText" Text="No extensions installed."
+                                               FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Visibility="Collapsed" />
+
                                     <ItemsControl ItemsSource="{x:Bind ExtensionsStore.Extensions, Mode=OneWay}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="models:BrowserExtension">
-                                                <Grid Margin="0,0,0,12">
+                                                <Grid Padding="0,10">
                                                     <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <StackPanel Spacing="4">
-                                                        <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="14" />
-                                                        <TextBlock Text="{x:Bind Detail}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                                        <TextBlock Text="{x:Bind Path}" FontSize="11" Foreground="{ThemeResource TextFillColorDisabledBrush}" TextTrimming="CharacterEllipsis" />
+
+                                                    <!-- Icon (28x28) with a fallback glyph -->
+                                                    <Border Grid.Column="0" Width="28" Height="28" CornerRadius="4" Margin="0,0,11,0"
+                                                            VerticalAlignment="Center"
+                                                            Background="{ThemeResource ControlFillColorDefaultBrush}">
+                                                        <Grid>
+                                                            <FontIcon Glyph="&#xE71D;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            <Image Source="{x:Bind IconImage}" Stretch="UniformToFill" />
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!-- Name + version + detail -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <TextBlock Text="{x:Bind Name}" FontSize="13" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{x:Bind VersionLabel}" FontSize="11" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        </StackPanel>
+                                                        <TextBlock Text="{x:Bind Detail}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
-                                                    <ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsOn="{x:Bind Enabled, Mode=TwoWay}" Toggled="ExtensionToggle_Toggled" Tag="{x:Bind Id}" Margin="12,0" />
-                                                    <Button Grid.Column="2" Content="Remove" VerticalAlignment="Center" Click="RemoveExtension_Click" Tag="{x:Bind Id}" />
+
+                                                    <!-- Enable toggle -->
+                                                    <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
+                                                                  IsOn="{x:Bind Enabled, Mode=TwoWay}" Toggled="ExtensionToggle_Toggled" Tag="{x:Bind Id}" />
+
+                                                    <!-- Remove (trash) -->
+                                                    <Button Grid.Column="3" Width="30" Height="30" Padding="0"
+                                                            Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
+                                                            Click="RemoveExtension_Click" Tag="{x:Bind Id}" ToolTipService.ToolTip="Remove extension">
+                                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    </Button>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
 
+                                    <!-- Add Extension -->
                                     <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
-                                        <Button Content="Load unpacked extension..." Click="LoadUnpackedExtension_Click" />
+                                        <Button Click="LoadUnpackedExtension_Click">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <FontIcon Glyph="&#xE710;" FontSize="12" />
+                                                <TextBlock Text="Add Extension…" />
+                                            </StackPanel>
+                                        </Button>
                                     </StackPanel>
 
-                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
-                                        <TextBox x:Name="WebStoreUrlBox" PlaceholderText="Paste Web Store URL or ID" Width="250" />
-                                        <Button Content="Install from Web Store" Click="InstallFromWebStore_Click" />
-                                        <ProgressRing x:Name="WebStoreInstallProgress" IsActive="False" Visibility="Collapsed" Width="20" Height="20" />
-                                    </StackPanel>
-                                    <TextBlock x:Name="WebStoreErrorText" Foreground="Red" Visibility="Collapsed" TextWrapping="Wrap" />
-                                    
-                                    <TextBlock Text="Load unpacked Chrome extensions (the folder containing manifest.json). Mori runs supported content scripts inside its own Chromium engine." 
-                                               FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    <TextBlock Text="Load unpacked Chrome extensions (the folder containing manifest.json). Mori runs supported content scripts, extension pages, popups, and background/event scripts inside its own Chromium engine; the full chrome.* API surface is still in progress."
+                                               FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -295,7 +293,7 @@
                                     
                                     <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                                         <TextBlock Text="Mori" FontSize="15" FontWeight="SemiBold" />
-                                        <TextBlock Text="A native Windows browser powered by Chromium (CefSharp)." FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="A native Windows browser powered by Chromium (CEF)." FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                         <TextBlock Text="Version 0.1.0" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>

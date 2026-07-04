@@ -299,9 +299,23 @@ public sealed partial class MoriOmnibox : UserControl
         ExtensionsMenuButton.Visibility = ExtensionStore.Shared.Extensions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void ExtensionsMenuButton_Click(object sender, RoutedEventArgs e)
+    private void ExtensionsFlyout_Opened(object sender, object e)
     {
         AllExtensionsList.ItemsSource = ExtensionStore.Shared.Extensions;
+        MenuEmptyText.Visibility = ExtensionStore.Shared.Extensions.Count == 0
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RunExtension_Click(object sender, RoutedEventArgs e)
+    {
+        // Extension action/popup activation isn't wired in the port yet; the row
+        // still reads as actionable to match mac's menu. No-op for now.
+    }
+
+    private void ManageExtensions_Click(object sender, RoutedEventArgs e)
+    {
+        ExtensionsMenuButton.Flyout?.Hide();
+        if (Store != null) Store.SettingsVisible = true;
     }
 
     private async void PinExtensionToggle_Click(object sender, RoutedEventArgs e)
@@ -311,9 +325,12 @@ public sealed partial class MoriOmnibox : UserControl
             var ext = ExtensionStore.Shared.Extensions.FirstOrDefault(x => x.Id == extId);
             if (ext != null)
             {
-                // The TwoWay binding has already updated the Pinned property.
+                ext.Pinned = !ext.Pinned;
                 await ExtensionStore.Shared.SaveExtensionsAsync();
                 SyncPinnedExtensions();
+                // Rebuild so the pin glyph (bound OneWay) re-reads the new state.
+                AllExtensionsList.ItemsSource = null;
+                AllExtensionsList.ItemsSource = ExtensionStore.Shared.Extensions;
             }
         }
     }

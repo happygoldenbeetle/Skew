@@ -98,48 +98,95 @@
                 <ItemsControl x:Name="PinnedExtensionItems" Visibility="Collapsed">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                            <StackPanel Orientation="Horizontal" Spacing="2" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:BrowserExtension">
-                            <Button Width="28" Height="28" Background="Transparent" BorderThickness="0" Padding="0" Click="PinnedExtensionButton_Click" Tag="{x:Bind Id}" ToolTipService.ToolTip="{x:Bind Name}">
-                                <Image Source="{Binding IconUri}" Width="16" Height="16" />
+                            <Button Width="22" Height="22" Background="Transparent" BorderThickness="0" Padding="0" CornerRadius="4" Click="PinnedExtensionButton_Click" Tag="{x:Bind Id}" ToolTipService.ToolTip="{x:Bind Name}">
+                                <Image Source="{x:Bind IconImage}" Width="16" Height="16" />
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- Extensions Menu Button -->
-                <Button x:Name="ExtensionsMenuButton" Width="28" Height="28" Background="Transparent" BorderThickness="0" Padding="0" Visibility="Collapsed">
+                <!-- Extensions Menu Button (puzzle piece) -->
+                <Button x:Name="ExtensionsMenuButton" Width="22" Height="22" Background="Transparent" BorderThickness="0" Padding="0" CornerRadius="4" Visibility="Collapsed" ToolTipService.ToolTip="Extensions">
                     <Button.Flyout>
-                        <Flyout Placement="BottomEdgeAlignedRight" ShouldConstrainToRootBounds="False">
+                        <Flyout Placement="BottomEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="ExtensionsFlyout_Opened">
+                            <Flyout.FlyoutPresenterStyle>
+                                <Style TargetType="FlyoutPresenter">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="CornerRadius" Value="8" />
+                                    <Setter Property="MinWidth" Value="0" />
+                                    <Setter Property="MaxWidth" Value="1000" />
+                                </Style>
+                            </Flyout.FlyoutPresenterStyle>
                             <Grid Width="300">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="Extensions" FontWeight="SemiBold" Margin="0,0,0,12" />
-                                <ListView x:Name="AllExtensionsList" Grid.Row="1" SelectionMode="None" ItemsSource="{x:Bind Extensions, Mode=OneWay}">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate x:DataType="models:BrowserExtension">
-                                            <Grid Margin="0,4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="32" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <Image Source="{Binding IconUri}" Width="20" Height="20" HorizontalAlignment="Left" />
-                                                <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
-                                                <ToggleButton Grid.Column="2" IsChecked="{x:Bind Pinned, Mode=TwoWay}" Click="PinExtensionToggle_Click" Tag="{x:Bind Id}" Content="Pin" Width="50" FontSize="11" Padding="4,2" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
+
+                                <TextBlock Grid.Row="0" Text="Extensions" FontWeight="SemiBold" FontSize="13" Padding="14,12,14,10" />
+                                <Border Grid.Row="1" Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                                <!-- Empty state -->
+                                <TextBlock x:Name="MenuEmptyText" Grid.Row="2" Text="No extensions installed." FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Padding="14" Visibility="Collapsed" />
+
+                                <!-- Extension list -->
+                                <ScrollViewer Grid.Row="2" MaxHeight="320" Padding="5">
+                                    <ItemsControl x:Name="AllExtensionsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:BrowserExtension">
+                                                <Grid Height="42" Padding="8,0" CornerRadius="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Activate -->
+                                                    <Button Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="0" Click="RunExtension_Click" Tag="{x:Bind Id}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                                            <Border Width="22" Height="22" CornerRadius="4" Background="{ThemeResource ControlFillColorDefaultBrush}">
+                                                                <Grid>
+                                                                    <FontIcon Glyph="&#xE71D;" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                    <Image Source="{x:Bind IconImage}" Stretch="UniformToFill" />
+                                                                </Grid>
+                                                            </Border>
+                                                            <StackPanel VerticalAlignment="Center" Spacing="1">
+                                                                <TextBlock Text="{x:Bind Name}" FontSize="13" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="Disabled" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="{x:Bind DisabledLabelVisibility}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Button>
+
+                                                    <!-- Pin toggle (pin icon) -->
+                                                    <Button Grid.Column="1" Width="28" Height="28" Padding="0" Background="Transparent" BorderThickness="0" VerticalAlignment="Center" Click="PinExtensionToggle_Click" Tag="{x:Bind Id}" ToolTipService.ToolTip="Pin to toolbar">
+                                                        <FontIcon Glyph="{x:Bind PinGlyph}" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    </Button>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <Border Grid.Row="3" Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                                <!-- Manage Extensions -->
+                                <Button Grid.Row="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Height="38" Padding="14,0" Background="Transparent" BorderThickness="0" Click="ManageExtensions_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <FontIcon Glyph="&#xE713;" FontSize="14" />
+                                        <TextBlock Text="Manage Extensions…" FontSize="13" />
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                         </Flyout>
                     </Button.Flyout>
-                    <Viewbox Width="12" Height="12">
+                    <Viewbox Width="15" Height="15">
                         <PathIcon Data="M15 13.75v-1.265a2.5 2.5 0 1 1 0-4.972V6.25C15 5.56 14.44 5 13.75 5h-2.317a.75.75 0 0 1-.616-1.179A1 1 0 0 0 11 3.25a1 1 0 1 0-2 0c0 .211.066.405.182.57A.751.751 0 0 1 8.567 5H6.25C5.56 5 5 5.56 5 6.25v2.317a.75.75 0 0 1-1.179.616A.995.995 0 0 0 2.25 10a1 1 0 0 0 1 1c.21 0 .405-.066.57-.182a.751.751 0 0 1 1.18.615v2.317c0 .69.56 1.25 1.25 1.25h1.264a2.5 2.5 0 1 1 4.973 0h1.263c.69 0 1.25-.56 1.25-1.25m-2.5-10.5q0 .127-.014.25h1.264a2.75 2.75 0 0 1 2.75 2.75v2.317a.75.75 0 0 1-1.18.615A1 1 0 0 0 14.75 9a1 1 0 1 0 0 2 1 1 0 0 0 .571-.183.75.75 0 0 1 1.179.616v2.317a2.75 2.75 0 0 1-2.75 2.75h-2.317a.75.75 0 0 1-.615-1.18 1 1 0 0 0 .182-.57 1 1 0 1 0-2 0c0 .21.067.405.183.571a.75.75 0 0 1-.616 1.179H6.25a2.75 2.75 0 0 1-2.75-2.75v-1.265a2.5 2.5 0 1 1 0-4.972V6.25A2.75 2.75 0 0 1 6.25 3.5h1.264a2.5 2.5 0 1 1 4.986-.25" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Viewbox>
                 </Button>

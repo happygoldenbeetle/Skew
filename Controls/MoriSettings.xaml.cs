@@ -18,6 +18,16 @@ public sealed partial class MoriSettings : UserControl
     {
         this.InitializeComponent();
         Settings.PropertyChanged += Settings_PropertyChanged;
+        ExtensionsStore.Extensions.CollectionChanged += (_, _) => UpdateEmptyState();
+        Loaded += (_, _) => UpdateEmptyState();
+    }
+
+    /// <summary>Show "No extensions installed." when the list is empty (mac parity).</summary>
+    private void UpdateEmptyState()
+    {
+        if (NoExtensionsText is not null)
+            NoExtensionsText.Visibility = ExtensionsStore.Extensions.Count == 0
+                ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Settings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -120,27 +130,4 @@ public sealed partial class MoriSettings : UserControl
         }
     }
 
-    private async void InstallFromWebStore_Click(object sender, RoutedEventArgs e)
-    {
-        if (string.IsNullOrWhiteSpace(WebStoreUrlBox.Text)) return;
-
-        WebStoreInstallProgress.IsActive = true;
-        WebStoreInstallProgress.Visibility = Visibility.Visible;
-        WebStoreErrorText.Visibility = Visibility.Collapsed;
-        
-        var error = await ExtensionsStore.BeginWebStoreInstallAsync(WebStoreUrlBox.Text);
-
-        WebStoreInstallProgress.IsActive = false;
-        WebStoreInstallProgress.Visibility = Visibility.Collapsed;
-
-        if (error != null)
-        {
-            WebStoreErrorText.Text = error;
-            WebStoreErrorText.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            WebStoreUrlBox.Text = "";
-        }
-    }
 }
