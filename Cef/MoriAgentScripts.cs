@@ -107,23 +107,46 @@ internal static class MoriAgentScripts
             if (v) { try { v.autoPictureInPicture = autoPiP; } catch(e){} }
           };
 
+          function mediaMeta(){
+            try { return (navigator.mediaSession && navigator.mediaSession.metadata) || null; }
+            catch(e){ return null; }
+          }
+          function artworkSrc(m){
+            try {
+              if (m && m.artwork && m.artwork.length) {
+                var a = m.artwork.slice().sort(function(x,y){
+                  return (parseInt((y.sizes||"0").split("x")[0])||0)-(parseInt((x.sizes||"0").split("x")[0])||0);
+                });
+                return a[0].src || "";
+              }
+            } catch(e){}
+            return "";
+          }
+
           function report(){
             var v = primaryVideo();
             if (!v) { emit({ hasMedia:false }); return; }
             try { v.autoPictureInPicture = autoPiP; } catch(e){}
+            var m = mediaMeta();
             emit({
               hasMedia: true,
+              playing: !v.paused,
               paused: v.paused,
               muted: v.muted,
+              position: v.currentTime,
               currentTime: v.currentTime,
-              duration: v.duration,
-              title: document.title
+              duration: isFinite(v.duration) ? v.duration : 0,
+              title: (m && m.title) ? m.title : document.title,
+              artist: (m && m.artist) ? m.artist : "",
+              artwork: artworkSrc(m),
+              isVideo: true,
+              inPiP: (document.pictureInPictureElement === v),
+              canPiP: !!(v.requestPictureInPicture && document.pictureInPictureEnabled)
             });
           }
 
           document.addEventListener("play", report, true);
           document.addEventListener("pause", report, true);
-          document.addEventListener("timeupdate", function(){ /* throttled below */ }, true);
           setInterval(report, 1000);
           report();
         })();

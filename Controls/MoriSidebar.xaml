@@ -96,6 +96,26 @@
                         ToolTipService.ToolTip="Reload">
                         <FontIcon x:Name="ReloadIcon" Glyph="&#xE72C;" FontSize="12" />
                     </Button>
+                    <!-- Downloads (mac keeps this in the header nav row) -->
+                    <Button
+                        x:Name="DownloadsButton"
+                        Width="28" Height="28"
+                        Padding="0"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        CornerRadius="8"
+                        ToolTipService.ToolTip="Downloads">
+                        <Button.Content>
+                            <Grid>
+                                <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}" IsIndeterminate="False" Width="18" Height="18" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"/>
+                                <FontIcon x:Name="DownloadsIcon" Glyph="&#xE896;" FontSize="12" />
+                            </Grid>
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="DownloadsFlyout_Opened">
+                                <controls:DownloadsPanel />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                 </StackPanel>
             </Grid>
 
@@ -346,6 +366,11 @@
             </StackPanel>
         </ScrollViewer>
 
+        <!-- ═══ Media Player Strip (shows while a tab is playing) ═══ -->
+        <controls:MoriMediaPlayer
+            Grid.Row="2"
+            Visibility="{x:Bind MediaVisibility(Media.HasMedia), Mode=OneWay}" />
+
         <!-- ═══ Bottom Bar ═══ -->
         <Grid Grid.Row="3" Padding="10,0,10,10" Height="46">
             <Grid.ColumnDefinitions>
@@ -367,32 +392,11 @@
                 <PathIcon Data="F1 M 2.35278 4.37344 a 0.389667 0.389667 0 0 0 0.738889 0 l 0.327444 -0.982333 0.982333 -0.327444 a 0.388889 0.388889 0 0 0 0 -0.737333 L 3.41911 1.99889 l -0.327444 -0.982333 c -0.106556 -0.317333 -0.631556 -0.317333 -0.738111 0 L 2.02611 1.99889 l -0.982333 0.327444 a 0.388889 0.388889 0 0 0 0 0.737333 l 0.982333 0.327444 z m 10.5 2.47333 L 9.32556 5.45222 l -1.39456 -3.52722 c -0.176556 -0.444889 -0.908444 -0.444889 -1.085 0 L 5.45144 5.45222 1.92422 6.84678 a 0.583333 0.583333 0 0 0 0 1.08422 l 3.52722 1.39456 1.39456 3.52722 a 0.583333 0.583333 0 0 0 1.08422 0 l 1.39456 -3.52722 3.52722 -1.39456 a 0.584111 0.584111 0 0 0 0.000777778 -1.08422" Width="14" Height="14" />
             </Button>
 
-            <!-- Right side: position toggle + theme toggle + settings -->
+            <!-- Right side: theme toggle + settings (mac also has a colour swatch here) -->
             <StackPanel
                 Grid.Column="2"
                 Orientation="Horizontal"
-                Spacing="2">
-                <Button
-                        x:Name="DownloadsButton"
-                        Width="30"
-                        Height="30"
-                        Padding="0"
-                        Style="{StaticResource MoriGhostButtonStyle}"
-                        CornerRadius="8"
-                        ToolTipService.ToolTip="Downloads"
-                        Visibility="Visible">
-                        <Button.Content>
-                            <Grid>
-                                <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}" IsIndeterminate="False" Width="18" Height="18" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"/>
-                                <FontIcon x:Name="DownloadsIcon" Glyph="&#xE896;" FontSize="12" />
-                            </Grid>
-                        </Button.Content>
-                        <Button.Flyout>
-                            <Flyout Placement="TopEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="DownloadsFlyout_Opened">
-                                <controls:DownloadsPanel />
-                            </Flyout>
-                        </Button.Flyout>
-                    </Button>
+                Spacing="6">
                 <Button
                     x:Name="PositionToggle"
                     Width="30" Height="30"

@@ -38,6 +38,13 @@ public sealed partial class MoriSidebar : UserControl
 
     public bool HasPins => Store?.PinnedTabs.Count > 0;
 
+    /// <summary>Shared media controller — the media strip binds its visibility here.</summary>
+    public MediaController Media => MediaController.Shared;
+
+    /// <summary>x:Bind helper: show the media strip only while a tab is playing.</summary>
+    public Visibility MediaVisibility(bool hasMedia)
+        => hasMedia ? Visibility.Visible : Visibility.Collapsed;
+
     private bool _downloadsAcknowledged = false;
 
     public MoriSidebar()
@@ -120,6 +127,21 @@ public sealed partial class MoriSidebar : UserControl
             BackButton.IsEnabled = Store?.SelectedTab?.CanGoBack ?? false;
             ForwardButton.IsEnabled = Store?.SelectedTab?.CanGoForward ?? false;
         }
+        else if (e.PropertyName == nameof(BrowserTab.IsLoading))
+        {
+            UpdateReloadIcon();
+        }
+    }
+
+    /// <summary>
+    /// Reload/stop toggle: mac swaps the reload glyph for a stop "✕" while the
+    /// selected tab is loading (arrow.clockwise ⇄ xmark).
+    /// </summary>
+    private void UpdateReloadIcon()
+    {
+        bool loading = Store?.SelectedTab?.IsLoading ?? false;
+        ReloadIcon.Glyph = loading ? "" : ""; // stop (Cancel) : reload (Refresh)
+        ToolTipService.SetToolTip(ReloadButton, loading ? "Stop" : "Reload");
     }
 
     /// <summary>
@@ -136,7 +158,8 @@ public sealed partial class MoriSidebar : UserControl
         // Update nav button states
         BackButton.IsEnabled = Store.SelectedTab?.CanGoBack ?? false;
         ForwardButton.IsEnabled = Store.SelectedTab?.CanGoForward ?? false;
-        
+        UpdateReloadIcon();
+
         UpdatePositionIcons();
     }
 
@@ -176,7 +199,10 @@ public sealed partial class MoriSidebar : UserControl
         => Store?.GoForward();
 
     private void Reload_Click(object sender, RoutedEventArgs e)
-        => Store?.Reload();
+    {
+        if (Store?.SelectedTab?.IsLoading == true) Store.Stop();
+        else Store?.Reload();
+    }
 
     private void DownloadsFlyout_Opened(object sender, object e)
     {

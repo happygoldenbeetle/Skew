@@ -116,6 +116,21 @@ public sealed partial class MainWindow : Window
             });
         };
 
+        // Media markers (__MORI_MEDIA__) from each page's injected agent feed the
+        // sidebar media player. The browser id maps back to its owning tab inside
+        // MediaController when issuing transport commands.
+        Mori.Cef.MoriBrowserHostChannel.ConsoleMarkerHandler = (browser, message) =>
+        {
+            if (message is null) return;
+            const string mediaPrefix = "__MORI_MEDIA__";
+            if (message.StartsWith(mediaPrefix, StringComparison.Ordinal))
+            {
+                int bid = browser.Identifier;
+                string json = message.Substring(mediaPrefix.Length);
+                DispatcherQueue.TryEnqueue(() => Mori.Models.MediaController.Shared.Ingest(bid, json));
+            }
+        };
+
         // Show the selected tab's CEF browser view in the web-content card.
         ShowSelectedBrowserView();
     }

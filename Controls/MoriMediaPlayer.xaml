@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Mori.Controls.MoriMediaPlayer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+        The dynamic sidebar media player. 1:1 port of MediaPlayerStrip.swift:
+        artwork + title/artist + PiP, a scrubbable progress bar, and a transport
+        row (skip ±10s, play/pause, mute) with a centered time label.
+        Outer padding (8 / bottom 6) matches the mac inset.
+    -->
+    <Grid Padding="8,0,8,6">
+        <Border x:Name="Card"
+                CornerRadius="10"
+                BorderThickness="1"
+                Padding="11,9">
+            <StackPanel Spacing="7">
+
+                <!-- Top row: artwork + title/artist + PiP -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Artwork (click reveals the owning tab) -->
+                    <Border x:Name="ArtworkBorder"
+                            Grid.Column="0"
+                            Width="34" Height="34"
+                            CornerRadius="7"
+                            BorderThickness="0.5"
+                            Margin="0,0,9,0"
+                            Tapped="Artwork_Tapped">
+                        <Grid>
+                            <Grid x:Name="ArtFallback">
+                                <FontIcon x:Name="ArtFallbackIcon"
+                                          FontSize="17"
+                                          Glyph="&#xE8D6;"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                            </Grid>
+                            <Image x:Name="ArtworkImage"
+                                   Stretch="UniformToFill"
+                                   Visibility="Collapsed" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Title / artist -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock x:Name="TitleText"
+                                   Text="{x:Bind Media.DisplayTitle, Mode=OneWay}"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1" />
+                        <TextBlock x:Name="ArtistText"
+                                   Text="{x:Bind Media.Artist, Mode=OneWay}"
+                                   FontSize="11"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1"
+                                   Visibility="{x:Bind Vis(Media.HasArtist), Mode=OneWay}" />
+                    </StackPanel>
+
+                    <!-- Picture-in-Picture -->
+                    <Button x:Name="PiPButton"
+                            Grid.Column="2"
+                            Width="26" Height="26"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            CornerRadius="13"
+                            VerticalAlignment="Center"
+                            Click="PiP_Click"
+                            Visibility="{x:Bind Vis(Media.ShowPiP), Mode=OneWay}"
+                            ToolTipService.ToolTip="Picture in Picture">
+                        <FontIcon x:Name="PiPIcon" FontSize="13" Glyph="&#xE944;" />
+                    </Button>
+                </Grid>
+
+                <!-- Scrubber -->
+                <Grid x:Name="ScrubHit"
+                      Height="12"
+                      Background="Transparent"
+                      PointerPressed="Scrub_PointerPressed"
+                      PointerMoved="Scrub_PointerMoved"
+                      PointerReleased="Scrub_PointerReleased"
+                      PointerCanceled="Scrub_PointerReleased"
+                      SizeChanged="Scrub_SizeChanged">
+                    <Rectangle x:Name="ScrubTrack"
+                               Height="3"
+                               RadiusX="1.5" RadiusY="1.5"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Center" />
+                    <Rectangle x:Name="ScrubFill"
+                               Height="3"
+                               Width="0"
+                               RadiusX="1.5" RadiusY="1.5"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center" />
+                    <Ellipse x:Name="ScrubThumb"
+                             Width="8" Height="8"
+                             HorizontalAlignment="Left"
+                             VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- Transport row -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                        <Button x:Name="SkipBackButton" Width="26" Height="26" Padding="0"
+                                Background="Transparent" BorderThickness="0" CornerRadius="13"
+                                Click="SkipBack_Click" ToolTipService.ToolTip="Back 10s">
+                            <FontIcon FontSize="13" Glyph="&#xED3C;" />
+                        </Button>
+                        <Button x:Name="PlayPauseButton" Width="32" Height="32" Padding="0"
+                                Background="Transparent" BorderThickness="0" CornerRadius="16"
+                                Click="PlayPause_Click">
+                            <FontIcon x:Name="PlayPauseIcon" FontSize="15" Glyph="&#xE768;" />
+                        </Button>
+                        <Button x:Name="SkipForwardButton" Width="26" Height="26" Padding="0"
+                                Background="Transparent" BorderThickness="0" CornerRadius="13"
+                                Click="SkipForward_Click" ToolTipService.ToolTip="Forward 10s">
+                            <FontIcon FontSize="13" Glyph="&#xED3D;" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock x:Name="TimeText"
+                               Grid.Column="1"
+                               Text="{x:Bind Media.TimeLabel, Mode=OneWay}"
+                               FontSize="11"
+                               FontFamily="Consolas"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+
+                    <Button x:Name="MuteButton" Grid.Column="2" Width="26" Height="26" Padding="0"
+                            Background="Transparent" BorderThickness="0" CornerRadius="13"
+                            VerticalAlignment="Center"
+                            Click="Mute_Click" ToolTipService.ToolTip="Mute">
+                        <FontIcon x:Name="MuteIcon" FontSize="12" Glyph="&#xE767;" />
+                    </Button>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
