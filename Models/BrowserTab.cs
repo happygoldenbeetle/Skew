@@ -66,11 +66,46 @@ public partial class BrowserTab : ObservableObject
     public bool IsInternal => UrlString?.StartsWith("mori://") == true;
 
     public BrowserTab(string url = "about:blank", string title = "New Tab")
+        : this(Guid.NewGuid(), url, title)
     {
-        Id = Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// Rebuild a tab with a known id. Session restore needs this: the saved file
+    /// records pinned/folder/loose membership as tab ids, so a restored tab must
+    /// come back under its original id for that membership to resolve.
+    ///
+    /// <para>
+    /// <paramref name="faviconUrl"/> is what the tab last displayed. Without it a
+    /// restored tab shows its initial letter instead of its icon, because the
+    /// icon is normally only learned by loading the page — and a restored tab
+    /// that is never selected never loads.
+    /// </para>
+    /// </summary>
+    public BrowserTab(Guid id, string url, string title, string? faviconUrl = null)
+    {
+        Id = id;
         _title = title;
         _urlString = url;
+        _faviconUrl = string.IsNullOrWhiteSpace(faviconUrl) ? DeriveFaviconUrl(url) : faviconUrl;
         _accentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
+    }
+
+    /// <summary>
+    /// A host-derived icon URL, used until the page reports its real favicon.
+    /// Returns null for internal and non-http(s) pages, which have no icon to
+    /// look up.
+    /// </summary>
+    internal static string? DeriveFaviconUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url.StartsWith("mori://", StringComparison.Ordinal))
+            return null;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return null;
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            return null;
+
+        return $"https://www.google.com/s2/favicons?domain={uri.Host}&sz=128";
     }
 
     // ── CEF-backed browser view ──
@@ -109,10 +144,9 @@ public partial class BrowserTab : ObservableObject
             OnPropertyChanged(nameof(DisplayUrl));
             OnPropertyChanged(nameof(IsInternal));
             OnPropertyChanged(nameof(AccentColorBrush));
-            if (!IsInternal && Uri.TryCreate(u, UriKind.Absolute, out var uri))
-            {
-                FaviconUrl = $"https://www.google.com/s2/favicons?domain={uri.Host}&sz=128";
-            }
+            var derived = DeriveFaviconUrl(u);
+            if (derived is not null)
+                FaviconUrl = derived;
         };
         view.LoadingStateChanged += (isLoading, canGoBack, canGoForward) =>
         {

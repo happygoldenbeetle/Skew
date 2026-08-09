@@ -9,7 +9,7 @@ namespace Mori.Models;
 /// </summary>
 public partial class TabFolder : ObservableObject
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; }
 
     [ObservableProperty]
     private string _name;
@@ -44,7 +44,17 @@ public partial class TabFolder : ObservableObject
     public ObservableCollection<BrowserTab> Tabs { get; } = [];
 
     public TabFolder(string name = "Folder", string symbol = "\uE8B7", bool isExpanded = false)
+        : this(Guid.NewGuid(), name, symbol, isExpanded)
     {
+    }
+
+    /// <summary>
+    /// Rebuild a folder with a known id, so a restored folder keeps the identity
+    /// the sidebar's drop targets and context menu items key off.
+    /// </summary>
+    public TabFolder(Guid id, string name, string symbol, bool isExpanded)
+    {
+        Id = id;
         Name = name;
         Symbol = symbol;
         IsExpanded = isExpanded;

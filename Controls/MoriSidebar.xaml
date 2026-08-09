@@ -38,32 +38,18 @@
 
         <!-- ═══ Header ═══ -->
         <StackPanel Grid.Row="0" Padding="10,10,10,6" Spacing="8">
-            <!-- Navigation row: sidebar toggle | spacer | back / forward / reload / downloads -->
+            <!--
+                Navigation row: back / forward / reload, left-aligned.
+
+                Diverges from SidebarHeader in Sidebar.swift at the user's
+                request — the Mac puts a sidebar-toggle button on the left and
+                pushes the nav buttons to the right. The toggle is gone here;
+                hiding the sidebar is still on Ctrl+S and in the sidebar's
+                context menu ("Hide Sidebar").
+            -->
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Button
-                    x:Name="SidebarToggle"
-                    Grid.Column="0"
-                    Width="28" Height="28"
-                    Padding="0"
-                    Style="{StaticResource MoriGhostButtonStyle}"
-                    Click="SidebarToggle_Click"
-                    CornerRadius="10"
-                    ToolTipService.ToolTip="Toggle sidebar">
-                    <ImageIcon x:Name="SidebarToggleIcon" Width="16" Height="16" RenderTransformOrigin="0.5,0.5" Source="{ThemeResource SidebarRightIconSource}">
-                        <ImageIcon.RenderTransform>
-                            <ScaleTransform ScaleX="-1" />
-                        </ImageIcon.RenderTransform>
-                    </ImageIcon>
-                </Button>
-
                 <StackPanel
-                    Grid.Column="2"
+                    HorizontalAlignment="Left"
                     Orientation="Horizontal"
                     Spacing="4">
                     <Button
@@ -95,26 +81,6 @@
                         CornerRadius="10"
                         ToolTipService.ToolTip="Reload">
                         <FontIcon x:Name="ReloadIcon" Glyph="&#xE72C;" FontSize="16" />
-                    </Button>
-                    <!-- Downloads (mac keeps this in the header nav row) -->
-                    <Button
-                        x:Name="DownloadsButton"
-                        Width="28" Height="28"
-                        Padding="0"
-                        Style="{StaticResource MoriGhostButtonStyle}"
-                        CornerRadius="10"
-                        ToolTipService.ToolTip="Downloads">
-                        <Button.Content>
-                            <Grid>
-                                <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}" IsIndeterminate="False" Width="18" Height="18" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"/>
-                                <FontIcon x:Name="DownloadsIcon" Glyph="&#xE896;" FontSize="16" />
-                            </Grid>
-                        </Button.Content>
-                        <Button.Flyout>
-                            <Flyout Placement="BottomEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="DownloadsFlyout_Opened">
-                                <controls:DownloadsPanel />
-                            </Flyout>
-                        </Button.Flyout>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -416,74 +382,38 @@
             Visibility="{x:Bind MediaVisibility(Media.HasMedia), Mode=OneWay}" />
 
         <!--
-            ═══ Bottom Bar (SidebarBottomBar in Sidebar.swift) ═══
-            Height 46, horizontal padding 10, spacing 6, and no bottom padding —
-            the row is centred in its own 46pt band.
+            ═══ Bottom Bar ═══
+            Downloads only. The AI, appearance and settings buttons were removed
+            at the user's request and downloads was moved down here from the
+            header nav row, so this intentionally diverges from
+            SidebarBottomBar in Sidebar.swift.
+
+            Both removed actions are still reachable: Settings from the sidebar
+            context menu, light/dark from Settings.
         -->
         <Grid Grid.Row="3" Padding="10,0,10,0" Height="46">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <!--
-                AI toggle — left exactly as it was. AI surfaces are out of scope
-                for this parity pass, so this button is not restyled or given the
-                Mac's active-state fill along with the rest of the bottom bar.
-            -->
             <Button
-                Grid.Column="0"
+                x:Name="DownloadsButton"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
                 Width="30" Height="30"
                 Padding="0"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="AIToggle_Click"
-                CornerRadius="8"
-                ToolTipService.ToolTip="Toggle AI Panel">
-                <Grid>
-                    <PathIcon Data="F1 M 2.35278 4.37344 a 0.389667 0.389667 0 0 0 0.738889 0 l 0.327444 -0.982333 0.982333 -0.327444 a 0.388889 0.388889 0 0 0 0 -0.737333 L 3.41911 1.99889 l -0.327444 -0.982333 c -0.106556 -0.317333 -0.631556 -0.317333 -0.738111 0 L 2.02611 1.99889 l -0.982333 0.327444 a 0.388889 0.388889 0 0 0 0 0.737333 l 0.982333 0.327444 z m 10.5 2.47333 L 9.32556 5.45222 l -1.39456 -3.52722 c -0.176556 -0.444889 -0.908444 -0.444889 -1.085 0 L 5.45144 5.45222 1.92422 6.84678 a 0.583333 0.583333 0 0 0 0 1.08422 l 3.52722 1.39456 1.39456 3.52722 a 0.583333 0.583333 0 0 0 1.08422 0 l 1.39456 -3.52722 3.52722 -1.39456 a 0.584111 0.584111 0 0 0 0.000777778 -1.08422" Width="14" Height="14"
-                              HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Grid>
+                Style="{StaticResource MoriGhostButtonStyle}"
+                CornerRadius="10"
+                ToolTipService.ToolTip="Downloads">
+                <Button.Content>
+                    <Grid>
+                        <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}" IsIndeterminate="False" Width="18" Height="18" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"/>
+                        <FontIcon x:Name="DownloadsIcon" Glyph="&#xE896;" FontSize="16" />
+                    </Grid>
+                </Button.Content>
+                <Button.Flyout>
+                    <!-- Opens upward now that the button sits at the bottom edge. -->
+                    <Flyout Placement="TopEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="DownloadsFlyout_Opened">
+                        <controls:DownloadsPanel />
+                    </Flyout>
+                </Button.Flyout>
             </Button>
-
-            <!--
-                Right side: colour swatch, light/dark toggle, settings. Sidebar
-                side is not a button here — the Mac puts it in the sidebar's
-                context menu, and the bottom bar holds the theme swatch instead.
-            -->
-            <StackPanel
-                Grid.Column="2"
-                Orientation="Horizontal"
-                Spacing="6">
-                <!--
-                    The Mac's ThemeSwatchButton belongs here: a 16pt chip of the
-                    active gradient theme that opens ThemePicker in a popover.
-                    It is omitted rather than stubbed, because neither
-                    GradientEngine nor ThemePicker is ported yet, so the chip
-                    would have nothing to display and nothing to open. It comes
-                    back with the gradient theming work.
-                -->
-                <Button
-                    x:Name="ThemeToggle"
-                    Width="30" Height="30"
-                    Padding="0"
-                    Style="{StaticResource MoriGhostButtonStyle}"
-                    Click="ThemeToggle_Click"
-                    CornerRadius="10"
-                    ToolTipService.ToolTip="Toggle light / dark">
-                    <PathIcon x:Name="ThemeIcon" Width="16" Height="16" Data="F1 M 12.9928 7.95122 a 0.583333 0.583333 0 0 0 -0.651778 -0.0287778 A 4.27778 4.27778 0 0 1 10.1111 8.55556 a 4.28244 4.28244 0 0 1 -4.27778 -4.27778 c 0 -0.891333 0.275333 -1.74767 0.795667 -2.478 a 0.583333 0.583333 0 0 0 -0.582556 -0.912333 A 6.22222 6.22222 0 0 0 0.972222 7 c 0 3.43078 2.79144 6.22222 6.22222 6.22222 a 6.21833 6.21833 0 0 0 6.01611 -4.65578 0.583333 0.583333 0 0 0 -0.217778 -0.614444" />
-                </Button>
-
-                <Button
-                    Width="30" Height="30"
-                    Padding="0"
-                    Style="{StaticResource MoriGhostButtonStyle}"
-                    Click="Settings_Click"
-                    ToolTipService.ToolTip="Settings">
-                    <PathIcon Data="F1 M 7 4.66667 a 2.33333 2.33333 0 1 1 0 4.66667 2.33333 2.33333 0 0 1 0 -4.66667 m 0 1.16667 a 1.16667 1.16667 0 1 0 0 2.33333 1.16667 1.16667 0 0 0 0 -2.33333 M 4.025 1.53144 a 1.83556 1.83556 0 0 1 2.11244 0.194444 l 0.385 0.330556 a 4.97778 4.97778 0 0 1 0.954333 -0.000777778 l 0.385 -0.328222 a 1.83556 1.83556 0 0 1 1.98411 -0.262889 l 0.128333 0.0676667 0.273778 0.157889 h -0.000777778 a 1.83556 1.83556 0 0 1 0.886667 1.92578 l -0.0933333 0.500889 c 0.091 0.124444 0.181222 0.256667 0.262889 0.398222 0.0816667 0.140778 0.150889 0.284667 0.213889 0.425444 l 0.479889 0.169556 0.0132222 0.00622222 a 1.83556 1.83556 0 0 1 1.21022 1.72589 V 7.15556 a 1.83556 1.83556 0 0 1 -1.22578 1.73211 l -0.477556 0.168 q -0.198333 0.434778 -0.477556 0.825222 l 0.0933333 0.500111 a 1.83556 1.83556 0 0 1 -0.886667 1.92656 l -0.272222 0.157111 a 1.83556 1.83556 0 0 1 -1.99889 -0.104222 l -0.114333 -0.0902222 -0.386556 -0.330556 q -0.478333 0.0458889 -0.952778 0 l -0.384222 0.329778 a 1.83556 1.83556 0 0 1 -2.11244 0.195222 l -0.272222 -0.158667 a 1.83556 1.83556 0 0 1 -0.887444 -1.92578 l 0.0933333 -0.501667 a 4.66667 4.66667 0 0 1 -0.261333 -0.396667 4.66667 4.66667 0 0 1 -0.216222 -0.426222 l -0.478333 -0.168778 A 1.83556 1.83556 0 0 1 0.777778 7.15556 v -0.314222 c 0 -0.777778 0.490778 -1.47311 1.225 -1.73211 l 0.476778 -0.168 a 4.97778 4.97778 0 0 1 0.478333 -0.826778 l -0.0933333 -0.497778 a 1.83556 1.83556 0 0 1 0.886667 -1.92656 z m 5.36511 1.01033 a 0.668889 0.668889 0 0 0 -0.769222 0.0715556 l -0.579444 0.495444 a 0.583333 0.583333 0 0 1 -0.468222 0.133778 3.81111 3.81111 0 0 0 -1.14878 0 0.583333 0.583333 0 0 1 -0.466667 -0.133778 l -0.579444 -0.496222 a 0.668889 0.668889 0 0 0 -0.77 -0.0707778 l -0.272222 0.157889 h -0.00155556 a 0.668889 0.668889 0 0 0 -0.322778 0.702333 l 0.14 0.750556 a 0.583333 0.583333 0 0 1 -0.117444 0.471333 c -0.243444 0.303333 -0.436333 0.637778 -0.575556 0.994 A 0.583333 0.583333 0 0 1 3.11111 5.95544 l -0.719444 0.253556 a 0.668889 0.668889 0 0 0 -0.446444 0.632333 V 7.15556 c 0 0.283889 0.178889 0.536667 0.446444 0.631556 l 0.723333 0.255111 0.0583333 0.0241111 a 0.583333 0.583333 0 0 1 0.290111 0.313444 c 0.0723333 0.185889 0.150889 0.357778 0.244222 0.518778 0.0941111 0.162556 0.204556 0.317333 0.328222 0.473667 0.105778 0.132222 0.147778 0.303333 0.116667 0.469778 l -0.14 0.752889 a 0.668889 0.668889 0 0 0 0.237222 0.642444 l 0.0863333 0.0591111 0.273778 0.159444 a 0.668889 0.668889 0 0 0 0.769222 -0.0715556 l 0.579444 -0.496222 0.0505556 -0.0388889 a 0.583333 0.583333 0 0 1 0.417667 -0.0948889 c 0.374889 0.0583333 0.762222 0.0583333 1.14722 0 l 0.0622222 -0.00622222 a 0.583333 0.583333 0 0 1 0.404444 0.14 l 0.580222 0.497 0.0855556 0.0614444 a 0.668889 0.668889 0 0 0 0.684444 0.00933333 l 0.272222 -0.157889 0.0871111 -0.0598889 a 0.668889 0.668889 0 0 0 0.237222 -0.642444 l -0.14 -0.751333 a 0.583333 0.583333 0 0 1 0.118222 -0.471333 c 0.242667 -0.303333 0.435556 -0.637778 0.573222 -0.992444 l 0.0256667 -0.0575556 a 0.583333 0.583333 0 0 1 0.324333 -0.281556 l 0.719444 -0.253556 a 0.668889 0.668889 0 0 0 0.446444 -0.631556 v -0.314222 a 0.668889 0.668889 0 0 0 -0.446444 -0.632333 l -0.00622222 -0.00233333 -0.715556 -0.252778 a 0.583333 0.583333 0 0 1 -0.348444 -0.336778 3.88889 3.88889 0 0 0 -0.245 -0.521111 3.88889 3.88889 0 0 0 -0.326667 -0.470556 0.583333 0.583333 0 0 1 -0.119 -0.469778 l 0.14 -0.753667 a 0.668889 0.668889 0 0 0 -0.236444 -0.642444 l -0.0863333 -0.0598889 z" Width="16" Height="16" />
-                </Button>
-            </StackPanel>
         </Grid>
     </Grid>
 </UserControl>

@@ -122,11 +122,7 @@ public sealed partial class MoriSidebar : UserControl
 
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(BrowserStore.SidebarOnLeft))
-        {
-            UpdatePositionIcons();
-        }
-        else if (e.PropertyName == nameof(BrowserStore.SelectedTab))
+        if (e.PropertyName == nameof(BrowserStore.SelectedTab))
         {
             if (sender is BrowserStore oldStore && oldStore.SelectedTab != null)
             {
@@ -192,8 +188,6 @@ public sealed partial class MoriSidebar : UserControl
         BackButton.IsEnabled = Store.SelectedTab?.CanGoBack ?? false;
         ForwardButton.IsEnabled = Store.SelectedTab?.CanGoForward ?? false;
         UpdateReloadIcon();
-
-        UpdatePositionIcons();
     }
 
     private void RootGrid_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
@@ -204,28 +198,16 @@ public sealed partial class MoriSidebar : UserControl
         e.Handled = true;
     }
 
-    private void UpdatePositionIcons()
-    {
-        if (Store == null) return;
-
-        // The sidebar-side control lives in the context menu, matching the Mac \u2014
-        // only the toggle glyph flips to point at the edge the sidebar sits on.
-        if (SidebarToggleIcon.RenderTransform is Microsoft.UI.Xaml.Media.ScaleTransform st)
-        {
-            st.ScaleX = Store.SidebarOnLeft ? -1 : 1;
-        }
-    }
-
-
     public void FocusOmnibox()
     {
         OmniboxField.FocusProgrammatically();
     }
 
-    // ── Event Handlers ──
+    // -- Event Handlers --
+    //
+    // SidebarToggle_Click and UpdatePositionIcons went with the toggle button;
+    // the latter existed only to mirror its glyph toward the docked edge.
 
-    private void SidebarToggle_Click(object sender, RoutedEventArgs e)
-        => Store?.ToggleSidebar();
 
     private void Back_Click(object sender, RoutedEventArgs e)
         => Store?.GoBack();
@@ -311,26 +293,10 @@ public sealed partial class MoriSidebar : UserControl
         }
     }
 
-    private void AIToggle_Click(object sender, RoutedEventArgs e)
-        => Store?.ToggleAIPanel();
+    // AIToggle_Click, ThemeToggle_Click and Settings_Click are gone with their
+    // buttons. Settings is still reachable from the sidebar context menu, and
+    // light/dark from Settings itself.
 
-    private void ThemeToggle_Click(object sender, RoutedEventArgs e)
-    {
-        ThemeService.Instance.ToggleTheme();
-        if (XamlRoot?.Content is FrameworkElement root)
-        {
-            root.RequestedTheme = ThemeService.Instance.IsDark
-                ? ElementTheme.Dark
-                : ElementTheme.Light;
-        }
-        var pathData = ThemeService.Instance.IsDark 
-            ? "F1 M 12.9928 7.95122 a 0.583333 0.583333 0 0 0 -0.651778 -0.0287778 A 4.27778 4.27778 0 0 1 10.1111 8.55556 a 4.28244 4.28244 0 0 1 -4.27778 -4.27778 c 0 -0.891333 0.275333 -1.74767 0.795667 -2.478 a 0.583333 0.583333 0 0 0 -0.582556 -0.912333 A 6.22222 6.22222 0 0 0 0.972222 7 c 0 3.43078 2.79144 6.22222 6.22222 6.22222 a 6.21833 6.21833 0 0 0 6.01611 -4.65578 0.583333 0.583333 0 0 0 -0.217778 -0.614444" 
-            : "F1 M 7 11.6667 a 0.583333 0.583333 0 0 1 0.583333 0.583333 v 0.777778 a 0.583333 0.583333 0 0 1 -1.16667 0 v -0.777778 A 0.583333 0.583333 0 0 1 7 11.6667 m -4.12456 -1.36656 a 0.582556 0.582556 0 1 1 0.824444 0.824444 l -0.549889 0.550667 a 0.579444 0.579444 0 0 1 -0.824444 0 0.583333 0.583333 0 0 1 0 -0.824444 z m 7.42389 0 a 0.583333 0.583333 0 0 1 0.824444 0 l 0.549889 0.549889 a 0.583333 0.583333 0 0 1 -0.824444 0.824444 l -0.549889 -0.549111 a 0.583333 0.583333 0 0 1 0 -0.824444 M 7 3.11111 a 3.88889 3.88889 0 1 1 0 7.77778 A 3.88889 3.88889 0 0 1 7 3.11111 M 1.75 6.41667 a 0.583333 0.583333 0 0 1 0 1.16667 h -0.777778 a 0.583333 0.583333 0 0 1 0 -1.16667 z m 11.2778 0 a 0.583333 0.583333 0 0 1 0 1.16667 h -0.777778 a 0.583333 0.583333 0 0 1 0 -1.16667 z M 2.32556 2.32556 a 0.583333 0.583333 0 0 1 0.824444 0 l 0.549889 0.549111 a 0.583333 0.583333 0 0 1 -0.824444 0.824444 L 2.32556 3.15 a 0.583333 0.583333 0 0 1 0 -0.824444 m 8.52444 0 a 0.583333 0.583333 0 0 1 0.824444 0.824444 l -0.549889 0.549889 a 0.578667 0.578667 0 0 1 -0.824444 0 0.583333 0.583333 0 0 1 0 -0.824444 z M 7 0.388889 a 0.583333 0.583333 0 0 1 0.583333 0.583333 v 0.777778 a 0.583333 0.583333 0 0 1 -1.16667 0 v -0.777778 A 0.583333 0.583333 0 0 1 7 0.388889";
-        ThemeIcon.Data = (Microsoft.UI.Xaml.Media.Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Microsoft.UI.Xaml.Media.Geometry), pathData);
-    }
-
-    private void Settings_Click(object sender, RoutedEventArgs e)
-        => Store?.ToggleSettings();
 
 
 

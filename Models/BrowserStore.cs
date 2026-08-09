@@ -64,15 +64,45 @@ public partial class BrowserStore : ObservableObject
 
 
 
+    // ── Session persistence ──
+    //
+    // Pinned tabs, folders and the open tab list survive a restart. Saves are
+    // debounced rather than written on every change: a single page load fires
+    // repeated title and URL updates, and each one would otherwise rewrite the
+    // whole file.
+
+    private static readonly TimeSpan SessionSaveDebounce = TimeSpan.FromMilliseconds(500);
+
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcher;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveTimer;
+
+    /// <summary>True while restoring, so rebuilding state doesn't save over it.</summary>
+    private bool _restoring;
+
     // ── Initialization ──
 
     public BrowserStore()
     {
-        // Start with a home tab
-        var homeTab = new BrowserTab("mori://newtab/", "New Tab");
-        Tabs.Add(homeTab);
-        LooseTabs.Add(homeTab);
-        SelectTab(homeTab.Id);
+        _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+        _restoring = true;
+        if (!RestoreSession())
+        {
+            // Nothing saved (or the file was unusable) — start with a home tab.
+            var homeTab = new BrowserTab("mori://newtab/", "New Tab");
+            Tabs.Add(homeTab);
+            LooseTabs.Add(homeTab);
+            SelectTab(homeTab.Id);
+        }
+        _restoring = false;
+
+        WireSessionPersistence();
+
+        // Write the starting state once. The subscriptions above only fire on
+        // change, and a freshly created home tab loading mori://newtab/ changes
+        // neither its URL nor its title — so without this, a first run that the
+        // user never modifies would never produce a session file at all.
+        ScheduleSessionSave();
     }
 
     // ── Tab actions ──
@@ -476,6 +506,219 @@ public partial class BrowserStore : ObservableObject
             idx = Math.Max(0, Math.Min(idx, LooseTabs.Count));
             LooseTabs.Insert(idx, tab);
         }
+    }
+
+    // ── Session save / restore ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Subscribe to everything that belongs in the session file. Tabs and
+    /// folders are watched individually as they come and go, so a renamed
+    /// folder or a navigated tab schedules a save just like a reorder does.
+    /// </summary>
+    private void WireSessionPersistence()
+    {
+        Tabs.CollectionChanged += (_, e) =>
+        {
+            Track<BrowserTab>(e.OldItems, t => t.PropertyChanged -= OnTabPersistedPropertyChanged);
+            Track<BrowserTab>(e.NewItems, t => t.PropertyChanged += OnTabPersistedPropertyChanged);
+            ScheduleSessionSave();
+        };
+        foreach (var tab in Tabs)
+            tab.PropertyChanged += OnTabPersistedPropertyChanged;
+
+        PinnedTabs.CollectionChanged += (_, _) => ScheduleSessionSave();
+        LooseTabs.CollectionChanged += (_, _) => ScheduleSessionSave();
+
+        Folders.CollectionChanged += (_, e) =>
+        {
+            Track<TabFolder>(e.OldItems, UnwatchFolder);
+            Track<TabFolder>(e.NewItems, WatchFolder);
+            ScheduleSessionSave();
+        };
+        foreach (var folder in Folders)
+            WatchFolder(folder);
+    }
+
+    private static void Track<T>(System.Collections.IList? items, Action<T> action)
+    {
+        if (items is null) return;
+        foreach (var item in items)
+            if (item is T typed) action(typed);
+    }
+
+    private void WatchFolder(TabFolder folder)
+    {
+        folder.PropertyChanged += OnFolderPersistedPropertyChanged;
+        folder.Tabs.CollectionChanged += OnFolderTabsChanged;
+    }
+
+    private void UnwatchFolder(TabFolder folder)
+    {
+        folder.PropertyChanged -= OnFolderPersistedPropertyChanged;
+        folder.Tabs.CollectionChanged -= OnFolderTabsChanged;
+    }
+
+    private void OnFolderTabsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        => ScheduleSessionSave();
+
+    private void OnTabPersistedPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(BrowserTab.UrlString) or nameof(BrowserTab.Title)
+            or nameof(BrowserTab.FaviconUrl))
+            ScheduleSessionSave();
+    }
+
+    private void OnFolderPersistedPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TabFolder.Name) or nameof(TabFolder.Symbol)
+            or nameof(TabFolder.IsExpanded))
+            ScheduleSessionSave();
+    }
+
+    partial void OnSelectedTabIdChanged(Guid? value) => ScheduleSessionSave();
+
+    /// <summary>Queue a save, collapsing bursts of changes into one write.</summary>
+    public void ScheduleSessionSave()
+    {
+        if (_restoring) return;
+
+        if (_dispatcher is null)
+        {
+            // No UI thread to debounce on (unit tests, or an early construction).
+            SaveSessionNow();
+            return;
+        }
+
+        _saveTimer ??= _dispatcher.CreateTimer();
+        _saveTimer.Interval = SessionSaveDebounce;
+        _saveTimer.IsRepeating = false;
+        _saveTimer.Tick -= OnSaveTimerTick;
+        _saveTimer.Tick += OnSaveTimerTick;
+        _saveTimer.Start(); // restarting an active timer resets the interval
+    }
+
+    private void OnSaveTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+        => SaveSessionNow();
+
+    /// <summary>
+    /// Write the session immediately. Called on app exit so a pending debounced
+    /// save isn't lost when the window closes.
+    /// </summary>
+    public void FlushSessionSave()
+    {
+        _saveTimer?.Stop();
+        SaveSessionNow();
+    }
+
+    private void SaveSessionNow()
+    {
+        if (_restoring || Tabs.Count == 0) return;
+
+        var live = Tabs.Select(t => t.Id).ToHashSet();
+
+        SessionStore.Save(new PersistedSession
+        {
+            Tabs = Tabs.Select(t => new PersistedTab
+            {
+                Id = t.Id,
+                Url = t.UrlString ?? "",
+                Title = t.Title ?? "",
+                FaviconUrl = t.FaviconUrl,
+            }).ToList(),
+            SelectedTabId = SelectedTabId,
+            PinnedTabIds = PinnedTabs.Where(t => live.Contains(t.Id)).Select(t => t.Id).ToList(),
+            LooseTabIds = LooseTabs.Where(t => live.Contains(t.Id)).Select(t => t.Id).ToList(),
+            Folders = Folders.Select(f => new PersistedFolder
+            {
+                Id = f.Id,
+                Name = f.Name,
+                Symbol = f.Symbol,
+                IsExpanded = f.IsExpanded,
+                TabIds = f.Tabs.Where(t => live.Contains(t.Id)).Select(t => t.Id).ToList(),
+            }).ToList(),
+        });
+    }
+
+    /// <summary>
+    /// Rebuild the last session. Returns false when there was nothing to
+    /// restore, leaving the caller to create a fresh home tab.
+    /// </summary>
+    private bool RestoreSession()
+    {
+        var saved = SessionStore.Load();
+        if (saved is null) return false;
+
+        // Rebuild tabs first, keyed by id, so pinned/folder/loose membership can
+        // be resolved against them. Blank URLs are dropped rather than restored
+        // as dead rows.
+        var byId = new Dictionary<Guid, BrowserTab>();
+        foreach (var p in saved.Tabs)
+        {
+            if (string.IsNullOrWhiteSpace(p.Url) || byId.ContainsKey(p.Id))
+                continue;
+
+            var tab = new BrowserTab(p.Id, p.Url,
+                string.IsNullOrWhiteSpace(p.Title) ? "New Tab" : p.Title,
+                p.FaviconUrl);
+            byId[p.Id] = tab;
+            Tabs.Add(tab);
+        }
+
+        if (Tabs.Count == 0) return false;
+
+        foreach (var id in saved.PinnedTabIds)
+            if (byId.TryGetValue(id, out var tab) && !PinnedTabs.Contains(tab))
+                PinnedTabs.Add(tab);
+
+        foreach (var pf in saved.Folders)
+        {
+            var folder = new TabFolder(pf.Id, pf.Name, pf.Symbol, pf.IsExpanded);
+            foreach (var id in pf.TabIds)
+                if (byId.TryGetValue(id, out var tab) && !folder.Tabs.Contains(tab))
+                    folder.Tabs.Add(tab);
+            Folders.Add(folder);
+        }
+
+        if (BrowserSettings.Shared.RestoreTabsOnLaunch)
+        {
+            // Anything the file listed as loose, plus anything that ended up in
+            // no bucket at all — otherwise a tab saved in a since-removed folder
+            // would exist in Tabs but never appear in the sidebar.
+            foreach (var id in saved.LooseTabIds)
+                if (byId.TryGetValue(id, out var tab) && !LooseTabs.Contains(tab))
+                    LooseTabs.Add(tab);
+
+            foreach (var tab in Tabs.ToList())
+            {
+                bool placed = PinnedTabs.Contains(tab)
+                    || LooseTabs.Contains(tab)
+                    || Folders.Any(f => f.Tabs.Contains(tab));
+                if (!placed) LooseTabs.Add(tab);
+            }
+
+            var selected = saved.SelectedTabId.HasValue
+                           && byId.TryGetValue(saved.SelectedTabId.Value, out var s)
+                ? s
+                : Tabs[0];
+            SelectTab(selected.Id);
+            return true;
+        }
+
+        // Restore off: pinned tabs and folders come back, but the previous
+        // session's ordinary tabs do not. Drop them so they neither show in the
+        // sidebar nor linger invisibly in Tabs, then open a fresh new tab so the
+        // launch starts somewhere predictable rather than on the last-used page.
+        foreach (var tab in Tabs.ToList())
+        {
+            bool keep = PinnedTabs.Contains(tab) || Folders.Any(f => f.Tabs.Contains(tab));
+            if (!keep) Tabs.Remove(tab);
+        }
+
+        var fresh = new BrowserTab("mori://newtab/", "New Tab");
+        Tabs.Add(fresh);
+        LooseTabs.Add(fresh);
+        SelectTab(fresh.Id);
+        return true;
     }
 }
 

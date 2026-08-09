@@ -170,6 +170,22 @@
                                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind Settings.ShowSidebarOnLaunch, Mode=TwoWay}" />
                                     </Grid>
 
+                                    <!-- Reopen previous tabs -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="Reopen tabs from last session" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock Text="Pinned tabs and folders always come back. With this off, Mori starts on a new tab instead of your last open page."
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsOn="{x:Bind Settings.RestoreTabsOnLaunch, Mode=TwoWay}" />
+                                    </Grid>
+
                                     <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,4" />
 
                                     <!-- Color theme -->

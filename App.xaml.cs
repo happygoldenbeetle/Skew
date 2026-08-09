@@ -50,7 +50,13 @@ public partial class App : Application
         _ = Mori.Models.ExtensionStore.Shared;
 
         Window = new MainWindow();
-        Window.Closed += (_, _) => Mori.Cef.CefRuntimeHost.Shutdown();
+        Window.Closed += (_, _) =>
+        {
+            // Flush before teardown: session saves are debounced, so closing
+            // right after a change would otherwise drop it.
+            Mori.Models.BrowserStore.Shared.FlushSessionSave();
+            Mori.Cef.CefRuntimeHost.Shutdown();
+        };
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
     }

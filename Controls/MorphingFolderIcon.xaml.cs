@@ -112,15 +112,29 @@ public sealed partial class MorphingFolderIcon : UserControl
         }
 
         var sb = new Storyboard();
-        // timingCurve(0.42, 0, 0, 1) — a strong decelerate, matching the Swift curve.
-        var spline = new KeySpline { ControlPoint1 = new(0.42, 0), ControlPoint2 = new(0, 1) };
 
-        AnimateSplit(sb, spline, BackSplit, progress, BackAngleDegrees, BackDx, BackDy, scale);
-        AnimateSplit(sb, spline, FrontSplit, progress, FrontAngleDegrees, FrontDx, FrontDy, scale);
+        AnimateSplit(sb, BackSplit, progress, BackAngleDegrees, BackDx, BackDy, scale);
+        AnimateSplit(sb, FrontSplit, progress, FrontAngleDegrees, FrontDx, FrontDy, scale);
 
-        AddAnimation(sb, spline, Dots, "Opacity", ShowsDots ? 1 : 0, dependent: false);
+        AddAnimation(sb, Dots, "Opacity", ShowsDots ? 1 : 0, dependent: false);
         sb.Begin();
     }
+
+    /// <summary>
+    /// timingCurve(0.42, 0, 0, 1) — the strong decelerate from the Swift source.
+    ///
+    /// <para>
+    /// A fresh instance per keyframe, never a shared one: KeySpline is a
+    /// DependencyObject and may only be parented once, so assigning the same
+    /// instance to a second SplineDoubleKeyFrame throws E_INVALIDARG ("Value does
+    /// not fall within the expected range") and takes the app down.
+    /// </para>
+    /// </summary>
+    private static KeySpline MorphEase() => new()
+    {
+        ControlPoint1 = new Windows.Foundation.Point(0.42, 0),
+        ControlPoint2 = new Windows.Foundation.Point(0, 1),
+    };
 
     private static void SetSplit(CompositeTransform t, double progress, double angle,
                                  double dx, double dy, double scale)
@@ -132,17 +146,17 @@ public sealed partial class MorphingFolderIcon : UserControl
         t.TranslateY = dy * progress;
     }
 
-    private static void AnimateSplit(Storyboard sb, KeySpline spline, CompositeTransform t,
+    private static void AnimateSplit(Storyboard sb, CompositeTransform t,
                                      double progress, double angle, double dx, double dy, double scale)
     {
-        AddAnimation(sb, spline, t, "ScaleX", scale);
-        AddAnimation(sb, spline, t, "ScaleY", scale);
-        AddAnimation(sb, spline, t, "SkewX", angle * progress);
-        AddAnimation(sb, spline, t, "TranslateX", dx * progress);
-        AddAnimation(sb, spline, t, "TranslateY", dy * progress);
+        AddAnimation(sb, t, "ScaleX", scale);
+        AddAnimation(sb, t, "ScaleY", scale);
+        AddAnimation(sb, t, "SkewX", angle * progress);
+        AddAnimation(sb, t, "TranslateX", dx * progress);
+        AddAnimation(sb, t, "TranslateY", dy * progress);
     }
 
-    private static void AddAnimation(Storyboard sb, KeySpline spline, DependencyObject target,
+    private static void AddAnimation(Storyboard sb, DependencyObject target,
                                      string property, double to, bool dependent = true)
     {
         var frames = new DoubleAnimationUsingKeyFrames();
@@ -150,7 +164,7 @@ public sealed partial class MorphingFolderIcon : UserControl
         {
             KeyTime = KeyTime.FromTimeSpan(MorphDuration),
             Value = to,
-            KeySpline = spline,
+            KeySpline = MorphEase(),
         });
         frames.EnableDependentAnimation = dependent;
         Storyboard.SetTarget(frames, target);
