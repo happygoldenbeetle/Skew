@@ -109,8 +109,6 @@ public sealed partial class MoriSidebar : UserControl
         RefreshUI();
         DownloadsButton.Visibility = Visibility.Visible;
         UpdateDownloadPulse();
-        ApplyBottomBarTheme();
-        Theme.ThemeService.Instance.PropertyChanged += ThemeService_PropertyChanged;
 
         MoriTabRow.TabDragActiveChanged += OnTabDragActiveChanged;
         Unloaded += (_, _) => MoriTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
@@ -122,21 +120,11 @@ public sealed partial class MoriSidebar : UserControl
         DispatcherQueue.TryEnqueue(UpdatePinnedDropZone);
     }
 
-    private void ThemeService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(Theme.ThemeService.Palette))
-            ApplyBottomBarTheme();
-    }
-
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(BrowserStore.SidebarOnLeft))
         {
             UpdatePositionIcons();
-        }
-        else if (e.PropertyName == nameof(BrowserStore.AiPanelVisible))
-        {
-            ApplyBottomBarTheme();
         }
         else if (e.PropertyName == nameof(BrowserStore.SelectedTab))
         {
@@ -228,26 +216,6 @@ public sealed partial class MoriSidebar : UserControl
         }
     }
 
-    /// <summary>
-    /// Paint the bottom bar from the palette: the theme swatch chip and the AI
-    /// button's filled/ghost state (SidebarBottomBar in Sidebar.swift).
-    /// </summary>
-    private void ApplyBottomBarTheme()
-    {
-        var p = Theme.ThemeService.Instance.Palette;
-
-        // No gradient themes are ported yet, so the swatch shows the flat accent \u2014
-        // the same fallback the Mac uses when no gradient theme is set.
-        ThemeSwatch.Fill = p.Primary.ToBrush();
-        ThemeSwatch.Stroke = p.Border.WithOpacity(0.6).ToBrush();
-
-        bool aiOpen = Store?.AiPanelVisible ?? false;
-        AIToggleFill.Background = p.Primary.ToBrush();
-        AIToggleFill.Opacity = aiOpen ? 1 : 0;
-        AIToggleIcon.Foreground = aiOpen
-            ? p.PrimaryForeground.ToBrush()
-            : p.SidebarForeground.ToBrush();
-    }
 
     public void FocusOmnibox()
     {

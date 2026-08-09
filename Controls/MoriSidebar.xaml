@@ -427,25 +427,22 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- AI toggle — filled while the panel is open (mac .primary kind) -->
+            <!--
+                AI toggle — left exactly as it was. AI surfaces are out of scope
+                for this parity pass, so this button is not restyled or given the
+                Mac's active-state fill along with the rest of the bottom bar.
+            -->
             <Button
-                x:Name="AIToggleButton"
                 Grid.Column="0"
                 Width="30" Height="30"
                 Padding="0"
-                Style="{StaticResource MoriGhostButtonStyle}"
+                Background="Transparent"
+                BorderThickness="0"
                 Click="AIToggle_Click"
-                CornerRadius="10"
+                CornerRadius="8"
                 ToolTipService.ToolTip="Toggle AI Panel">
-                <!--
-                    The active fill is its own layer rather than the Button's
-                    Background: MoriGhostButtonStyle's visual states drive the
-                    template root's background, so setting it on the button would
-                    be overwritten on the next hover or pointer-exit.
-                -->
                 <Grid>
-                    <Border x:Name="AIToggleFill" CornerRadius="10" Opacity="0" />
-                    <PathIcon x:Name="AIToggleIcon" Data="F1 M 2.35278 4.37344 a 0.389667 0.389667 0 0 0 0.738889 0 l 0.327444 -0.982333 0.982333 -0.327444 a 0.388889 0.388889 0 0 0 0 -0.737333 L 3.41911 1.99889 l -0.327444 -0.982333 c -0.106556 -0.317333 -0.631556 -0.317333 -0.738111 0 L 2.02611 1.99889 l -0.982333 0.327444 a 0.388889 0.388889 0 0 0 0 0.737333 l 0.982333 0.327444 z m 10.5 2.47333 L 9.32556 5.45222 l -1.39456 -3.52722 c -0.176556 -0.444889 -0.908444 -0.444889 -1.085 0 L 5.45144 5.45222 1.92422 6.84678 a 0.583333 0.583333 0 0 0 0 1.08422 l 3.52722 1.39456 1.39456 3.52722 a 0.583333 0.583333 0 0 0 1.08422 0 l 1.39456 -3.52722 3.52722 -1.39456 a 0.584111 0.584111 0 0 0 0.000777778 -1.08422" Width="14" Height="14"
+                    <PathIcon Data="F1 M 2.35278 4.37344 a 0.389667 0.389667 0 0 0 0.738889 0 l 0.327444 -0.982333 0.982333 -0.327444 a 0.388889 0.388889 0 0 0 0 -0.737333 L 3.41911 1.99889 l -0.327444 -0.982333 c -0.106556 -0.317333 -0.631556 -0.317333 -0.738111 0 L 2.02611 1.99889 l -0.982333 0.327444 a 0.388889 0.388889 0 0 0 0 0.737333 l 0.982333 0.327444 z m 10.5 2.47333 L 9.32556 5.45222 l -1.39456 -3.52722 c -0.176556 -0.444889 -0.908444 -0.444889 -1.085 0 L 5.45144 5.45222 1.92422 6.84678 a 0.583333 0.583333 0 0 0 0 1.08422 l 3.52722 1.39456 1.39456 3.52722 a 0.583333 0.583333 0 0 0 1.08422 0 l 1.39456 -3.52722 3.52722 -1.39456 a 0.584111 0.584111 0 0 0 0.000777778 -1.08422" Width="14" Height="14"
                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
             </Button>
@@ -459,18 +456,14 @@
                 Grid.Column="2"
                 Orientation="Horizontal"
                 Spacing="6">
-                <!-- ThemeSwatchButton: a 16pt chip of the current accent. -->
-                <Button
-                    x:Name="ThemeSwatchButton"
-                    Width="30" Height="30"
-                    Padding="0"
-                    Style="{StaticResource MoriGhostButtonStyle}"
-                    CornerRadius="10"
-                    ToolTipService.ToolTip="Color theme">
-                    <Ellipse x:Name="ThemeSwatch"
-                             Width="16" Height="16"
-                             StrokeThickness="1" />
-                </Button>
+                <!--
+                    The Mac's ThemeSwatchButton belongs here: a 16pt chip of the
+                    active gradient theme that opens ThemePicker in a popover.
+                    It is omitted rather than stubbed, because neither
+                    GradientEngine nor ThemePicker is ported yet, so the chip
+                    would have nothing to display and nothing to open. It comes
+                    back with the gradient theming work.
+                -->
                 <Button
                     x:Name="ThemeToggle"
                     Width="30" Height="30"

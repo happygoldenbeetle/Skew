@@ -15,7 +15,7 @@
     -->
     <Grid Padding="8,0,8,6">
         <Border x:Name="Card"
-                CornerRadius="10"
+                CornerRadius="12"
                 BorderThickness="1"
                 Padding="11,9">
             <StackPanel Spacing="7">
@@ -78,7 +78,7 @@
                             Click="PiP_Click"
                             Visibility="{x:Bind Vis(Media.ShowPiP), Mode=OneWay}"
                             ToolTipService.ToolTip="Picture in Picture">
-                        <FontIcon x:Name="PiPIcon" FontSize="13" Glyph="&#xE944;" />
+                        <FontIcon x:Name="PiPIcon" FontSize="16" Glyph="&#xE944;" />
                     </Button>
                 </Grid>
 
@@ -120,17 +120,17 @@
                         <Button x:Name="SkipBackButton" Width="26" Height="26" Padding="0"
                                 Background="Transparent" BorderThickness="0" CornerRadius="13"
                                 Click="SkipBack_Click" ToolTipService.ToolTip="Back 10s">
-                            <FontIcon FontSize="13" Glyph="&#xED3C;" />
+                            <FontIcon FontSize="16" Glyph="&#xED3C;" />
                         </Button>
                         <Button x:Name="PlayPauseButton" Width="32" Height="32" Padding="0"
                                 Background="Transparent" BorderThickness="0" CornerRadius="16"
                                 Click="PlayPause_Click">
-                            <FontIcon x:Name="PlayPauseIcon" FontSize="15" Glyph="&#xE768;" />
+                            <FontIcon x:Name="PlayPauseIcon" FontSize="19" Glyph="&#xE768;" />
                         </Button>
                         <Button x:Name="SkipForwardButton" Width="26" Height="26" Padding="0"
                                 Background="Transparent" BorderThickness="0" CornerRadius="13"
                                 Click="SkipForward_Click" ToolTipService.ToolTip="Forward 10s">
-                            <FontIcon FontSize="13" Glyph="&#xED3D;" />
+                            <FontIcon FontSize="16" Glyph="&#xED3D;" />
                         </Button>
                     </StackPanel>
 
@@ -146,7 +146,7 @@
                             Background="Transparent" BorderThickness="0" CornerRadius="13"
                             VerticalAlignment="Center"
                             Click="Mute_Click" ToolTipService.ToolTip="Mute">
-                        <FontIcon x:Name="MuteIcon" FontSize="12" Glyph="&#xE767;" />
+                        <FontIcon x:Name="MuteIcon" FontSize="15" Glyph="&#xE767;" />
                     </Button>
                 </Grid>
             </StackPanel>
