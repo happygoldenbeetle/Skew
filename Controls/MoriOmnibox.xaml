@@ -43,15 +43,15 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid x:Name="RootGrid" Height="30" CornerRadius="6">
+    <Grid x:Name="RootGrid" Height="30" CornerRadius="10">
         <!-- Idle Background -->
-        <Border x:Name="IdleBackground" CornerRadius="6" Background="{ThemeResource ControlFillColorDefaultBrush}" Opacity="0.5" />
+        <Border x:Name="IdleBackground" CornerRadius="10" Background="{ThemeResource ControlFillColorDefaultBrush}" Opacity="0.5" />
         
         <!-- Focused Background -->
-        <Border x:Name="FocusedBackground" CornerRadius="6" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" Opacity="0" />
+        <Border x:Name="FocusedBackground" CornerRadius="10" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" Opacity="0" />
         
         <!-- Border -->
-        <Border x:Name="OuterBorder" CornerRadius="6" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" />
+        <Border x:Name="OuterBorder" CornerRadius="10" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" />
 
         <Grid>
             <Grid.ColumnDefinitions>
@@ -82,11 +82,18 @@
                             BorderThickness="0"
                             Margin="0,0,0,0">
                 <AutoSuggestBox.TextBoxStyle>
+                    <!--
+                        Left-aligned: the Mac omnibox is a ZStack(alignment:
+                        .leading) (Toolbar.swift), so the URL starts next to the
+                        security icon and truncates on the right. Centring it
+                        makes the field read as a search box rather than an
+                        address bar.
+                    -->
                     <Style TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="BorderThickness" Value="0" />
                         <Setter Property="MinHeight" Value="0" />
-                        <Setter Property="TextAlignment" Value="Center" />
+                        <Setter Property="TextAlignment" Value="Left" />
                     </Style>
                 </AutoSuggestBox.TextBoxStyle>
             </AutoSuggestBox>

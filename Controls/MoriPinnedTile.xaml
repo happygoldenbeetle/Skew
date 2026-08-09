@@ -13,8 +13,8 @@
         HorizontalAlignment="Stretch"
         MaxWidth="80"
         Height="40"
-        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-        CornerRadius="8"
+        Background="Transparent"
+        CornerRadius="10"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited"
         PointerPressed="RootGrid_PointerPressed"
@@ -38,41 +38,20 @@
             <VisualStateGroup x:Name="CommonStates">
                 <VisualStateGroup.Transitions>
                     <!-- Motion.state = 150ms -->
-                    <VisualTransition GeneratedDuration="0:0:0.15">
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" Duration="0:0:0.15" EnableDependentAnimation="True" />
-                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" Duration="0:0:0.15" EnableDependentAnimation="True" />
-                        </Storyboard>
-                    </VisualTransition>
-                    <VisualTransition To="Selected" GeneratedDuration="0:0:0.15">
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="16" Duration="0:0:0.15" EnableDependentAnimation="True" />
-                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="2" Duration="0:0:0.15" EnableDependentAnimation="True" />
-                        </Storyboard>
-                    </VisualTransition>
-                    <VisualTransition From="Selected" GeneratedDuration="0:0:0.15">
-                        <Storyboard>
-                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="4" Duration="0:0:0.15" EnableDependentAnimation="True" />
-                            <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="4" Duration="0:0:0.15" EnableDependentAnimation="True" />
-                        </Storyboard>
-                    </VisualTransition>
+                    <VisualTransition GeneratedDuration="0:0:0.15" />
                 </VisualStateGroup.Transitions>
 
                 <VisualState x:Name="Normal">
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="4" Duration="0" EnableDependentAnimation="True" />
-                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="4" Duration="0" EnableDependentAnimation="True" />
                     </Storyboard>
                 </VisualState>
-                
+
                 <VisualState x:Name="PointerOver">
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="4" Duration="0" EnableDependentAnimation="True" />
-                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="4" Duration="0" EnableDependentAnimation="True" />
                     </Storyboard>
                 </VisualState>
 
@@ -80,8 +59,6 @@
                     <Storyboard>
                         <DoubleAnimation Storyboard.TargetName="HoverBackground" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
                         <DoubleAnimation Storyboard.TargetName="SelectedBackground" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
-                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Width" To="16" Duration="0" EnableDependentAnimation="True" />
-                        <DoubleAnimation Storyboard.TargetName="RunningIndicator" Storyboard.TargetProperty="Height" To="2" Duration="0" EnableDependentAnimation="True" />
                     </Storyboard>
                 </VisualState>
             </VisualStateGroup>
@@ -105,18 +82,20 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <!-- Base subtle resting fill (matches Mac's tileRestFill) -->
-        <Grid Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="10" />
+        <!--
+            The three tile fills from TabSurface (PinnedTile in Sidebar.swift):
+            a faint resting wash, a quiet hover overlay, and the translucent
+            selected lift. Painted in code-behind — see MoriTabRow for why the
+            Fluent theme brushes are not used.
+        -->
+        <Grid x:Name="RestBackground" CornerRadius="10" />
 
-        <!-- Hover background (matches .white.opacity(0.10)) -->
-        <Grid x:Name="HoverBackground" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Opacity="0" CornerRadius="10" />
+        <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="10" />
 
-        <!-- Selected background (Elevated card) -->
-        <Border x:Name="SelectedBackground" 
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderThickness="0" 
+        <Border x:Name="SelectedBackground"
+                BorderThickness="0"
                 Translation="0,1,2"
-                Opacity="0" 
+                Opacity="0"
                 CornerRadius="10">
             <Border.Shadow>
                 <ThemeShadow />
@@ -163,15 +142,9 @@
             </Grid>
         </Grid>
 
-        <!-- Running Indicator (Dot to Line) -->
-        <Border
-            x:Name="RunningIndicator"
-            Height="4" Width="4"
-            CornerRadius="2"
-            Margin="0,0,0,3"
-            Background="{ThemeResource TextFillColorSecondaryBrush}"
-            VerticalAlignment="Bottom" HorizontalAlignment="Center"
-            Visibility="{x:Bind GetVisibility(Tab.HasBrowserView), Mode=OneWay}" />
-
+        <!--
+            No running indicator: the Mac PinnedTile is just the favicon on the
+            tile surface, and the dot/line was a Windows-only addition.
+        -->
     </Grid>
 </UserControl>

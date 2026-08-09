@@ -64,10 +64,12 @@ public sealed partial class MoriTabRow : UserControl
         InitializeComponent();
         Loaded += MoriTabRow_Loaded;
         Unloaded += MoriTabRow_Unloaded;
+        Theme.ThemeService.Instance.PropertyChanged += ThemeService_PropertyChanged;
     }
 
     private void MoriTabRow_Loaded(object sender, RoutedEventArgs e)
     {
+        ApplySurfaceFills();
         UpdateVisualState();
     }
 
@@ -77,6 +79,25 @@ public sealed partial class MoriTabRow : UserControl
         {
             Tab.PropertyChanged -= Tab_PropertyChanged;
         }
+        Theme.ThemeService.Instance.PropertyChanged -= ThemeService_PropertyChanged;
+    }
+
+    private void ThemeService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Theme.ThemeService.Palette))
+            ApplySurfaceFills();
+    }
+
+    /// <summary>
+    /// Paint the hover/selected layers from TabSurface. These are plain
+    /// white/black alphas over the translucent sidebar (TabRow.swift), which is
+    /// why they are set here rather than bound to Fluent theme brushes.
+    /// </summary>
+    private void ApplySurfaceFills()
+    {
+        bool isDark = Theme.ThemeService.Instance.IsDark;
+        HoverBackground.Background = Theme.TabSurface.HoverFill(isDark).ToBrush();
+        SelectedBackground.Background = Theme.TabSurface.SelectedFill(isDark).ToBrush();
     }
 
     private static void OnTabChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -198,13 +219,25 @@ public sealed partial class MoriTabRow : UserControl
         }
     }
 
+    /// <summary>
+    /// Raised while a sidebar tab drag is in flight. The Mac reveals the pinned
+    /// grid's catch zone only for the duration of a drag (<c>draggingTabID !=
+    /// nil</c> in Sidebar.swift), so the sidebar listens here rather than
+    /// reserving the space permanently.
+    /// </summary>
+    public static event Action<bool>? TabDragActiveChanged;
+
     private void RootGrid_DragStarting(UIElement sender, DragStartingEventArgs args)
     {
         if (Tab == null) return;
         args.Data.SetText(Tab.Id.ToString());
         args.Data.Properties.Add("tabId", Tab.Id);
         args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        TabDragActiveChanged?.Invoke(true);
     }
+
+    private void RootGrid_DropCompleted(UIElement sender, DropCompletedEventArgs args)
+        => TabDragActiveChanged?.Invoke(false);
 
     private void RootGrid_DragOver(object sender, DragEventArgs e)
     {

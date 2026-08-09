@@ -22,6 +22,24 @@
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
+            <!--
+                ═══ Typography (FontRegistry.swift) ═══
+                The Mac honours a system-wide Söhne and otherwise uses the platform
+                UI font; the Windows counterpart to SF Pro is Segoe UI Variable,
+                which carries the same kind of optical sizing. "Text" is the size
+                intended for UI copy at 13px, with Segoe UI behind it for Win10.
+
+                Overriding ContentControlThemeFontFamily retargets every Fluent
+                control in one place; the implicit TextBlock style catches the bare
+                labels, which do not consult that resource. Nothing applied the
+                Mori face before this, so the whole chrome rendered in default
+                Segoe UI.
+            -->
+            <FontFamily x:Key="ContentControlThemeFontFamily">Söhne, Soehne, Segoe UI Variable Text, Segoe UI</FontFamily>
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Söhne, Soehne, Segoe UI Variable Text, Segoe UI" />
+            </Style>
+
             <!-- Pinned tab grid layout (adaptive 4-column grid, matching Mac's PinnedGrid) -->
             <UniformGridLayout
                 x:Key="PinnedGridLayout"

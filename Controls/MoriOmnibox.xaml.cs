@@ -76,6 +76,26 @@ public sealed partial class MoriOmnibox : UserControl
     private void MoriOmnibox_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshFromTab();
+        ApplyIdleChrome();
+        Theme.ThemeService.Instance.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(Theme.ThemeService.Palette) && !InputBox.FocusState.Equals(FocusState.Unfocused))
+                return;
+            if (args.PropertyName == nameof(Theme.ThemeService.Palette))
+                ApplyIdleChrome();
+        };
+    }
+
+    /// <summary>
+    /// The resting capsule: hairline border at 0.35 of the palette border colour
+    /// (Toolbar.swift). Without this the field kept Fluent's default control
+    /// border, which is noticeably brighter than the Mac's.
+    /// </summary>
+    private void ApplyIdleChrome()
+    {
+        var p = Theme.ThemeService.Instance.Palette;
+        OuterBorder.BorderBrush = p.Border.WithOpacity(0.35).ToBrush();
+        OuterBorder.BorderThickness = new Thickness(1);
     }
 
     private void Tab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -154,9 +174,13 @@ public sealed partial class MoriOmnibox : UserControl
         _isFocused = true;
         
         // Visual States
+        // Focused: solid input fill for legibility while typing, and the ring
+        // colour at 0.55 / 1.5px — Toolbar.swift's focused omnibox treatment.
+        var focusPalette = Theme.ThemeService.Instance.Palette;
         IdleBackground.Opacity = 0;
+        FocusedBackground.Background = focusPalette.Background.ToBrush();
         FocusedBackground.Opacity = 1;
-        OuterBorder.BorderBrush = (Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"];
+        OuterBorder.BorderBrush = focusPalette.Ring.WithOpacity(0.55).ToBrush();
         OuterBorder.BorderThickness = new Thickness(1.5);
 
         ExtensionsMenuButton.Visibility = Visibility.Collapsed;
@@ -195,9 +219,11 @@ public sealed partial class MoriOmnibox : UserControl
         _isFocused = false;
         
         // Visual States
+        // Idle: the quiet capsule with a hairline border at 0.35.
+        var idlePalette = Theme.ThemeService.Instance.Palette;
         IdleBackground.Opacity = 0.5;
         FocusedBackground.Opacity = 0;
-        OuterBorder.BorderBrush = (Brush)Application.Current.Resources["ControlElevationBorderBrush"];
+        OuterBorder.BorderBrush = idlePalette.Border.WithOpacity(0.35).ToBrush();
         OuterBorder.BorderThickness = new Thickness(1);
         ClearButton.Visibility = Visibility.Collapsed;
 

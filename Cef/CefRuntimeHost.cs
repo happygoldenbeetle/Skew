@@ -90,7 +90,10 @@ public static class CefRuntimeHost
         {
             // No cef_sandbox in the minimal distribution (mirrors mac no_sandbox).
             NoSandbox = true,
-            WindowlessRenderingEnabled = false,
+            // Windowless rendering is the whole reason the Windows chrome can
+            // look like the Mac one: a hosted browser window would composite
+            // above every XAML layer. See MoriBrowserView.
+            WindowlessRenderingEnabled = true,
             LogSeverity = CefLogSeverity.Warning,
             // Persist *session* cookies too, so logins survive a relaunch the way
             // every modern browser does (mac persist_session_cookies = true).

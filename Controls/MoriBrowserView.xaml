@@ -5,18 +5,31 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsTabStop="True"
+    UseSystemFocusVisuals="False"
     mc:Ignorable="d">
 
     <!--
-      The CEF browser is parented to a native child HWND positioned over this
-      host panel (mac SetAsChild into the NSView). The child window is created
-      and resized in code-behind to track HostPanel's bounds. The rounded card
-      framing lives on the parent Border in MainWindow (mac _styleBrowserContentView).
+      Chromium renders offscreen and we present its frames into this Image, so
+      the page is ordinary XAML content: it clips to rounded corners, animates
+      with the rest of the chrome, and anything can be drawn over it. The old
+      windowed path parented a native child HWND here instead, which always
+      composited above every XAML layer and made the Mac design impossible.
+
+      Stretch="Fill" is correct rather than lazy: the bitmap is allocated at the
+      exact device-pixel size of this control, so filling reproduces it 1:1 at
+      any DPI.
     -->
-    <Grid x:Name="HostPanel" Background="Transparent" 
+    <Grid x:Name="HostPanel" Background="Transparent"
           PointerPressed="HostPanel_PointerPressed"
           PointerMoved="HostPanel_PointerMoved"
           PointerReleased="HostPanel_PointerReleased"
           PointerExited="HostPanel_PointerExited"
-          PointerWheelChanged="HostPanel_PointerWheelChanged" />
+          PointerCanceled="HostPanel_PointerCanceled"
+          PointerCaptureLost="HostPanel_PointerCaptureLost"
+          PointerWheelChanged="HostPanel_PointerWheelChanged">
+        <Image x:Name="Surface"
+               Stretch="Fill"
+               IsHitTestVisible="False" />
+    </Grid>
 </UserControl>

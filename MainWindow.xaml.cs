@@ -54,10 +54,6 @@ public sealed partial class MainWindow : Window
             presenter.SetBorderAndTitleBar(true, false);
         }
 
-        // Recreate the floating peek popup whenever the window maximizes/restores
-        // (the windowed popup otherwise stops tracking the owner's bounds).
-        appWindow.Changed += AppWindow_Changed;
-
         // Wire up store state to UI
         Store.PropertyChanged += Store_PropertyChanged;
 
@@ -70,19 +66,19 @@ public sealed partial class MainWindow : Window
         PeekSidebar.DataContext = Store;
         PeekSidebar.Store = Store;
 
-        // Pre-warm the peek popup once the visual tree (and XamlRoot) is ready,
-        // so the first hover doesn't pay the popup-creation lag.
         RootGrid.Loaded += (s, e) =>
         {
             EnsurePeekReady();
             UpdateColumnLayout();
         };
 
+        WireTopChrome();
+
         // Keep the floating peek card's themed brushes in sync with light/dark.
         ThemeService.Instance.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(ThemeService.Palette))
-                DispatcherQueue.TryEnqueue(ApplyPeekTheme);
+                DispatcherQueue.TryEnqueue(ApplyChromeTheme);
         };
 
         // Apply initial layout state
@@ -94,6 +90,10 @@ public sealed partial class MainWindow : Window
             root.RequestedTheme = Microsoft.UI.Xaml.ElementTheme.Dark;
             ThemeService.Instance.SetTheme(Microsoft.UI.Xaml.ElementTheme.Dark);
         }
+
+        // Paint the chrome surface up front. Waiting for RootGrid.Loaded leaves the
+        // first frame with an unpainted tint rectangle over bare Mica.
+        ApplyChromeTheme();
 
         // Film grain generation removed
         // Listen for launcher keyboard shortcut
@@ -148,16 +148,15 @@ public sealed partial class MainWindow : Window
             case nameof(BrowserStore.LauncherVisible):
                 if (Store.LauncherVisible)
                 {
-                    LauncherPopup.IsOpen = true;
-                    SyncLauncherPopupSize();
+                    LauncherHost.Visibility = Visibility.Visible;
+                    SyncLauncherSize();
+                    AnimateScrim(LauncherScrim, to: 0.28);
                     Launcher.FocusSearchBox();
                 }
-                else
+                else if (LauncherHost.Visibility == Visibility.Visible)
                 {
-                    if (LauncherPopup.IsOpen)
-                    {
-                        Launcher.PlayHideAnimation(() => LauncherPopup.IsOpen = false);
-                    }
+                    AnimateScrim(LauncherScrim, to: 0);
+                    Launcher.PlayHideAnimation(() => LauncherHost.Visibility = Visibility.Collapsed);
                 }
                 break;
 
@@ -173,6 +172,8 @@ public sealed partial class MainWindow : Window
                 break;
 
             case nameof(BrowserStore.SettingsVisible):
+                SettingsHost.Visibility = Store.SettingsVisible
+                    ? Visibility.Visible : Visibility.Collapsed;
                 if (Store.SettingsVisible)
                 {
                     SettingsFlyout.FocusPanel();
@@ -182,6 +183,7 @@ public sealed partial class MainWindow : Window
             case nameof(BrowserStore.SelectedTab):
                 UpdateLoadingBar();
                 ShowSelectedBrowserView();
+                TopChromeTitle.Text = Store.SelectedTab?.Title ?? "Mori";
                 break;
         }
     }
@@ -197,11 +199,9 @@ public sealed partial class MainWindow : Window
 
     private void WebContentBorder_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
     {
-        if (LauncherPopup.IsOpen)
-        {
-            SyncLauncherPopupSize();
-        }
-        
+        if (LauncherHost.Visibility == Visibility.Visible)
+            SyncLauncherSize();
+
         SwipeOverlay.UpdateSize(e.NewSize.Width, e.NewSize.Height);
     }
 
@@ -217,16 +217,40 @@ public sealed partial class MainWindow : Window
             LayoutPeek();
     }
 
-    private void SyncLauncherPopupSize()
+    /// <summary>Size the launcher to the web card, which it floats over.</summary>
+    private void SyncLauncherSize()
     {
-        // Align the popup perfectly over the web content card
-        // Because LauncherPopup is declared inside the Content grid, its (0,0) origin
-        // is automatically aligned to the top-left of the web content card!
         Launcher.Width = WebContentBorder.ActualWidth;
         Launcher.Height = WebContentBorder.ActualHeight;
-        
-        LauncherPopup.HorizontalOffset = 0;
-        LauncherPopup.VerticalOffset = 0;
+    }
+
+    private void LauncherScrim_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        => Store.LauncherVisible = false;
+
+    private void SettingsScrim_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        => Store.SettingsVisible = false;
+
+    /// <summary>
+    /// Fade a scrim over the live page. Only possible now that the page is a
+    /// XAML layer — a scrim could never have covered the old child window.
+    /// </summary>
+    private static void AnimateScrim(Microsoft.UI.Xaml.Shapes.Rectangle scrim, double to)
+    {
+        var fade = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            To = to,
+            Duration = new Duration(MoriMotion.Reveal),
+            EnableDependentAnimation = true,
+            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.CubicEase
+            {
+                EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut
+            },
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(fade, scrim);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(fade, "Opacity");
+        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        sb.Children.Add(fade);
+        sb.Begin();
     }
 
     /// <summary>
@@ -236,28 +260,25 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void ShowSelectedBrowserView()
     {
-        System.IO.File.AppendAllText("crash.log", "ShowSelectedBrowserView entered\n");
         var tab = Store.SelectedTab;
         if (tab is null) return;
-        System.IO.File.AppendAllText("crash.log", $"SelectedTab is {tab.Title}. Getting BrowserView\n");
+
+        // Every realized tab stays mounted and only the selected one is visible —
+        // the same model as WebContainerView.swift, so background tabs keep
+        // running like real tabs. The old code cleared and re-added the host's
+        // children on every switch, which cycled each view through
+        // Unloaded/Loaded and tore down its browser state.
         var view = tab.BrowserView;
-        System.IO.File.AppendAllText("crash.log", $"Got BrowserView. Checking Parent\n");
-        if (view.Parent is Panel p)
+        if (view.Parent is Panel other && other != WebContentHost)
+            other.Children.Remove(view);
+        if (view.Parent is null)
+            WebContentHost.Children.Add(view);
+
+        foreach (var child in WebContentHost.Children)
         {
-            if (p == WebContentHost)
-            {
-                System.IO.File.AppendAllText("crash.log", "View is already in WebContentHost\n");
-                // Already shown
-                return;
-            }
-            System.IO.File.AppendAllText("crash.log", "Removing view from old panel\n");
-            p.Children.Remove(view);
+            if (child is Controls.MoriBrowserView browser)
+                browser.SetWebWindowVisible(ReferenceEquals(browser, view) && !tab.DidFail);
         }
-        System.IO.File.AppendAllText("crash.log", "Clearing WebContentHost\n");
-        WebContentHost.Children.Clear();
-        System.IO.File.AppendAllText("crash.log", "Adding view to WebContentHost\n");
-        WebContentHost.Children.Add(view);
-        System.IO.File.AppendAllText("crash.log", "View added to WebContentHost successfully\n");
 
         // Route popup/target=_blank requests into new Mori tabs (mac OnOpenURLFromTab).
         view.RequestsNewTab -= OnViewRequestsNewTab;
@@ -631,10 +652,7 @@ public sealed partial class MainWindow : Window
             _swipeResetTimer.Stop();
             _swipeResetTimer.Start();
 
-            if (!SwipePopup.IsOpen)
-            {
-                SwipePopup.IsOpen = true;
-            }
+            SwipeOverlay.Visibility = Visibility.Visible;
 
             SwipeOverlay.UpdateProgress(_horizontalScrollDeltaAccumulator);
 
@@ -665,129 +683,30 @@ public sealed partial class MainWindow : Window
         _horizontalScrollDeltaAccumulator = 0;
         _lastSwipeTime = DateTime.Now;
         SwipeOverlay.AnimateOut(navigated);
+        // The indicator used to live in its own popup window that was simply
+        // closed; as an in-tree overlay it is collapsed once the fade finishes so
+        // it stops participating in hit-testing and layout.
+        var hide = DispatcherQueue.CreateTimer();
+        hide.Interval = TimeSpan.FromMilliseconds(350);
+        hide.IsRepeating = false;
+        hide.Tick += (_, _) => SwipeOverlay.Visibility = Visibility.Collapsed;
+        hide.Start();
     }
 
-    // ── Sidebar peek (mac-style floating overlay) ───────────────────────────
+    // ── Sidebar peek (SidebarPeek.swift) ────────────────────────────────────
     //
     // The peek sidebar floats above the page as an inset rounded card and does
-    // NOT reflow the web content (mirroring SidebarPeek.swift). Because the CEF
-    // browser is a native child HWND that composites above XAML, the card is
-    // hosted in a pre-warmed Popup — the only surface that draws above it.
+    // NOT reflow the web content. It is a plain overlay in the main visual tree:
+    // with the browser rendering offscreen there is no foreign window to fight,
+    // so the ~120 lines of EnumWindows / SetWindowPos / WS_EX_NOACTIVATE
+    // machinery this used to need are gone, along with the separate popup window
+    // that made the card opaque.
 
     // Geometry mirrors SidebarPeek.swift: a 256pt card inset 8pt from the edge.
     private const double PeekCardWidth = 256;
     private const double PeekInset = 8;
     private const double PeekHostWidth = 300; // mac panelBand
     private bool _peekReady;
-    private OverlappedPresenterState _lastPresenterState = OverlappedPresenterState.Restored;
-
-    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
-    {
-        if (sender.Presenter is OverlappedPresenter p && p.State != _lastPresenterState)
-        {
-            _lastPresenterState = p.State;
-            ReassertPeek();
-        }
-    }
-
-    // The peek lives in a Popup whose backing window is a SIBLING child-window of
-    // the CEF host window. CEF re-raises its own window to the top on focus/resize
-    // (HwndHostWindow.BringWindowToTop / SWP_SHOWWINDOW), which sinks the peek
-    // popup beneath the page after a few interactions. We counter that by raising
-    // the popup's window back to the top of the sibling z-order whenever we peek.
-    private nint _mainHwnd;
-    private nint _peekPopupHwnd;
-
-    private const uint SWP_NOSIZE = 0x0001;
-    private const uint SWP_NOMOVE = 0x0002;
-    private const uint SWP_NOACTIVATE = 0x0010;
-    private static readonly nint HWND_TOP = nint.Zero;
-
-    private const uint GW_OWNER = 4;
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool EnumWindows(EnumWindowProc cb, nint lParam);
-    private delegate bool EnumWindowProc(nint hwnd, nint lParam);
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern nint GetWindow(nint hwnd, uint cmd);
-    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
-    private static extern int GetClassName(nint hwnd, System.Text.StringBuilder s, int n);
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool GetWindowRect(nint hwnd, out RECT rect);
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(nint hwnd);
-    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
-    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-    private static extern int GetWindowLong(nint hwnd, int index);
-    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-    private static extern int SetWindowLong(nint hwnd, int index, int value);
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(nint hwnd);
-
-    private const int GWL_EXSTYLE = -20;
-    private const int WS_EX_NOACTIVATE = 0x08000000;
-
-    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-    private struct RECT { public int Left, Top, Right, Bottom; }
-
-    /// <summary>
-    /// Activate the peek popup window so a click into it (e.g. the omnibox) gives
-    /// the focused TextBox a real caret. The windowed popup is created no-activate
-    /// and never takes focus on its own, so we clear WS_EX_NOACTIVATE and bring it
-    /// to the foreground on a user click.
-    /// </summary>
-    private void ActivatePeekPopup()
-    {
-        if (_peekPopupHwnd == nint.Zero || !IsWindowVisible(_peekPopupHwnd))
-            _peekPopupHwnd = FindPeekPopupHwnd();
-        if (_peekPopupHwnd == nint.Zero) return;
-        int ex = GetWindowLong(_peekPopupHwnd, GWL_EXSTYLE);
-        if ((ex & WS_EX_NOACTIVATE) != 0)
-            SetWindowLong(_peekPopupHwnd, GWL_EXSTYLE, ex & ~WS_EX_NOACTIVATE);
-        SetForegroundWindow(_peekPopupHwnd);
-    }
-
-    private void SidebarPeekCard_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        => ActivatePeekPopup();
-
-    /// <summary>
-    /// Find the peek popup's backing window. A windowed WinUI Popup is hosted in a
-    /// TOP-LEVEL window owned by the main window, with class
-    /// "Microsoft.UI.Content.PopupWindowSiteBridge". We match the owned window of
-    /// that class whose width is ~PeekHostWidth (distinguishes it from any other
-    /// open popup such as the launcher/settings, which are full-card width).
-    /// </summary>
-    private nint FindPeekPopupHwnd()
-    {
-        if (_mainHwnd == nint.Zero) return nint.Zero;
-        double scale = Content?.XamlRoot?.RasterizationScale ?? 1.0;
-        int target = (int)Math.Round(PeekHostWidth * scale);
-        nint found = nint.Zero;
-        EnumWindows((h, _) =>
-        {
-            if (!IsWindowVisible(h)) return true;
-            if (GetWindow(h, GW_OWNER) != _mainHwnd) return true;
-            var sb = new System.Text.StringBuilder(128);
-            GetClassName(h, sb, sb.Capacity);
-            if (sb.ToString().IndexOf("PopupWindowSiteBridge", StringComparison.Ordinal) < 0) return true;
-            if (GetWindowRect(h, out var r) && Math.Abs((r.Right - r.Left) - target) <= 40)
-            {
-                found = h;
-                return false; // stop
-            }
-            return true;
-        }, nint.Zero);
-        return found;
-    }
-
-    /// <summary>Raise the peek popup to the top so the card draws above the CEF page.</summary>
-    private void RaisePeekPopup()
-    {
-        _peekPopupHwnd = FindPeekPopupHwnd();
-        if (_peekPopupHwnd == nint.Zero) return;
-        SetWindowPos(_peekPopupHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    }
 
     private double ClosedCardOffset =>
         Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 16) : (PeekCardWidth + PeekInset + 16);
@@ -795,28 +714,171 @@ public sealed partial class MainWindow : Window
     private double OpenHandleOffset =>
         Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 8) : (PeekCardWidth + PeekInset + 8);
 
-    /// <summary>Open the pre-warmed popup once and apply themed brushes.</summary>
+    // ── Top chrome reveal (TopChrome.swift) ─────────────────────────────────
+    //
+    // Hovering the top edge of the web area slides the card down so the chrome
+    // surface — and the caption buttons — show through, then slides it back.
+    // The card moves by transform and is never resized, so the page does not
+    // reflow. On the Mac this needed an AppKit tracking area because the hosted
+    // browser swallowed mouse-moved events; here the page is a XAML layer, so a
+    // handledEventsToo PointerMoved handler on the column is enough.
+
+    /// How far the card drops. Matches TopChromeContainerView.revealHeight.
+    private const double TopChromeRevealHeight = 28;
+    /// Band at the very top that triggers the reveal when closed.
+    private const double TopChromeEdgeHeight = 18;
+    /// Band that keeps it open once revealed, with hysteresis so it can't chatter.
+    private const double TopChromeKeepOpenHeight = 52;
+    /// While the sidebar is hidden this strip belongs to sidebar peek, not top chrome.
+    private const double SidebarPeekExclusionWidth = 300;
+
+    private bool _topChromeRevealed;
+    private DispatcherTimer? _topChromeCloseTimer;
+
+    private void WireTopChrome()
+    {
+        // Tracked at the root, not on the card area: overlays and the sidebar are
+        // siblings of the card, so an event over them would never route through
+        // it. handledEventsToo because the browser view marks pointer events
+        // handled so the page receives them, and we still need the position.
+        RootGrid.AddHandler(UIElement.PointerMovedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(WebCardArea_PointerMoved), true);
+        RootGrid.AddHandler(UIElement.PointerExitedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(WebCardArea_PointerExited), true);
+
+        _topChromeCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+        _topChromeCloseTimer.Tick += (_, _) =>
+        {
+            _topChromeCloseTimer!.Stop();
+            SetTopChromeRevealed(false);
+        };
+    }
+
+    private void WebCardArea_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        // Relative to the card area even though the event may have originated over
+        // the sidebar or an overlay.
+        var p = e.GetCurrentPoint(WebCardArea).Position;
+
+        bool outsideColumn = p.X < 0 || p.X > WebCardArea.ActualWidth;
+        if (outsideColumn || IsInSidebarPeekZone(p.X))
+        {
+            if (_topChromeRevealed) ScheduleTopChromeClose();
+            return;
+        }
+
+        if (_topChromeRevealed)
+        {
+            if (p.Y <= TopChromeKeepOpenHeight)
+                _topChromeCloseTimer?.Stop();
+            else
+                ScheduleTopChromeClose();
+        }
+        else if (p.Y <= TopChromeEdgeHeight)
+        {
+            _topChromeCloseTimer?.Stop();
+            SetTopChromeRevealed(true);
+        }
+    }
+
+    private void WebCardArea_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (_topChromeRevealed) ScheduleTopChromeClose();
+    }
+
+    private bool IsInSidebarPeekZone(double x)
+    {
+        if (Store.SidebarVisible) return false;
+        return Store.SidebarOnLeft
+            ? x <= SidebarPeekExclusionWidth
+            : x >= WebCardArea.ActualWidth - SidebarPeekExclusionWidth;
+    }
+
+    private void ScheduleTopChromeClose()
+    {
+        if (_topChromeCloseTimer is null || _topChromeCloseTimer.IsEnabled) return;
+        _topChromeCloseTimer.Start();
+    }
+
+    private void SetTopChromeRevealed(bool revealed)
+    {
+        if (_topChromeRevealed == revealed) return;
+        _topChromeRevealed = revealed;
+
+        TopChromeStrip.IsHitTestVisible = revealed;
+        if (revealed)
+            UpdateCaptionMaximizeGlyph();
+
+        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
+        var ease = new Microsoft.UI.Xaml.Media.Animation.CubicEase
+        {
+            EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut
+        };
+
+        var slide = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            To = revealed ? TopChromeRevealHeight : 0,
+            Duration = new Duration(MoriMotion.Snappy),
+            EnableDependentAnimation = true,
+            EasingFunction = ease,
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(slide, WebCardTranslate);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(slide, "Y");
+        sb.Children.Add(slide);
+
+        var fade = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
+        {
+            To = revealed ? 1 : 0,
+            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
+            EnableDependentAnimation = true,
+            EasingFunction = ease,
+        };
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(fade, TopChromeStrip);
+        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(fade, "Opacity");
+        sb.Children.Add(fade);
+
+        sb.Begin();
+    }
+
+    private void UpdateCaptionMaximizeGlyph()
+    {
+        bool maximized = AppWindow.Presenter is OverlappedPresenter op
+                         && op.State == OverlappedPresenterState.Maximized;
+        CaptionMaximizeIcon.Glyph = maximized ? "" : ""; // restore : maximize
+        ToolTipService.SetToolTip(CaptionMaximize, maximized ? "Restore" : "Maximize");
+    }
+
+    private void CaptionMinimize_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppWindow.Presenter is OverlappedPresenter op)
+            op.Minimize();
+    }
+
+    private void CaptionMaximize_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppWindow.Presenter is not OverlappedPresenter op) return;
+        if (op.State == OverlappedPresenterState.Maximized)
+            op.Restore();
+        else
+            op.Maximize();
+        UpdateCaptionMaximizeGlyph();
+    }
+
+    private void CaptionClose_Click(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Apply themed brushes to the peek card.</summary>
     private void EnsurePeekReady()
     {
         if (_peekReady) return;
         if (Content?.XamlRoot is null) return;
 
-        SidebarPeekPopup.XamlRoot = Content.XamlRoot;
-        _mainHwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        ApplyPeekTheme();
+        ApplyChromeTheme();
         // Depth gives the ThemeShadow something to cast.
         SidebarPeekCard.Translation = new System.Numerics.Vector3(0, 0, 32);
-        if (!SidebarPeekPopup.IsOpen)
-            SidebarPeekPopup.IsOpen = true;
-        // Clicking anywhere in the card activates its (otherwise no-activate) popup
-        // window so the omnibox can take keyboard focus. handledEventsToo so it
-        // still fires when inner controls (buttons/textbox) handle the press.
-        SidebarPeekCard.AddHandler(UIElement.PointerPressedEvent,
-            new Microsoft.UI.Xaml.Input.PointerEventHandler(SidebarPeekCard_PointerPressed), true);
         _peekReady = true;
     }
 
-    /// <summary>Position the popup at the active sidebar edge and orient the card.</summary>
+    /// <summary>Orient the peek host and card to the active sidebar edge.</summary>
     private void LayoutPeek()
     {
         if (!_peekReady) return;
@@ -825,28 +887,21 @@ public sealed partial class MainWindow : Window
         double h = RootGrid.ActualHeight;
         if (w <= 0 || h <= 0) return;
 
-        PeekHost.Height = h;
-        // Clip to the host's own bounds so the card slides out *under* the window
-        // edge instead of flashing in the popup window's shadow overhang (the
-        // windowed popup is a few px wider than the host and sits at the edge).
+        bool left = Store.SidebarOnLeft;
+        var edge = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+
+        PeekHost.HorizontalAlignment = edge;
+        // Clip so the card slides out under the window edge rather than past it.
         PeekHost.Clip = new Microsoft.UI.Xaml.Media.RectangleGeometry
         {
             Rect = new Windows.Foundation.Rect(0, 0, PeekHostWidth, h)
         };
-        if (PeekHost.Visibility == Visibility.Visible)
-            RaisePeekPopup();
 
-        bool left = Store.SidebarOnLeft;
-        var edge = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
         PeekEdgeStrip.HorizontalAlignment = edge;
         PeekEdgeHandle.HorizontalAlignment = edge;
         SidebarPeekCard.HorizontalAlignment = edge;
         SidebarPeekCard.Margin = left ? new Thickness(8, 8, 0, 8) : new Thickness(0, 8, 8, 8);
         PeekHandleChevron.Glyph = left ? "" : ""; // point toward the page
-
-        // Popup origin: hug the active edge.
-        SidebarPeekPopup.HorizontalOffset = left ? 0 : w - PeekHostWidth;
-        SidebarPeekPopup.VerticalOffset = 0;
 
         // Settle into the resting position unless mid-peek.
         if (!_isPeeking)
@@ -858,13 +913,30 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ApplyPeekTheme()
+    /// <summary>
+    /// Paint the chrome surface, the web card, and the peek card from the palette.
+    ///
+    /// <para>
+    /// This is RootView.swift's <c>.background</c> plus <c>webCard</c>. Mica gives
+    /// the behind-window blur that <c>NSVisualEffectView(.sidebar)</c> provides on
+    /// the Mac; ChromeTint carries the palette wash over it at the same 0.55; and
+    /// the card sits on that one surface, so its inset gaps and the sidebar show no
+    /// colour step between them. The peek card matches SidebarPeek.swift: sidebar
+    /// colour at 0.85 over the blur, hairline border at 0.7.
+    /// </para>
+    /// </summary>
+    private void ApplyChromeTheme()
     {
-        // Match SidebarPeek.swift: the panel is the sidebar color over a blur
-        // (sidebar @ 0.85 + .sidebar material), with a border @ 0.7. We approximate
-        // the blurred material with an AcrylicBrush tinted by the sidebar color and
-        // fall back to the opaque sidebar color where acrylic isn't available.
         var p = ThemeService.Instance.Palette;
+
+        ChromeTint.Fill = p.Sidebar.WithOpacity(0.55).ToBrush();
+
+        WebContentBorder.Background = p.Card.ToBrush();
+        WebContentBorder.BorderBrush = p.Border.WithOpacity(0.7).ToBrush();
+        // Depth so the ThemeShadow reads as the Mac's soft drop shadow hugging the
+        // rounded corners, rather than the flat default.
+        WebContentBorder.Translation = new System.Numerics.Vector3(0, 0, 16);
+
         var sidebar = p.Sidebar.ToColor();
         SidebarPeekCard.Background = new Microsoft.UI.Xaml.Media.AcrylicBrush
         {
@@ -873,27 +945,6 @@ public sealed partial class MainWindow : Window
             FallbackColor = sidebar,
         };
         SidebarPeekCard.BorderBrush = p.Border.WithOpacity(0.7).ToBrush();
-    }
-
-    /// <summary>
-    /// Recreate the windowed peek popup after a maximize/restore. WinUI's windowed
-    /// Popup does not re-track its owner's bounds across a state change, so we
-    /// close and reopen it to rebuild the site-bridge window at the new size and
-    /// re-raise it above the CEF page.
-    /// </summary>
-    private void ReassertPeek()
-    {
-        if (Store.SidebarVisible || !_peekReady) return;
-        _isPeeking = false;
-        _peekCloseTimer.Stop();
-        SidebarPeekPopup.IsOpen = false;
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (Store.SidebarVisible) return;
-            SidebarPeekPopup.IsOpen = true;
-            LayoutPeek();
-            RaisePeekPopup();
-        });
     }
 
     private void PeekEdgeStrip_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -928,7 +979,6 @@ public sealed partial class MainWindow : Window
         if (_isPeeking) return;
         _isPeeking = true;
         _peekCloseTimer.Stop();
-        RaisePeekPopup(); // ensure the card draws above the live CEF page
         AnimatePeek(open: true);
     }
 
@@ -952,13 +1002,12 @@ public sealed partial class MainWindow : Window
         ExitPeek();
     }
 
-    /// <summary>True while a flyout/context menu (not the peek popup itself) is open.</summary>
+    /// <summary>True while a flyout/context menu opened from the peek is showing.</summary>
     private bool IsPeekFlyoutOpen()
     {
         if (Content?.XamlRoot is null) return false;
         foreach (var popup in Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(Content.XamlRoot))
         {
-            if (popup == SidebarPeekPopup) continue;
             if (popup.Child is Microsoft.UI.Xaml.Controls.MenuFlyoutPresenter
                 || popup.Child is Microsoft.UI.Xaml.Controls.FlyoutPresenter)
                 return true;

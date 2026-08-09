@@ -23,6 +23,7 @@
         CanDrag="True"
         AllowDrop="True"
         DragStarting="RootGrid_DragStarting"
+        DropCompleted="RootGrid_DropCompleted"
         DragOver="RootGrid_DragOver"
         Drop="RootGrid_Drop"
         RenderTransformOrigin="0.5,0.5">
@@ -87,14 +88,17 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <!-- Hover background (SubtleFillColorSecondaryBrush) -->
-        <Grid x:Name="HoverBackground" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Opacity="0" CornerRadius="10" />
+        <!--
+            Fills come from TabSurface, applied in code-behind, not from Fluent
+            theme brushes: the Mac values are plain white/black alphas over the
+            translucent sidebar, and the Fluent equivalents read noticeably
+            heavier.
+        -->
+        <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="10" />
 
-        <!-- Selected background (Elevated card) -->
-        <Border x:Name="SelectedBackground" 
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" 
-                BorderThickness="0" 
-                Opacity="0" 
+        <Border x:Name="SelectedBackground"
+                BorderThickness="0"
+                Opacity="0"
                 CornerRadius="10"
                 Translation="0,1,2">
             <Border.Shadow>
@@ -110,17 +114,20 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- Favicon placeholder (Grid prevents auto-collapse when empty) -->
-            <Grid x:Name="FaviconGrid" Grid.Column="0" Width="20" Height="20" Margin="0,0,9,0" VerticalAlignment="Center" Opacity="0.9">
+            <!--
+                Favicon is 15pt on the Mac (TabRow.swift), not 20 — a 20pt icon
+                makes the row read as a list item rather than a tab.
+            -->
+            <Grid x:Name="FaviconGrid" Grid.Column="0" Width="15" Height="15" Margin="0,0,9,0" VerticalAlignment="Center" Opacity="0.9">
                 <ProgressRing
                     IsActive="{x:Bind Tab.IsLoading, Mode=OneWay}"
-                    Width="20" Height="20"
+                    Width="15" Height="15"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind GetVisibility(Tab.IsLoading), Mode=OneWay}" />
 
                 <!-- Temporary fallback icon when not loading -->
                 <FontIcon
-                    FontSize="14"
+                    FontSize="12"
                     Glyph="&#xE774;"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -128,7 +135,7 @@
 
                 <!-- Internal page icon (Magnifying Glass) -->
                 <FontIcon
-                    FontSize="14"
+                    FontSize="12"
                     Glyph="&#xE721;"
                     Margin="0,1,0,0"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -137,7 +144,7 @@
 
                 <!-- Actual Favicon overlaid if available -->
                 <Image
-                    Width="20" Height="20"
+                    Width="15" Height="15"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Source="{x:Bind GetFaviconSource(Tab.FaviconUrl, Tab.UrlString), Mode=OneWay}"
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />

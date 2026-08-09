@@ -22,6 +22,7 @@ public sealed partial class MoriSidebar : UserControl
             if (_store != null)
             {
                 _store.PropertyChanged -= Store_PropertyChanged;
+                _store.PinnedTabs.CollectionChanged -= PinnedTabs_CollectionChanged;
                 if (_store.SelectedTab != null)
                     _store.SelectedTab.PropertyChanged -= SelectedTab_PropertyChanged;
             }
@@ -29,6 +30,8 @@ public sealed partial class MoriSidebar : UserControl
             if (_store != null)
             {
                 _store.PropertyChanged += Store_PropertyChanged;
+                // The empty-grid catch zone appears and disappears with the pins.
+                _store.PinnedTabs.CollectionChanged += PinnedTabs_CollectionChanged;
                 if (_store.SelectedTab != null)
                     _store.SelectedTab.PropertyChanged += SelectedTab_PropertyChanged;
             }
@@ -37,6 +40,25 @@ public sealed partial class MoriSidebar : UserControl
     }
 
     public bool HasPins => Store?.PinnedTabs.Count > 0;
+
+    private bool _tabDragActive;
+
+    private void PinnedTabs_CollectionChanged(object? sender,
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        => UpdatePinnedDropZone();
+
+    /// <summary>
+    /// The pinned catch zone exists only while a drag is in flight and there is
+    /// nothing pinned yet — matching <c>!pinnedTabs.isEmpty || draggingTabID
+    /// != nil</c> in Sidebar.swift. Showing it unconditionally would reserve 40pt
+    /// of empty space above New Tab that the Mac never shows.
+    /// </summary>
+    private void UpdatePinnedDropZone()
+    {
+        bool empty = (Store?.PinnedTabs.Count ?? 0) == 0;
+        PinnedDropZone.Visibility = empty && _tabDragActive
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     /// <summary>Shared media controller — the media strip binds its visibility here.</summary>
     public MediaController Media => MediaController.Shared;
@@ -87,6 +109,23 @@ public sealed partial class MoriSidebar : UserControl
         RefreshUI();
         DownloadsButton.Visibility = Visibility.Visible;
         UpdateDownloadPulse();
+        ApplyBottomBarTheme();
+        Theme.ThemeService.Instance.PropertyChanged += ThemeService_PropertyChanged;
+
+        MoriTabRow.TabDragActiveChanged += OnTabDragActiveChanged;
+        Unloaded += (_, _) => MoriTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
+    }
+
+    private void OnTabDragActiveChanged(bool active)
+    {
+        _tabDragActive = active;
+        DispatcherQueue.TryEnqueue(UpdatePinnedDropZone);
+    }
+
+    private void ThemeService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Theme.ThemeService.Palette))
+            ApplyBottomBarTheme();
     }
 
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -94,6 +133,10 @@ public sealed partial class MoriSidebar : UserControl
         if (e.PropertyName == nameof(BrowserStore.SidebarOnLeft))
         {
             UpdatePositionIcons();
+        }
+        else if (e.PropertyName == nameof(BrowserStore.AiPanelVisible))
+        {
+            ApplyBottomBarTheme();
         }
         else if (e.PropertyName == nameof(BrowserStore.SelectedTab))
         {
@@ -155,6 +198,8 @@ public sealed partial class MoriSidebar : UserControl
         FolderList.ItemsSource = Store.Folders;
         LooseTabList.ItemsSource = Store.LooseTabs;
 
+        UpdatePinnedDropZone();
+
         // Update nav button states
         BackButton.IsEnabled = Store.SelectedTab?.CanGoBack ?? false;
         ForwardButton.IsEnabled = Store.SelectedTab?.CanGoForward ?? false;
@@ -174,12 +219,34 @@ public sealed partial class MoriSidebar : UserControl
     private void UpdatePositionIcons()
     {
         if (Store == null) return;
-        
-        PositionIcon.Glyph = Store.SidebarOnLeft ? "\uE90C" : "\uE90D"; // DockLeft / DockRight
+
+        // The sidebar-side control lives in the context menu, matching the Mac \u2014
+        // only the toggle glyph flips to point at the edge the sidebar sits on.
         if (SidebarToggleIcon.RenderTransform is Microsoft.UI.Xaml.Media.ScaleTransform st)
         {
             st.ScaleX = Store.SidebarOnLeft ? -1 : 1;
         }
+    }
+
+    /// <summary>
+    /// Paint the bottom bar from the palette: the theme swatch chip and the AI
+    /// button's filled/ghost state (SidebarBottomBar in Sidebar.swift).
+    /// </summary>
+    private void ApplyBottomBarTheme()
+    {
+        var p = Theme.ThemeService.Instance.Palette;
+
+        // No gradient themes are ported yet, so the swatch shows the flat accent \u2014
+        // the same fallback the Mac uses when no gradient theme is set.
+        ThemeSwatch.Fill = p.Primary.ToBrush();
+        ThemeSwatch.Stroke = p.Border.WithOpacity(0.6).ToBrush();
+
+        bool aiOpen = Store?.AiPanelVisible ?? false;
+        AIToggleFill.Background = p.Primary.ToBrush();
+        AIToggleFill.Opacity = aiOpen ? 1 : 0;
+        AIToggleIcon.Foreground = aiOpen
+            ? p.PrimaryForeground.ToBrush()
+            : p.SidebarForeground.ToBrush();
     }
 
     public void FocusOmnibox()
@@ -272,7 +339,7 @@ public sealed partial class MoriSidebar : UserControl
 
             // Divide the space evenly so it perfectly stretches.
             wrapGrid.ItemWidth = availableWidth / columns;
-            wrapGrid.ItemHeight = 42 + 6; // tile height + bottom margin
+            wrapGrid.ItemHeight = 40 + 6; // Mac tile height is 40, plus the 6pt gap
         }
     }
 
@@ -296,9 +363,6 @@ public sealed partial class MoriSidebar : UserControl
 
     private void Settings_Click(object sender, RoutedEventArgs e)
         => Store?.ToggleSettings();
-
-    private void PositionToggle_Click(object sender, RoutedEventArgs e)
-        => Store?.ToggleSidebarPosition();
 
 
 

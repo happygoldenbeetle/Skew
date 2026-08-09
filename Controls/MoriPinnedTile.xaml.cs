@@ -61,6 +61,28 @@ public sealed partial class MoriPinnedTile : UserControl
     public MoriPinnedTile()
     {
         InitializeComponent();
+        Loaded += (_, _) => ApplySurfaceFills();
+        Theme.ThemeService.Instance.PropertyChanged += ThemeService_PropertyChanged;
+        Unloaded += (_, _) =>
+            Theme.ThemeService.Instance.PropertyChanged -= ThemeService_PropertyChanged;
+    }
+
+    private void ThemeService_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Theme.ThemeService.Palette))
+            ApplySurfaceFills();
+    }
+
+    /// <summary>
+    /// Paint the tile's three fills from TabSurface (PinnedTile in Sidebar.swift):
+    /// a faint resting wash, the hover overlay, and the selected lift.
+    /// </summary>
+    private void ApplySurfaceFills()
+    {
+        bool isDark = Theme.ThemeService.Instance.IsDark;
+        RestBackground.Background = Theme.TabSurface.TileRestFill(isDark).ToBrush();
+        HoverBackground.Background = Theme.TabSurface.HoverFill(isDark).ToBrush();
+        SelectedBackground.Background = Theme.TabSurface.SelectedFill(isDark).ToBrush();
     }
 
     private static void OnTabChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

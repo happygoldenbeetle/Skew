@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Mori.Controls.MorphingFolderIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+        Port of MorphingFolderIcon.swift. The folder is drawn from vector shapes
+        rather than a font glyph so it inherits the theme colours and animates
+        with the rest of the sidebar chrome.
+
+        Geometry is authored in the Mac's 32x32 design space and scaled by a
+        Viewbox, so every coordinate below matches the Swift source verbatim —
+        including the splay translations, which are design-space units.
+    -->
+    <Viewbox x:Name="Scaler" Stretch="Uniform">
+        <Grid Width="32" Height="32">
+
+            <!-- Rear panel: the folder body with its flap. -->
+            <Path x:Name="BackPanel"
+                  Data="M 7.5,7 L 12.5,7 C 13.4,7 14.2,7.35 14.8,8 L 16.1,9.15 C 16.75,9.7 17.55,10 18.5,10 L 24.5,10 C 25.88,10 27,11.12 27,12.5 L 27,24.5 C 27,25.88 25.88,27 24.5,27 L 7.5,27 C 6.12,27 5,25.88 5,24.5 L 5,9.5 C 5,8.12 6.12,7 7.5,7 Z"
+                  StrokeThickness="1.7">
+                <Path.RenderTransform>
+                    <CompositeTransform x:Name="BackSplit" CenterX="16" CenterY="16" />
+                </Path.RenderTransform>
+            </Path>
+
+            <!-- Front pocket, skewing the opposite way, carrying the contents. -->
+            <Grid x:Name="FrontGroup">
+                <Grid.RenderTransform>
+                    <CompositeTransform x:Name="FrontSplit" CenterX="16" CenterY="16" />
+                </Grid.RenderTransform>
+
+                <!--
+                    Opaque surface base first, then the translucent tint over it:
+                    that is what lets the front face occlude the rear panel once
+                    the folder splays open while keeping its tint.
+                -->
+                <Path x:Name="FrontBase"
+                      Data="M 8,12 L 24,12 C 25.767,12 27.2,13.433 27.2,15.2 L 27.2,23.8 C 27.2,25.567 25.767,27 24,27 L 8,27 C 6.233,27 4.8,25.567 4.8,23.8 L 4.8,15.2 C 4.8,13.433 6.233,12 8,12 Z" />
+                <Path x:Name="FrontTint"
+                      Data="M 8,12 L 24,12 C 25.767,12 27.2,13.433 27.2,15.2 L 27.2,23.8 C 27.2,25.567 25.767,27 24,27 L 8,27 C 6.233,27 4.8,25.567 4.8,23.8 L 4.8,15.2 C 4.8,13.433 6.233,12 8,12 Z" />
+                <Path x:Name="FrontStroke"
+                      Data="M 8,12 L 24,12 C 25.767,12 27.2,13.433 27.2,15.2 L 27.2,23.8 C 27.2,25.567 25.767,27 24,27 L 8,27 C 6.233,27 4.8,25.567 4.8,23.8 L 4.8,15.2 C 4.8,13.433 6.233,12 8,12 Z"
+                      StrokeThickness="1.7"
+                      Fill="Transparent" />
+
+                <!-- Three dots, shown when the folder is collapsed over the active tab. -->
+                <Path x:Name="Dots"
+                      Opacity="0"
+                      Data="M 12,18.2 A 1.3,1.3 0 1 1 12,20.8 A 1.3,1.3 0 1 1 12,18.2 Z
+                            M 16,18.2 A 1.3,1.3 0 1 1 16,20.8 A 1.3,1.3 0 1 1 16,18.2 Z
+                            M 20,18.2 A 1.3,1.3 0 1 1 20,20.8 A 1.3,1.3 0 1 1 20,18.2 Z" />
+            </Grid>
+        </Grid>
+    </Viewbox>
+</UserControl>

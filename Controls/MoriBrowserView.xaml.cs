@@ -1,8 +1,13 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Mori.Cef;
+using Mori.Cef.Osr;
+using WinRT;
 using Xilium.CefGlue;
 
 namespace Mori.Controls;
@@ -12,12 +17,16 @@ namespace Mori.Controls;
 /// mac MoriBrowserView (Bridge/MoriBrowserView.h/.mm).
 ///
 /// <para>
-/// Why this control hosts Chromium as an embedded child window: Mori is the
-/// browser UI; Chromium is the page engine underneath it. A CEF browser created
-/// with <c>SetAsChild</c> embeds in our window hierarchy instead of launching
-/// Chrome's own top-level window (the mac build uses the equivalent NSView
-/// child-view path). Chrome's built-in extension runtime is therefore not
-/// available; extension behavior is implemented by Mori itself (see
+/// Why this control renders Chromium offscreen rather than hosting it as a child
+/// window: Mori is the browser UI; Chromium is the page engine underneath it. On
+/// macOS a <c>SetAsChild</c> browser lands in an NSView that composites normally
+/// inside the SwiftUI tree, so the chrome can draw over, clip, and animate it.
+/// The Windows equivalent is a child HWND, which always composites above every
+/// XAML layer — no rounded card, no translucent peek sidebar, no launcher scrim.
+/// So here the browser is windowless: Chromium paints into memory, we present
+/// those frames into an <c>Image</c>, and the page becomes ordinary XAML content.
+/// Chrome's built-in extension runtime is not available either way; extension
+/// behavior is implemented by Mori itself (see
 /// <see cref="ExtensionRuntimeBridge"/> and the scheme handler).
 /// </para>
 ///
@@ -27,7 +36,7 @@ namespace Mori.Controls;
 /// navigation events below — the same boundary the mac bridging header enforces.
 /// </para>
 /// </summary>
-public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
+public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate, IOsrHost
 {
     // One press changes the CEF zoom level by this much. CEF zoom is logarithmic
     // (scale = 1.2^level), so 0.5 is roughly a 10% step — close to Chrome's feel.
@@ -40,13 +49,28 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     private readonly DispatcherQueue _dispatcher;
     private BrowserClient? _client;
     private CefBrowser? _browser;
-    private nint _browserHwnd;
-    private HwndHostWindow? _hostWindow; // native child HWND CEF parents into
     private string _pendingUrl;
     private bool _created;
     private bool _webWindowVisible = true;
     private bool _ignoresGlobalSuppression;
     private int _findIdentifier;
+
+    // ── Offscreen rendering state ─────────────────────────────────────────
+
+    private readonly OsrSurface _surface = new();
+    private readonly OsrInput.ClickCounter _clicks = new();
+    private WriteableBitmap? _bitmap;
+    private IntPtr _bitmapPixels;
+    private int _bitmapWidth;
+    private int _bitmapHeight;
+    private bool _surfaceDisposed;
+
+    /// <summary>
+    /// Last size we told Chromium about, in DIPs. Resizes are pushed through
+    /// <c>WasResized</c> rather than recreating anything.
+    /// </summary>
+    private int _viewWidthDip = 1;
+    private int _viewHeightDip = 1;
 
     // ── Public, CEF-free state (mac readonly properties) ──────────────────
 
@@ -84,8 +108,16 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        // Only size matters now. The old windowed path also hooked LayoutUpdated
+        // to chase the child HWND across every layout pass, which is what made
+        // the page lag a frame behind the chrome during animations.
         SizeChanged += (_, _) => { CreateBrowserIfReady(); SyncBrowserFrame(); };
-        LayoutUpdated += (_, _) => SyncBrowserFrame();
+
+        GettingFocus += (_, _) => _browser?.GetHost().SetFocus(true);
+        LosingFocus += (_, _) => _browser?.GetHost().SetFocus(false);
+        KeyDown += HostPanel_KeyDown;
+        KeyUp += HostPanel_KeyUp;
+        CharacterReceived += HostPanel_CharacterReceived;
     }
 
     // ── Lifecycle: create the browser once installed & sized ──────────────
@@ -119,30 +151,39 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
 
     private void CreateBrowserNow()
     {
-        System.IO.File.AppendAllText("crash.log", $"CreateBrowserNow entered for url {_pendingUrl}\n");
-        if (_hostWindow is null)
-        {
-            nint parentHwnd = App.WindowHandle;
-            System.IO.File.AppendAllText("crash.log", $"Creating HwndHostWindow\n");
-            _hostWindow = HwndHostWindow.Create(parentHwnd, HostPanel, this);
-        }
+        CaptureViewSize();
 
         var windowInfo = CefWindowInfo.Create();
-        var bounds = _hostWindow.PixelBounds;
-        System.IO.File.AppendAllText("crash.log", $"HwndHostWindow bounds: {bounds.Width}x{bounds.Height}\n");
-        windowInfo.SetAsChild(_hostWindow.Handle,
-            new CefRectangle(0, 0, bounds.Width, bounds.Height));
+        // Windowless, with a transparent backing so pages that don't paint an
+        // opaque background let the chrome's material show through — the Mac
+        // card sits on the same unified surface as the sidebar.
+        windowInfo.SetAsWindowless(App.WindowHandle, transparent: true);
 
-        var settings = new CefBrowserSettings();
+        var settings = new CefBrowserSettings
+        {
+            // Matches the compositor's cadence. Left at CEF's 30fps default the
+            // page visibly stutters against 60fps XAML animations.
+            WindowlessFrameRate = 60,
+            // Transparent so the rounded card's material shows through where the
+            // page has no background of its own.
+            BackgroundColor = new CefColor(0, 0, 0, 0),
+        };
+
         _client = new BrowserClient(this);
         _client.ContextMenuRequested += Client_ContextMenuRequested;
+        _client.SetRenderHandler(new OsrRenderHandler(this));
 
         if (ExtensionTabId != 0)
             _client.SetExtensionTabId(ExtensionTabId);
 
-        System.IO.File.AppendAllText("crash.log", $"Calling CefBrowserHost.CreateBrowser\n");
         CefBrowserHost.CreateBrowser(windowInfo, _client, settings, _pendingUrl);
-        System.IO.File.AppendAllText("crash.log", $"CefBrowserHost.CreateBrowser returned successfully\n");
+    }
+
+    /// <summary>Snapshot the control's logical size for <c>GetViewRect</c>.</summary>
+    private void CaptureViewSize()
+    {
+        _viewWidthDip = Math.Max(1, (int)Math.Round(ActualWidth));
+        _viewHeightDip = Math.Max(1, (int)Math.Round(ActualHeight));
     }
 
     private void Client_ContextMenuRequested(object? sender, BrowserContextMenuEventArgs e)
@@ -234,26 +275,34 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         }
     }
 
+    /// <summary>
+    /// Tell Chromium the view resized. There is no window to move any more — a
+    /// resize is just a new view rect plus a repaint at the new size.
+    /// </summary>
     private void SyncBrowserFrame()
     {
-        if (_hostWindow is null)
+        int oldW = _viewWidthDip, oldH = _viewHeightDip;
+        CaptureViewSize();
+        if (_browser is null)
             return;
-        _hostWindow.UpdateBounds();
-        if (_browser is not null)
-        {
-            var browserHwnd = _browser.GetHost().GetWindowHandle();
-            _hostWindow.ResizeBrowserWindow(browserHwnd);
-            _browser.GetHost().NotifyMoveOrResizeStarted();
-            _browser.GetHost().WasResized();
-        }
+        if (oldW == _viewWidthDip && oldH == _viewHeightDip)
+            return;
+
+        _browser.GetHost().WasResized();
     }
 
     private void SyncBrowserVisibility()
     {
         bool hidden = !_webWindowVisible ||
             (s_webContentSuppressed && !_ignoresGlobalSuppression);
-        _hostWindow?.SetVisible(!hidden);
+
+        // Hidden tabs stop painting but stay alive, which is what the Mac build
+        // gets by keeping every realized tab mounted and only toggling isHidden.
+        Surface.Visibility = hidden ? Visibility.Collapsed : Visibility.Visible;
         _browser?.GetHost().WasHidden(hidden);
+
+        if (!hidden)
+            _browser?.GetHost().Invalidate(CefPaintElementType.View);
     }
 
     public static void BroadcastThemeChange(bool isDark)
@@ -278,9 +327,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         => Post(() =>
         {
             _browser = browser;
-            _browserHwnd = browser.GetHost().GetWindowHandle();
             EmitEngineAuditMarker(browser);
-            SyncBrowserFrame();
+            CaptureViewSize();
+            browser.GetHost().WasResized();
             SyncBrowserVisibility();
         });
 
@@ -289,13 +338,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         if (_browser != null && _browser.Identifier == browser.Identifier)
         {
             _browser = null;
-            
-            // CEF has officially destroyed the main browser, now it is safe to destroy the parent HWND.
-            Post(() => 
-            {
-                _hostWindow?.Dispose();
-                _hostWindow = null;
-            });
+
+            // Chromium will not paint again, so the frame buffers can go.
+            Post(ReleaseSurface);
         }
     }
 
@@ -355,19 +400,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         => Post(() => FindMatchUpdated?.Invoke(activeMatchOrdinal, count));
 
     void IBrowserViewDelegate.OnCursorChange(CefCursorType type)
-        => Post(() =>
-        {
-            var shape = type switch
-            {
-                CefCursorType.Hand => Microsoft.UI.Input.InputSystemCursorShape.Hand,
-                CefCursorType.IBeam => Microsoft.UI.Input.InputSystemCursorShape.IBeam,
-                CefCursorType.Wait => Microsoft.UI.Input.InputSystemCursorShape.Wait,
-                CefCursorType.Cross => Microsoft.UI.Input.InputSystemCursorShape.Cross,
-                CefCursorType.Help => Microsoft.UI.Input.InputSystemCursorShape.Help,
-                _ => Microsoft.UI.Input.InputSystemCursorShape.Arrow
-            };
-            this.ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(shape);
-        });
+        => Post(() => ApplyCursor(type));
 
     private void Post(Action action)
     {
@@ -377,98 +410,278 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
             _dispatcher.TryEnqueue(() => action());
     }
 
-    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
-    private static extern nint FindWindowEx(nint parentHandle, nint childAfter, string className, string? windowTitle);
+    // ── Input (mac gets this free; windowless CEF needs it fed explicitly) ─
+    //
+    // The previous windowed implementation synthesised WM_* messages and
+    // PostMessage'd them to a Chrome_RenderWidgetHostHWND discovered by class
+    // name. That depended on Chromium's internal window hierarchy and lost every
+    // event Chromium expected to correlate (click counts, capture, modifiers).
+    // Windowless mode has a real API for this.
 
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern nint PostMessage(nint hWnd, uint Msg, nint wParam, nint lParam);
+    private CefBrowserHost? Host => _browser?.GetHost();
 
-    private nint GetRenderWidgetHostHwnd()
+    private CefMouseEvent MouseEventAt(PointerRoutedEventArgs e)
     {
-        if (_browserHwnd == nint.Zero) return nint.Zero;
-        
-        nint widget = FindWindowEx(_browserHwnd, nint.Zero, "Chrome_WidgetWin_0", null);
-        if (widget != nint.Zero)
-        {
-            nint renderWidget = FindWindowEx(widget, nint.Zero, "Chrome_RenderWidgetHostHWND", null);
-            if (renderWidget != nint.Zero) return renderWidget;
-        }
-        
-        nint directRenderWidget = FindWindowEx(_browserHwnd, nint.Zero, "Chrome_RenderWidgetHostHWND", null);
-        if (directRenderWidget != nint.Zero) return directRenderWidget;
-
-        return _browserHwnd;
+        var pt = e.GetCurrentPoint(this);
+        // DIPs, not device pixels: Chromium scales by the device scale factor it
+        // got from GetScreenInfo. Scaling here too would double-apply it.
+        return new CefMouseEvent(
+            (int)Math.Round(pt.Position.X),
+            (int)Math.Round(pt.Position.Y),
+            OsrInput.GetModifiers(pt.Properties));
     }
 
-    private nint GetWParam(Microsoft.UI.Input.PointerPoint pt)
+    private void HostPanel_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        nint wParam = 0;
-        if (pt.Properties.IsLeftButtonPressed) wParam |= 0x0001;
-        if (pt.Properties.IsRightButtonPressed) wParam |= 0x0002;
-        if (pt.Properties.IsMiddleButtonPressed) wParam |= 0x0010;
-        return wParam;
-    }
+        var host = Host;
+        if (host is null) return;
 
-    private void HostPanel_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        nint targetHwnd = GetRenderWidgetHostHwnd();
-        if (targetHwnd == nint.Zero) return;
+        var pt = e.GetCurrentPoint(this);
+        var button = OsrInput.ButtonOf(pt.Properties.PointerUpdateKind) ?? CefMouseButtonType.Left;
+
         HostPanel.CapturePointer(e.Pointer);
-        var pt = e.GetCurrentPoint(this);
-        
-        uint msg = 0x0201; // WM_LBUTTONDOWN
-        if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.RightButtonPressed) msg = 0x0204; // WM_RBUTTONDOWN
-        else if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.MiddleButtonPressed) msg = 0x0207; // WM_MBUTTONDOWN
-        
-        PostMessage(targetHwnd, msg, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
-        _browser?.GetHost().SetFocus(true);
+        Focus(FocusState.Pointer);
+        host.SetFocus(true);
+
+        int clickCount = _clicks.Register(button, pt.Position.X, pt.Position.Y);
+        host.SendMouseClickEvent(MouseEventAt(e), button, mouseUp: false, clickCount);
         e.Handled = true;
     }
 
-    private void HostPanel_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void HostPanel_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        nint targetHwnd = GetRenderWidgetHostHwnd();
-        if (targetHwnd == nint.Zero) return;
-        var pt = e.GetCurrentPoint(this);
-        PostMessage(targetHwnd, 0x0200, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        Host?.SendMouseMoveEvent(MouseEventAt(e), mouseLeave: false);
         e.Handled = true;
     }
 
-    private void HostPanel_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void HostPanel_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        nint targetHwnd = GetRenderWidgetHostHwnd();
-        if (targetHwnd == nint.Zero) return;
+        var host = Host;
+        if (host is null) return;
+
+        var pt = e.GetCurrentPoint(this);
+        var button = OsrInput.ButtonOf(pt.Properties.PointerUpdateKind) ?? CefMouseButtonType.Left;
+
         HostPanel.ReleasePointerCapture(e.Pointer);
-        var pt = e.GetCurrentPoint(this);
-        
-        uint msg = 0x0202; // WM_LBUTTONUP
-        if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.RightButtonReleased) msg = 0x0205; // WM_RBUTTONUP
-        else if (pt.Properties.PointerUpdateKind == Microsoft.UI.Input.PointerUpdateKind.MiddleButtonReleased) msg = 0x0208; // WM_MBUTTONUP
-        
-        PostMessage(targetHwnd, msg, GetWParam(pt), MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        host.SendMouseClickEvent(MouseEventAt(e), button, mouseUp: true, clickCount: 1);
         e.Handled = true;
     }
 
-    private void HostPanel_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void HostPanel_PointerExited(object sender, PointerRoutedEventArgs e)
     {
+        // Without the leave event, :hover styles stay stuck on whatever the
+        // cursor left the page over.
+        Host?.SendMouseMoveEvent(MouseEventAt(e), mouseLeave: true);
     }
 
-    private void HostPanel_PointerWheelChanged(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void HostPanel_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
-        nint targetHwnd = GetRenderWidgetHostHwnd();
-        if (targetHwnd == nint.Zero) return;
+        _clicks.Reset();
+        Host?.SendCaptureLostEvent();
+    }
+
+    private void HostPanel_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        => Host?.SendCaptureLostEvent();
+
+    private void HostPanel_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        var host = Host;
+        if (host is null) return;
+
         var pt = e.GetCurrentPoint(this);
         int delta = pt.Properties.MouseWheelDelta;
-        PostMessage(targetHwnd, 0x020A, (nint)(delta << 16), MakeLParamScaled(pt.Position.X, pt.Position.Y));
+        // Shift+wheel scrolls horizontally, matching every other browser.
+        bool horizontal = pt.Properties.IsHorizontalMouseWheel ||
+                          (OsrInput.GetModifiers() & CefEventFlags.ShiftDown) != 0;
+
+        host.SendMouseWheelEvent(MouseEventAt(e),
+            horizontal ? delta : 0,
+            horizontal ? 0 : delta);
         e.Handled = true;
     }
 
-    private nint MakeLParamScaled(double dipX, double dipY)
+    private void HostPanel_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        var host = Host;
+        if (host is null) return;
+        host.SendKeyEvent(OsrInput.KeyEvent(e.Key, isKeyUp: false, isRepeat: e.KeyStatus.WasKeyDown));
+        e.Handled = true;
+    }
+
+    private void HostPanel_KeyUp(object sender, KeyRoutedEventArgs e)
+    {
+        var host = Host;
+        if (host is null) return;
+        host.SendKeyEvent(OsrInput.KeyEvent(e.Key, isKeyUp: true, isRepeat: false));
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Text input. XAML resolves layout, dead keys, and IME composition for us
+    /// and delivers the finished character here, so typing works for non-Latin
+    /// layouts without driving ImeSetComposition directly.
+    /// </summary>
+    private void HostPanel_CharacterReceived(UIElement sender, CharacterReceivedRoutedEventArgs e)
+    {
+        var host = Host;
+        if (host is null) return;
+        host.SendKeyEvent(OsrInput.CharEvent(e.Character));
+        e.Handled = true;
+    }
+
+    // ── Offscreen presentation (IOsrHost) ─────────────────────────────────
+
+    CefRectangle IOsrHost.GetViewRectDip() => new(0, 0, _viewWidthDip, _viewHeightDip);
+
+    float IOsrHost.DeviceScaleFactor => (float)(XamlRoot?.RasterizationScale ?? 1.0);
+
+    CefRectangle IOsrHost.GetRootScreenRectDip()
+    {
+        // Chromium uses this to place native popups and to report screen metrics
+        // to the page. Window-relative is close enough for both.
+        var root = XamlRoot;
+        if (root is null)
+            return new CefRectangle(0, 0, _viewWidthDip, _viewHeightDip);
+        return new CefRectangle(0, 0,
+            Math.Max(1, (int)Math.Round(root.Size.Width)),
+            Math.Max(1, (int)Math.Round(root.Size.Height)));
+    }
+
+    bool IOsrHost.TryGetScreenPoint(int viewX, int viewY, out int screenX, out int screenY)
+    {
+        screenX = viewX;
+        screenY = viewY;
+        try
+        {
+            var transform = TransformToVisual(null);
+            var p = transform.TransformPoint(new Windows.Foundation.Point(viewX, viewY));
+            screenX = (int)Math.Round(p.X);
+            screenY = (int)Math.Round(p.Y);
+            return true;
+        }
+        catch
+        {
+            // TransformToVisual throws while the element is out of the tree.
+            return false;
+        }
+    }
+
+    void IOsrHost.OnPopupShow(bool show)
+    {
+        _surface.SetPopupVisible(show);
+        Post(PresentFrame);
+    }
+
+    void IOsrHost.OnPopupSize(CefRectangle rectDip)
+    {
+        // The popup rect arrives in DIPs but the buffers are device pixels.
         double scale = XamlRoot?.RasterizationScale ?? 1.0;
-        int x = (int)(dipX * scale);
-        int y = (int)(dipY * scale);
-        return (nint)((y << 16) | (x & 0xFFFF));
+        _surface.SetPopupRect(new CefRectangle(
+            (int)Math.Round(rectDip.X * scale),
+            (int)Math.Round(rectDip.Y * scale),
+            (int)Math.Round(rectDip.Width * scale),
+            (int)Math.Round(rectDip.Height * scale)));
+    }
+
+    void IOsrHost.OnCursorChanged(CefCursorType type) => ApplyCursor(type);
+
+    void IOsrHost.OnPaint(CefPaintElementType type, CefRectangle[] dirtyRects,
+                          IntPtr buffer, int width, int height)
+    {
+        if (_surfaceDisposed)
+            return;
+
+        _surface.Absorb(type, dirtyRects, buffer, width, height);
+        Post(PresentFrame);
+    }
+
+    /// <summary>
+    /// Copy the composed frame into the XAML bitmap. Runs on the UI thread; CEF
+    /// paints on the same thread here because <see cref="CefRuntimeHost"/> pumps
+    /// the message loop from the dispatcher, but Post() keeps that an
+    /// implementation detail rather than a requirement.
+    /// </summary>
+    private void PresentFrame()
+    {
+        if (_surfaceDisposed || !_surface.HasFrame)
+            return;
+
+        int w = _surface.Width;
+        int h = _surface.Height;
+        if (w <= 0 || h <= 0)
+            return;
+
+        if (_bitmap is null || _bitmapWidth != w || _bitmapHeight != h)
+        {
+            _bitmap = new WriteableBitmap(w, h);
+            _bitmapWidth = w;
+            _bitmapHeight = h;
+            _bitmapPixels = GetPixelBufferPointer(_bitmap);
+            Surface.Source = _bitmap;
+        }
+
+        if (_bitmapPixels == IntPtr.Zero)
+            return;
+
+        if (_surface.Present(_bitmapPixels, w, h))
+            _bitmap.Invalidate();
+    }
+
+    /// <summary>
+    /// Raw pointer to a <see cref="WriteableBitmap"/>'s back buffer. Copying
+    /// through a managed stream instead would add a second full-frame copy on
+    /// every paint.
+    /// </summary>
+    private static IntPtr GetPixelBufferPointer(WriteableBitmap bitmap)
+    {
+        var access = bitmap.PixelBuffer.As<IBufferByteAccess>();
+        access.Buffer(out IntPtr pixels);
+        return pixels;
+    }
+
+    [ComImport]
+    [Guid("905a0fef-bc53-11df-8c49-001e4fc686da")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IBufferByteAccess
+    {
+        void Buffer(out IntPtr buffer);
+    }
+
+    private void ApplyCursor(CefCursorType type)
+    {
+        var shape = type switch
+        {
+            CefCursorType.Hand or CefCursorType.Grab => Microsoft.UI.Input.InputSystemCursorShape.Hand,
+            CefCursorType.IBeam or CefCursorType.VerticalText => Microsoft.UI.Input.InputSystemCursorShape.IBeam,
+            CefCursorType.Wait or CefCursorType.Progress => Microsoft.UI.Input.InputSystemCursorShape.Wait,
+            CefCursorType.Cross or CefCursorType.Cell => Microsoft.UI.Input.InputSystemCursorShape.Cross,
+            CefCursorType.Help => Microsoft.UI.Input.InputSystemCursorShape.Help,
+            CefCursorType.Move or CefCursorType.MiddlePanning => Microsoft.UI.Input.InputSystemCursorShape.SizeAll,
+            CefCursorType.EastWestResize or CefCursorType.EastResize or CefCursorType.WestResize
+                or CefCursorType.ColumnResize => Microsoft.UI.Input.InputSystemCursorShape.SizeWestEast,
+            CefCursorType.NorthSouthResize or CefCursorType.NorthResize or CefCursorType.SouthResize
+                or CefCursorType.RowResize => Microsoft.UI.Input.InputSystemCursorShape.SizeNorthSouth,
+            CefCursorType.NorthEastSouthWestResize or CefCursorType.NorthEastResize
+                or CefCursorType.SouthWestResize => Microsoft.UI.Input.InputSystemCursorShape.SizeNortheastSouthwest,
+            CefCursorType.NorthWestSouthEastResize or CefCursorType.NorthWestResize
+                or CefCursorType.SouthEastResize => Microsoft.UI.Input.InputSystemCursorShape.SizeNorthwestSoutheast,
+            CefCursorType.NotAllowed or CefCursorType.NoDrop => Microsoft.UI.Input.InputSystemCursorShape.UniversalNo,
+            _ => Microsoft.UI.Input.InputSystemCursorShape.Arrow,
+        };
+        ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(shape);
+    }
+
+    private void ReleaseSurface()
+    {
+        if (_surfaceDisposed)
+            return;
+        _surfaceDisposed = true;
+
+        Surface.Source = null;
+        _bitmap = null;
+        _bitmapPixels = IntPtr.Zero;
+        _bitmapWidth = _bitmapHeight = 0;
+        _surface.Dispose();
     }
 
     // ── Navigation API (mac loadURL/goBack/...) ───────────────────────────
@@ -655,9 +868,9 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
     public void CloseBrowser()
     {
         _client?.DetachDelegate();
-        _hostWindow?.Dispose();
-        _hostWindow = null;
-        
+        _browser?.GetHost().CloseBrowser(true);
+        ReleaseSurface();
+
         lock (s_allViews)
             s_allViews.RemoveAll(w => !w.TryGetTarget(out var v) || v == this);
     }
@@ -740,6 +953,6 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate
         // Mirrors the mac EmitEngineAuditMarker so automated checks can confirm
         // the embedding model in use.
         Console.Error.WriteLine(
-            $"__MORI_CHROMIUM_ENGINE__ runtime=alloy embedding=child-window scheme={MoriSchemes.ExtensionScheme}");
+            $"__MORI_CHROMIUM_ENGINE__ runtime=alloy embedding=windowless scheme={MoriSchemes.ExtensionScheme}");
     }
 }

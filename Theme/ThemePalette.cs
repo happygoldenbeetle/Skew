@@ -168,7 +168,16 @@ public static class MoriMotion
 }
 
 /// <summary>
-/// Visual language for the sidebar tab/tile surface. Port of TabSurface from Theme.swift.
+/// Visual language for the sidebar tab/tile surface. Port of TabSurface from
+/// Theme.swift.
+///
+/// <para>
+/// The fills are deliberately plain white/black alphas rather than Fluent theme
+/// brushes: on the Mac these sit over the translucent sidebar material, and
+/// substituting <c>SubtleFillColorSecondaryBrush</c> or
+/// <c>CardBackgroundFillColorDefaultBrush</c> gives a visibly different (and
+/// heavier) selection than the Mac's soft translucent lift.
+/// </para>
 /// </summary>
 public static class TabSurface
 {
@@ -176,4 +185,29 @@ public static class TabSurface
     public const double PressScale = 0.985;
     public const double ShadowRadius = 1.5;
     public const double ShadowY = 0.8;
+
+    /// <summary>Faint resting fill for pinned/icon tiles.</summary>
+    public static TokenColor TileRestFill(bool isDark)
+        => isDark ? White(0.06) : Black(0.05);
+
+    /// <summary>Translucent fill for the selected item.</summary>
+    public static TokenColor SelectedFill(bool isDark)
+        => isDark ? White(0.18) : White(0.85);
+
+    /// <summary>Quiet overlay on hover.</summary>
+    public static TokenColor HoverFill(bool isDark)
+        => isDark ? White(0.10) : Black(0.07);
+
+    /// <summary>Soft elevation shadow under the selected item.</summary>
+    public static TokenColor Shadow(bool isDark)
+        => isDark ? Black(0.05) : Black(0.15);
+
+    /// <summary>
+    /// Hover wash used by the folder header and New Tab rows
+    /// (<c>p.foreground.opacity(0.05)</c> on the Mac).
+    /// </summary>
+    public static TokenColor RowHoverFill(ThemePalette p) => p.Foreground.WithOpacity(0.05);
+
+    private static TokenColor White(double a) => new(1, 1, 1, a);
+    private static TokenColor Black(double a) => new(0, 0, 0, a);
 }

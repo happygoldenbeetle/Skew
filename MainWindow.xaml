@@ -10,126 +10,162 @@
     mc:Ignorable="d">
 
     <!--
-        Root layout: the entire browser chrome.
-        3-column grid: [Sidebar] | [Web Content Card] | [AI Panel]
-        The web content sits in a floating rounded card inset from the edges (Arc-style).
+        Port of RootView.swift.
+
+        Everything here is one XAML tree, including the layers that sit *over* the
+        page. That is only possible because the browser renders offscreen now
+        (see MoriBrowserView): while Chromium owned a child HWND it composited
+        above all XAML, so the peek sidebar, launcher and settings each had to
+        live in their own top-level Popup window, hand-raised with SetWindowPos
+        and unable to share the window's material or blur the page behind them.
     -->
-    <Grid x:Name="RootGrid" Background="Transparent" SizeChanged="RootGrid_SizeChanged" KeyboardAcceleratorPlacementMode="Hidden">
-        <Grid.ChildrenTransitions>
-            <TransitionCollection>
-                <RepositionThemeTransition />
-            </TransitionCollection>
-        </Grid.ChildrenTransitions>
+    <!-- Transparent, not unset: Mica needs something to show through, and empty
+         chrome areas must still hit-test so window drag and hover work. -->
+    <Grid x:Name="RootGrid" Background="Transparent"
+          SizeChanged="RootGrid_SizeChanged" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="Accelerator_GoBack" />
             <KeyboardAccelerator Key="Right" Modifiers="Menu" Invoked="Accelerator_GoForward" />
         </Grid.KeyboardAccelerators>
-        <Grid.ColumnDefinitions>
-            <!-- Sidebar column — auto width, collapses when hidden -->
-            <ColumnDefinition x:Name="SidebarColumn" Width="256" />
-            <!-- Web content — fills remaining space -->
-            <ColumnDefinition Width="*" />
-            <!--  AI Panel column  -->
-            <ColumnDefinition x:Name="AIPanelColumn" Width="0" />
-        </Grid.ColumnDefinitions>
 
-        <!-- Film Grain Overlay Removed -->
-        <!-- ═══ Sidebar (docked / visible state) ═══ -->
-        <Border x:Name="SidebarBorder"
-                Grid.Column="0"
-                Margin="0">
-            <controls:MoriSidebar x:Name="Sidebar" />
-        </Border>
-
-        <!-- ═══ Web Content Area ═══ -->
-        <Grid Grid.Column="1" Margin="0">
-            <Grid.RowDefinitions>
-                <!-- Loading bar strip -->
-                <RowDefinition Height="Auto" />
-                <!-- Web card -->
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <!-- Loading progress bar (top edge, Arc-style) -->
-            <ProgressBar
-                x:Name="LoadingBar"
-                Grid.Row="0"
-                Height="2.5"
-                IsIndeterminate="True"
-                Visibility="Collapsed" />
-
-            <!-- Floating web content card with rounded corners and shadow -->
-            <Border
-                x:Name="WebContentBorder"
-                Grid.Row="1"
-                Margin="4"
-                SizeChanged="WebContentBorder_SizeChanged"
-                Background="Transparent"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="10"
-                Shadow="{ThemeResource SharedShadow}">
-
-                <!-- Web content placeholder — will host CEF HWND later -->
-                <Grid
-                    x:Name="WebContentHost"
-                    CornerRadius="10">
-                    <!-- Placeholder content showing we're alive -->
-                    <StackPanel
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Spacing="16">
-                        <FontIcon
-                            HorizontalAlignment="Center"
-                            FontSize="48"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Glyph="&#xE774;" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            FontSize="20"
-                            FontWeight="SemiBold"
-                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                            Text="Mori" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            FontSize="13"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="Web content will appear here" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Find bar overlay (top-right of web card) -->
-            <controls:MoriFindBar
-                x:Name="FindBar"
-                Grid.Row="1"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Margin="0,12,20,0"
-                Visibility="{x:Bind Store.FindBarVisible, Mode=OneWay}" />
-
-            <!-- ═══ Launcher Overlay (command palette) ═══ -->
-            <Popup x:Name="LauncherPopup" Grid.Row="1" Margin="4" IsOpen="False" ShouldConstrainToRootBounds="False">
-                <controls:MoriLauncher x:Name="Launcher" />
-            </Popup>
-
-            <!-- ═══ Swipe Gesture Overlay ═══ -->
-            <Popup x:Name="SwipePopup" Grid.Row="1" Margin="4" IsOpen="False" IsHitTestVisible="False" ShouldConstrainToRootBounds="False">
-                <controls:SwipeIndicatorOverlay x:Name="SwipeOverlay" />
-            </Popup>
+        <!--
+            ═══ Unified chrome surface (RootView.swift .background) ═══
+            One material behind everything, so the card's inset gaps and the
+            sidebar share the exact same surface with no colour step between
+            them. Mica supplies the behind-window blur (the NSVisualEffectView
+            equivalent); ChromeTint carries the palette wash over it; the grain
+            layer matches GrainOverlay.
+        -->
+        <Grid x:Name="ChromeSurface" IsHitTestVisible="False">
+            <Rectangle x:Name="ChromeTint" />
+            <Image x:Name="ChromeGrain" Stretch="UniformToFill" Opacity="0" IsHitTestVisible="False" />
         </Grid>
 
+        <!-- ═══ Main columns: [Sidebar] | [Web card] | [AI / extension panel] ═══ -->
+        <Grid x:Name="ColumnsGrid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="256" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="AIPanelColumn" Width="0" />
+            </Grid.ColumnDefinitions>
 
-        <!-- ═══ AI Panel ═══ -->
-        <controls:MoriAIPanel
-            x:Name="AIPanel"
-            Grid.Column="2"
-            Visibility="Collapsed" />
+            <Border x:Name="SidebarBorder" Grid.Column="0">
+                <controls:MoriSidebar x:Name="Sidebar" />
+            </Border>
 
-        <!-- Sidebar reveal button (shows when sidebar is hidden) -->
+            <!-- ═══ Web content column ═══ -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <ProgressBar
+                    x:Name="LoadingBar"
+                    Grid.Row="0"
+                    Height="2.5"
+                    IsIndeterminate="True"
+                    Visibility="Collapsed" />
+
+                <Grid x:Name="WebCardArea" Grid.Row="1">
+                    <!--
+                        ═══ Revealed titlebar (TopChrome.swift) ═══
+                        Sits behind the card. Hovering the top edge slides the card
+                        down by TopChromeRevealHeight to expose this strip, then
+                        slides it back. The card moves by transform and is never
+                        resized, so the page never reflows.
+
+                        The Mac fades in the real traffic lights here. This window
+                        has no system titlebar (SetBorderAndTitleBar(true, false)),
+                        so the caption buttons are ours to draw.
+                    -->
+                    <Grid x:Name="TopChromeStrip"
+                          Height="28"
+                          VerticalAlignment="Top"
+                          Background="Transparent"
+                          Opacity="0"
+                          IsHitTestVisible="False"
+                          DoubleTapped="TopDragArea_DoubleTapped"
+                          ToolTipService.ToolTip="Double-click to maximize">
+                        <TextBlock x:Name="TopChromeTitle"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="12"
+                                   Opacity="0.75"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,4,0"
+                                    Spacing="2">
+                            <Button x:Name="CaptionMinimize"
+                                    Style="{StaticResource MoriGhostButtonStyle}"
+                                    Width="34" Height="22"
+                                    Click="CaptionMinimize_Click"
+                                    ToolTipService.ToolTip="Minimize">
+                                <FontIcon Glyph="&#xE921;" FontSize="10"
+                                          FontFamily="Segoe Fluent Icons" />
+                            </Button>
+                            <Button x:Name="CaptionMaximize"
+                                    Style="{StaticResource MoriGhostButtonStyle}"
+                                    Width="34" Height="22"
+                                    Click="CaptionMaximize_Click"
+                                    ToolTipService.ToolTip="Maximize">
+                                <FontIcon x:Name="CaptionMaximizeIcon" Glyph="&#xE922;" FontSize="10"
+                                          FontFamily="Segoe Fluent Icons" />
+                            </Button>
+                            <Button x:Name="CaptionClose"
+                                    Style="{StaticResource MoriGhostButtonStyle}"
+                                    Width="34" Height="22"
+                                    Click="CaptionClose_Click"
+                                    ToolTipService.ToolTip="Close">
+                                <FontIcon Glyph="&#xE8BB;" FontSize="10"
+                                          FontFamily="Segoe Fluent Icons" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!--
+                        The floating rounded card (RootView.webCard). Insets, radius
+                        and hairline border are the Mac values: padding top 4 / sides
+                        8 / bottom 8, Radius.window = 10, border at 0.7 opacity.
+                    -->
+                    <Border
+                        x:Name="WebContentBorder"
+                        Margin="8,4,8,8"
+                        SizeChanged="WebContentBorder_SizeChanged"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Shadow="{ThemeResource SharedShadow}">
+                        <Border.RenderTransform>
+                            <TranslateTransform x:Name="WebCardTranslate" />
+                        </Border.RenderTransform>
+
+                        <!-- CornerRadius on the Border clips the live page to the card. -->
+                        <Grid x:Name="WebContentHost" CornerRadius="10" />
+                    </Border>
+
+                    <!-- Find bar, over the card (RootView webCard .overlay topTrailing) -->
+                    <controls:MoriFindBar
+                        x:Name="FindBar"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,12,20,0"
+                        Visibility="{x:Bind Store.FindBarVisible, Mode=OneWay}" />
+                </Grid>
+            </Grid>
+
+            <!-- ═══ AI panel ═══ -->
+            <controls:MoriAIPanel
+                x:Name="AIPanel"
+                Grid.Column="2"
+                Visibility="Collapsed" />
+        </Grid>
+
+        <!-- Sidebar reveal button (shown when the sidebar is hidden) -->
         <Button
             x:Name="SidebarRevealButton"
-            Grid.Column="1"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Margin="16,16,0,0"
@@ -152,77 +188,89 @@
             </PathIcon>
         </Button>
 
-        <!-- Top Drag Area (Double-click to Maximize) -->
-        <Grid Grid.ColumnSpan="3" Height="12" VerticalAlignment="Top" Background="Transparent" DoubleTapped="TopDragArea_DoubleTapped" ToolTipService.ToolTip="Double-click to maximize" />
-
-        <!-- ═══ Sidebar Peek (mac-style floating overlay) ═══ -->
         <!--
-            The live CEF browser is hosted in a native child HWND that composites
-            ABOVE all XAML, so a normal in-grid overlay would render behind the
-            page (the same airspace problem mac solves with an AppKit hosting
-            view). A Popup with ShouldConstrainToRootBounds=False is the only
-            surface that floats above the CEF window, so the peek sidebar lives
-            here. The popup is pre-warmed (opened once, kept open) to avoid the
-            first-open lag; the card is just slid off-screen when idle.
-
-            The host has a null background so empty areas stay click-through to
-            the page; only the edge trigger strip and the floating card are
-            hit-testable (mac's hitTest gating).
+            The window drag region lives inside TopChromeStrip, not as a strip
+            floating over everything: a sibling strip at the top swallowed the
+            pointer before the hover tracker could see it, so the reveal never
+            fired. On the Mac the tracker is a pure hover watcher whose hitTest
+            always passes through, and the titlebar only becomes interactive once
+            revealed — same behaviour here.
         -->
-        <Popup x:Name="SidebarPeekPopup" ShouldConstrainToRootBounds="False">
-            <Grid x:Name="PeekHost" Width="300" Background="{x:Null}" Visibility="Collapsed">
-                <!-- Edge trigger strip: hovering the window edge slides the peek in -->
-                <Border x:Name="PeekEdgeStrip"
-                        Width="12"
-                        HorizontalAlignment="Right"
-                        Background="Transparent"
-                        PointerEntered="PeekEdgeStrip_PointerEntered"
-                        PointerExited="PeekEdgeStrip_PointerExited" />
 
-                <!-- Resting hint: a faint capsule that morphs into a chevron on peek -->
-                <Grid x:Name="PeekEdgeHandle"
-                      Width="18" Height="44"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Center"
-                      IsHitTestVisible="False">
-                    <Grid.RenderTransform>
-                        <TranslateTransform x:Name="PeekHandleTranslate" X="-6" />
-                    </Grid.RenderTransform>
-                    <Rectangle x:Name="PeekHandleCapsule"
-                               Width="4" Height="40"
-                               RadiusX="2" RadiusY="2"
-                               Fill="{ThemeResource TextFillColorPrimaryBrush}"
-                               Opacity="0.22" />
-                    <FontIcon x:Name="PeekHandleChevron"
-                              Glyph="&#xE76B;"
-                              FontSize="14"
-                              Opacity="0"
-                              Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                </Grid>
+        <!--
+            ═══ Sidebar peek (SidebarPeek.swift) ═══
+            A plain overlay now. It floats above the page without reflowing it,
+            and because it is in the same visual tree as everything else it can
+            be genuinely translucent over the live page — the separate popup
+            window it used to live in could only ever be opaque.
+        -->
+        <Grid x:Name="PeekHost" Width="300" HorizontalAlignment="Right" Visibility="Collapsed">
+            <Border x:Name="PeekEdgeStrip"
+                    Width="12"
+                    HorizontalAlignment="Right"
+                    Background="Transparent"
+                    PointerEntered="PeekEdgeStrip_PointerEntered"
+                    PointerExited="PeekEdgeStrip_PointerExited" />
 
-                <!-- Floating sidebar card -->
-                <Border x:Name="SidebarPeekCard"
-                        Width="256"
-                        Margin="0,8,8,8"
-                        HorizontalAlignment="Right"
-                        CornerRadius="10"
-                        BorderThickness="1"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        Shadow="{ThemeResource SharedShadow}"
-                        PointerEntered="SidebarPeekCard_PointerEntered"
-                        PointerExited="SidebarPeekCard_PointerExited">
-                    <Border.RenderTransform>
-                        <TranslateTransform x:Name="PeekCardTranslate" X="280" />
-                    </Border.RenderTransform>
-                    <controls:MoriSidebar x:Name="PeekSidebar" />
-                </Border>
+            <Grid x:Name="PeekEdgeHandle"
+                  Width="18" Height="44"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="PeekHandleTranslate" X="-6" />
+                </Grid.RenderTransform>
+                <Rectangle x:Name="PeekHandleCapsule"
+                           Width="4" Height="40"
+                           RadiusX="2" RadiusY="2"
+                           Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                           Opacity="0.22" />
+                <FontIcon x:Name="PeekHandleChevron"
+                          Glyph="&#xE76B;"
+                          FontSize="14"
+                          Opacity="0"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
             </Grid>
-        </Popup>
 
-        <!-- ═══ Settings Flyout ═══ -->
-        <Popup x:Name="SettingsPopup" IsOpen="{x:Bind Store.SettingsVisible, Mode=OneWay}" ShouldConstrainToRootBounds="False">
-            <controls:MoriSettings x:Name="SettingsFlyout" />
-        </Popup>
+            <Border x:Name="SidebarPeekCard"
+                    Width="256"
+                    Margin="0,8,8,8"
+                    HorizontalAlignment="Right"
+                    CornerRadius="10"
+                    BorderThickness="1"
+                    Shadow="{ThemeResource SharedShadow}"
+                    PointerEntered="SidebarPeekCard_PointerEntered"
+                    PointerExited="SidebarPeekCard_PointerExited">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="PeekCardTranslate" X="280" />
+                </Border.RenderTransform>
+                <controls:MoriSidebar x:Name="PeekSidebar" />
+            </Border>
+        </Grid>
+
+        <!--
+            ═══ Launcher / command palette (LauncherOverlay.swift) ═══
+            Centred over the whole window with a scrim that dims the live page
+            behind it, exactly as on the Mac.
+        -->
+        <Grid x:Name="LauncherHost" Visibility="Collapsed">
+            <Rectangle x:Name="LauncherScrim" Fill="#000000" Opacity="0" Tapped="LauncherScrim_Tapped" />
+            <controls:MoriLauncher x:Name="Launcher"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- ═══ Swipe gesture indicator ═══ -->
+        <controls:SwipeIndicatorOverlay x:Name="SwipeOverlay"
+                                        IsHitTestVisible="False"
+                                        Visibility="Collapsed" />
+
+        <!-- ═══ Settings ═══ -->
+        <Grid x:Name="SettingsHost" Visibility="Collapsed">
+            <Rectangle x:Name="SettingsScrim" Fill="#000000" Opacity="0.35" Tapped="SettingsScrim_Tapped" />
+            <controls:MoriSettings x:Name="SettingsFlyout"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+        </Grid>
     </Grid>
 </Window>

@@ -54,6 +54,10 @@ public sealed class BrowserClient : CefClient
     private readonly MoriContextMenuHandler _contextMenu;
     private readonly MoriFocusHandler _focus;
 
+    // Only set for windowless browsers. CEF decides windowed vs windowless by
+    // whether this returns null, so it must stay null for the DevTools client.
+    private CefRenderHandler? _render;
+
     public event EventHandler<BrowserContextMenuEventArgs>? ContextMenuRequested;
 
     public void InvokeContextMenu(CefBrowser browser, CefFrame frame, BrowserContextMenuEventArgs args)
@@ -79,6 +83,13 @@ public sealed class BrowserClient : CefClient
     /// <summary>Detach when the hosting view goes away to avoid dangling callbacks.</summary>
     public void DetachDelegate() => _delegate = null;
 
+    /// <summary>
+    /// Install the offscreen render sink. Must be called before
+    /// <c>CreateBrowser</c> — CEF reads the render handler once, at creation,
+    /// to decide whether the browser is windowless.
+    /// </summary>
+    public void SetRenderHandler(CefRenderHandler handler) => _render = handler;
+
     public void SetExtensionTabId(int tabId) => _extensionTabId = tabId;
     internal int ExtensionTabId => _extensionTabId;
     internal IBrowserViewDelegate? Delegate => _delegate;
@@ -95,6 +106,7 @@ public sealed class BrowserClient : CefClient
     protected override CefRequestHandler GetRequestHandler() => _request;
     protected override CefContextMenuHandler GetContextMenuHandler() => _contextMenu;
     protected override CefFocusHandler GetFocusHandler() => _focus;
+    protected override CefRenderHandler GetRenderHandler() => _render!;
 
     // ── Agent injection helpers (mac OnLoadStart/OnLoadEnd) ───────────────
 
