@@ -100,53 +100,40 @@
             VerticalScrollBarVisibility="Auto">
             <StackPanel Padding="8,8,8,10" Spacing="10">
 
-                <GridView
-                    x:Name="PinnedGrid"
-                    Margin="2,0"
-                    SelectionMode="None"
-                    CanReorderItems="True"
-                    AllowDrop="True"
-                    SizeChanged="PinnedGrid_SizeChanged">
-                    <GridView.Resources>
-                        <SolidColorBrush x:Key="GridViewItemBackgroundPointerOver" Color="Transparent" />
-                        <SolidColorBrush x:Key="GridViewItemBackgroundPressed" Color="Transparent" />
-                        <SolidColorBrush x:Key="GridViewItemBackgroundSelected" Color="Transparent" />
-                        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPointerOver" Color="Transparent" />
-                        <SolidColorBrush x:Key="GridViewItemBackgroundSelectedPressed" Color="Transparent" />
-                    </GridView.Resources>
-                    <GridView.ItemContainerStyle>
-                        <Style TargetType="GridViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Margin" Value="0" />
-                            <Setter Property="MinHeight" Value="0" />
-                            <Setter Property="MinWidth" Value="0" />
-                        </Style>
-                    </GridView.ItemContainerStyle>
-                    <GridView.ItemContainerTransitions>
-                        <TransitionCollection>
-                            <ReorderThemeTransition />
-                            <RepositionThemeTransition IsStaggeringEnabled="False" />
-                        </TransitionCollection>
-                    </GridView.ItemContainerTransitions>
-                    <GridView.ItemsPanel>
+                <!--
+                    A non-virtualizing ItemsControl, not an ItemsRepeater.
+
+                    The peek copy of this sidebar is parked off-screen by a
+                    render transform while closed. ItemsRepeater virtualizes
+                    against the effective viewport, which accounts for
+                    transforms, so off-screen means no realized items — and a
+                    render transform triggers no layout, so sliding back in never
+                    tells it to catch up. Layout size, unlike viewport, is
+                    unaffected by transforms, so a panel that simply lays out
+                    every child works in both copies. These lists are a handful
+                    of items; virtualization bought nothing and cost this bug.
+
+                    No negative right margin: the gutter is drawn inside each
+                    tile now, so the row already ends flush. Widening the control
+                    past its slot pushed the last cell beyond the viewport, which
+                    made the row wrap and unwrap while dragging the sidebar edge.
+
+                    PinnedTileGrid sizes its own cells during measure, so there
+                    is no SizeChanged handler here — see its remarks for why one
+                    was the source of the resize flicker.
+                -->
+                <ItemsControl x:Name="PinnedGrid" Margin="2,0">
+                    <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <ItemsWrapGrid Orientation="Horizontal" HorizontalAlignment="Left">
-                                <ItemsWrapGrid.ChildrenTransitions>
-                                    <TransitionCollection>
-                                        <RepositionThemeTransition IsStaggeringEnabled="False" />
-                                    </TransitionCollection>
-                                </ItemsWrapGrid.ChildrenTransitions>
-                            </ItemsWrapGrid>
+                            <controls:PinnedTileGrid />
                         </ItemsPanelTemplate>
-                    </GridView.ItemsPanel>
-                    <GridView.ItemTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:BrowserTab">
-                            <controls:MoriPinnedTile Tab="{x:Bind}" Margin="0,0,6,6" />
+                            <controls:MoriPinnedTile Tab="{x:Bind}" />
                         </DataTemplate>
-                    </GridView.ItemTemplate>
-                </GridView>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <!--
                     Catch zone under an empty pinned grid, so the pinned area is
@@ -154,9 +141,9 @@
                 -->
                 <controls:SidebarDropZone
                     x:Name="PinnedDropZone"
-                    Height="40"
+                    Height="44"
                     Margin="2,0"
-                    ZoneCornerRadius="10"
+                    ZoneCornerRadius="6"
                     Kind="Pinned"
                     Visibility="Collapsed" />
 
@@ -167,8 +154,8 @@
                 -->
 
                 <!-- Folders -->
-                <muxc:ItemsRepeater x:Name="FolderList">
-                    <muxc:ItemsRepeater.ItemTemplate>
+                <ItemsControl x:Name="FolderList">
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:TabFolder">
                             <StackPanel Spacing="2">
                                 <!-- Folder header -->
@@ -269,16 +256,16 @@
                                 </Button>
 
                                 <!-- Tabs in Folder -->
-                                <muxc:ItemsRepeater
+                                <ItemsControl
                                     ItemsSource="{x:Bind Tabs, Mode=OneWay}"
                                     Visibility="{x:Bind ExpandedVisibility, Mode=OneWay}"
                                     Margin="16,0,0,0">
-                                    <muxc:ItemsRepeater.ItemTemplate>
+                                    <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:BrowserTab">
                                             <controls:MoriTabRow Tab="{x:Bind}" Margin="0,0,0,2"/>
                                         </DataTemplate>
-                                    </muxc:ItemsRepeater.ItemTemplate>
-                                </muxc:ItemsRepeater>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                                 <!--
                                     End cap: lets an empty folder receive tabs and
@@ -293,8 +280,8 @@
                                     Visibility="{x:Bind ExpandedVisibility, Mode=OneWay}" />
                             </StackPanel>
                         </DataTemplate>
-                    </muxc:ItemsRepeater.ItemTemplate>
-                </muxc:ItemsRepeater>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <!-- "New Tab" row -->
                 <Button
@@ -320,49 +307,13 @@
                 </Button>
 
                 <!-- Loose (unfiled) tabs -->
-                <ListView
-                    x:Name="LooseTabList"
-                    SelectionMode="None"
-                    CanReorderItems="True"
-                    AllowDrop="True">
-                    <ListView.Resources>
-                        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="Transparent" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="Transparent" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="Transparent" />
-                    </ListView.Resources>
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Margin" Value="0" />
-                            <Setter Property="MinHeight" Value="0" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemContainerTransitions>
-                        <TransitionCollection>
-                            <ReorderThemeTransition />
-                            <RepositionThemeTransition IsStaggeringEnabled="False" />
-                        </TransitionCollection>
-                    </ListView.ItemContainerTransitions>
-                    <ListView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <ItemsStackPanel>
-                                <ItemsStackPanel.ChildrenTransitions>
-                                    <TransitionCollection>
-                                        <RepositionThemeTransition IsStaggeringEnabled="False" />
-                                    </TransitionCollection>
-                                </ItemsStackPanel.ChildrenTransitions>
-                            </ItemsStackPanel>
-                        </ItemsPanelTemplate>
-                    </ListView.ItemsPanel>
-                    <ListView.ItemTemplate>
+                <ItemsControl x:Name="LooseTabList">
+                    <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:BrowserTab">
                             <controls:MoriTabRow Tab="{x:Bind}" />
                         </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <!--
                     Catch zone below the loose rows: dropping into the empty area

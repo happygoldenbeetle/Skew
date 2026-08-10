@@ -181,7 +181,7 @@ public static class MoriMotion
 /// </summary>
 public static class TabSurface
 {
-    public const double Radius = 10;
+    public const double Radius = 6;
     public const double PressScale = 0.985;
     public const double ShadowRadius = 1.5;
     public const double ShadowY = 0.8;

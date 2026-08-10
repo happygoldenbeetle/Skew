@@ -18,6 +18,9 @@ public sealed class PersistedSettings
     public ElementTheme Theme { get; set; } = ElementTheme.Default;
     public SidebarPosition SidebarPosition { get; set; } = SidebarPosition.Left;
     public bool ShowSidebarOnLaunch { get; set; } = true;
+
+    /// <summary>Docked sidebar width in DIPs, set by dragging its inner edge.</summary>
+    public double SidebarWidth { get; set; } = 260;
     public bool BlockAds { get; set; } = true;
     public bool AutoPiP { get; set; }
 

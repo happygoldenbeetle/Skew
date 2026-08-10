@@ -53,6 +53,23 @@
                 <controls:MoriSidebar x:Name="Sidebar" />
             </Border>
 
+            <!--
+                Resize gripper: a thin strip on the sidebar's page-facing edge.
+                Declared after SidebarBorder so it sits above the sidebar's own
+                content, and moved to whichever column the sidebar occupies by
+                UpdateColumnLayout. The width it sets is persisted.
+            -->
+            <controls:ResizeGrip x:Name="SidebarResizeGrip"
+                    Grid.Column="0"
+                    Width="6"
+                    HorizontalAlignment="Right"
+                    Background="Transparent"
+                    Visibility="Collapsed"
+                    PointerPressed="SidebarResizeGrip_PointerPressed"
+                    PointerMoved="SidebarResizeGrip_PointerMoved"
+                    PointerReleased="SidebarResizeGrip_PointerReleased"
+                    PointerCaptureLost="SidebarResizeGrip_PointerReleased" />
+
             <!-- ═══ Web content column ═══ -->
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
@@ -204,7 +221,16 @@
             be genuinely translucent over the live page — the separate popup
             window it used to live in could only ever be opaque.
         -->
-        <Grid x:Name="PeekHost" Width="300" HorizontalAlignment="Right" Visibility="Collapsed">
+        <!--
+            Hidden by opacity, never by Visibility. A collapsed subtree is not
+            laid out, and an ItemsRepeater inside one realizes no items at all —
+            so the peek's pinned tiles and folders came up blank until some
+            interaction forced a layout pass and they popped in. At Opacity 0 the
+            host still measures, so its repeaters are populated before it is ever
+            shown. IsHitTestVisible keeps it from swallowing clicks meanwhile.
+        -->
+        <Grid x:Name="PeekHost" Width="268" HorizontalAlignment="Right"
+              Opacity="0" IsHitTestVisible="False">
             <Border x:Name="PeekEdgeStrip"
                     Width="12"
                     HorizontalAlignment="Right"
@@ -232,8 +258,15 @@
                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
             </Grid>
 
+            <!--
+                Fully opaque: the card is hidden by being translated out of the
+                window, not by fading. It starts non-hit-testable so the closed
+                card cannot intercept the edge-strip hover; AnimatePeek flips
+                that as it opens.
+            -->
             <Border x:Name="SidebarPeekCard"
-                    Width="256"
+                    Width="224"
+                    IsHitTestVisible="False"
                     Margin="0,8,8,8"
                     HorizontalAlignment="Right"
                     CornerRadius="10"

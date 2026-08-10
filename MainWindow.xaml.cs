@@ -133,6 +133,7 @@ public sealed partial class MainWindow : Window
 
         // Show the selected tab's CEF browser view in the web-content card.
         ShowSelectedBrowserView();
+        WatchSelectedTabUrl();
     }
 
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -184,6 +185,8 @@ public sealed partial class MainWindow : Window
                 UpdateLoadingBar();
                 ShowSelectedBrowserView();
                 TopChromeTitle.Text = Store.SelectedTab?.Title ?? "Mori";
+                WatchSelectedTabUrl();
+                SyncHomepagePeek();
                 break;
         }
     }
@@ -395,6 +398,65 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // ── Sidebar resize ──────────────────────────────────────────────────────
+    //
+    // Drag the sidebar's page-facing edge to set its width. The Mac pins the
+    // sidebar at 256, so this is an addition rather than a port.
+
+    private bool _resizingSidebar;
+    private double _resizeStartX;
+    private double _resizeStartWidth;
+
+    private void SidebarResizeGrip_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        _resizingSidebar = true;
+        // Track against the window, not the grip: the grip moves as the sidebar
+        // resizes, so grip-relative deltas would feed back on themselves.
+        _resizeStartX = e.GetCurrentPoint(RootGrid).Position.X;
+        _resizeStartWidth = BrowserSettings.Shared.SidebarWidth;
+        SidebarResizeGrip.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void SidebarResizeGrip_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_resizingSidebar) return;
+
+        double delta = e.GetCurrentPoint(RootGrid).Position.X - _resizeStartX;
+        // Dragging right grows a left-docked sidebar and shrinks a right-docked one.
+        double target = Store.SidebarOnLeft
+            ? _resizeStartWidth + delta
+            : _resizeStartWidth - delta;
+
+        double width = BrowserSettings.ClampSidebarWidth(target);
+
+        // Apply straight to the column while dragging. Writing through the
+        // setting on every pointer move would rewrite settings.json dozens of
+        // times per drag, since preferences save synchronously on change.
+        var length = new GridLength(width);
+        if (Store.SidebarOnLeft) SidebarColumn.Width = length;
+        else AIPanelColumn.Width = length;
+
+        e.Handled = true;
+    }
+
+    private void SidebarResizeGrip_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_resizingSidebar) return;
+        _resizingSidebar = false;
+        SidebarResizeGrip.ReleasePointerCapture(e.Pointer);
+
+        // Commit once, at the end of the drag — one file write instead of many.
+        double finalWidth = Store.SidebarOnLeft
+            ? SidebarColumn.Width.Value
+            : AIPanelColumn.Width.Value;
+        BrowserSettings.Shared.SidebarWidth = BrowserSettings.ClampSidebarWidth(finalWidth);
+
+        // Keep the peek card in step with the docked width.
+        if (_peekReady) LayoutPeek();
+        e.Handled = true;
+    }
+
     private void UpdateColumnLayout()
     {
         // If user docks sidebar while peeking, cancel peek
@@ -405,10 +467,14 @@ public sealed partial class MainWindow : Window
             _sidebarAnimStoryboard?.Stop();
         }
 
-        // Position sidebar and AI panel based on side preference
+        // Position sidebar and AI panel based on side preference. The gripper
+        // rides with the sidebar and always hugs its page-facing edge — the
+        // right edge when docked left, the left edge when docked right.
         if (Store.SidebarOnLeft)
         {
             Grid.SetColumn(SidebarBorder, 0);
+            Grid.SetColumn(SidebarResizeGrip, 0);
+            SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Right;
             Grid.SetColumn(AIPanel, 2);
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
@@ -417,20 +483,28 @@ public sealed partial class MainWindow : Window
         else
         {
             Grid.SetColumn(SidebarBorder, 2);
+            Grid.SetColumn(SidebarResizeGrip, 2);
+            SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Left;
             Grid.SetColumn(AIPanel, 0);
             Grid.SetColumn(SidebarRevealButton, 1);
             SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
             SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
         }
 
-        // Set column widths
+        // Set column widths. The sidebar's is whatever the user last dragged to.
+        var sidebarWidth = new GridLength(BrowserSettings.Shared.SidebarWidth);
+
         SidebarColumn.Width = Store.SidebarOnLeft
-            ? (Store.SidebarVisible ? new GridLength(260) : new GridLength(0))
+            ? (Store.SidebarVisible ? sidebarWidth : new GridLength(0))
             : (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0));
 
         AIPanelColumn.Width = Store.SidebarOnLeft
             ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
-            : (Store.SidebarVisible ? new GridLength(260) : new GridLength(0));
+            : (Store.SidebarVisible ? sidebarWidth : new GridLength(0));
+
+        // Only grabbable while the sidebar is actually docked.
+        SidebarResizeGrip.Visibility = Store.SidebarVisible
+            ? Visibility.Visible : Visibility.Collapsed;
 
         // The docked sidebar owns the visible state; the floating peek popup owns
         // the hidden state.
@@ -444,14 +518,15 @@ public sealed partial class MainWindow : Window
         // Peek overlay is live only while the sidebar is hidden.
         if (Store.SidebarVisible)
         {
-            PeekHost.Visibility = Visibility.Collapsed;
+            SetPeekHostShown(false);
         }
         else
         {
             EnsurePeekReady();
             LayoutPeek();
             if (_peekReady)
-                PeekHost.Visibility = Visibility.Visible;
+                SetPeekHostShown(true);
+            SyncHomepagePeek();
         }
 
         // AI Panel
@@ -702,10 +777,14 @@ public sealed partial class MainWindow : Window
     // machinery this used to need are gone, along with the separate popup window
     // that made the card opaque.
 
-    // Geometry mirrors SidebarPeek.swift: a 256pt card inset 8pt from the edge.
-    private const double PeekCardWidth = 256;
+    // Geometry mirrors SidebarPeek.swift: a card inset 8pt from the edge.
+    // Fixed rather than following the docked sidebar's dragged width — the peek
+    // is a transient overlay, so resizing the docked sidebar should not move it.
+    // 224 DIP is 280 physical px at 125% scaling.
+    private const double PeekCardWidth = 224;
     private const double PeekInset = 8;
-    private const double PeekHostWidth = 300; // mac panelBand
+    /// <summary>Mac panelBand — the card plus the hover margin beyond it.</summary>
+    private const double PeekHostWidth = PeekCardWidth + 44;
     private bool _peekReady;
 
     private double ClosedCardOffset =>
@@ -890,6 +969,10 @@ public sealed partial class MainWindow : Window
         bool left = Store.SidebarOnLeft;
         var edge = left ? HorizontalAlignment.Left : HorizontalAlignment.Right;
 
+        // Follow the docked width, which the user can drag.
+        PeekHost.Width = PeekHostWidth;
+        SidebarPeekCard.Width = PeekCardWidth;
+
         PeekHost.HorizontalAlignment = edge;
         // Clip so the card slides out under the window edge rather than past it.
         PeekHost.Clip = new Microsoft.UI.Xaml.Media.RectangleGeometry
@@ -907,6 +990,7 @@ public sealed partial class MainWindow : Window
         if (!_isPeeking)
         {
             PeekCardTranslate.X = ClosedCardOffset;
+            SidebarPeekCard.IsHitTestVisible = false;
             PeekHandleTranslate.X = RestingHandleOffset;
             PeekHandleCapsule.Opacity = 0.22;
             PeekHandleChevron.Opacity = 0;
@@ -974,12 +1058,85 @@ public sealed partial class MainWindow : Window
             _peekCloseTimer.Start();
     }
 
+    /// <summary>
+    /// True while the peek is being held open because the new tab page is
+    /// showing, rather than because the pointer is near the edge.
+    /// </summary>
+    private bool _homepagePeekLatched;
+
+    private BrowserTab? _urlWatchedTab;
+
+    /// <summary>
+    /// Follow the selected tab's URL, so navigating away from the new tab page
+    /// releases the peek. Selection alone is not enough — typing a URL into the
+    /// same tab changes where it points without changing which tab is selected.
+    /// </summary>
+    private void WatchSelectedTabUrl()
+    {
+        if (_urlWatchedTab is not null)
+            _urlWatchedTab.PropertyChanged -= SelectedTabUrlChanged;
+
+        _urlWatchedTab = Store.SelectedTab;
+
+        if (_urlWatchedTab is not null)
+            _urlWatchedTab.PropertyChanged += SelectedTabUrlChanged;
+    }
+
+    private void SelectedTabUrlChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(BrowserTab.UrlString))
+            SyncHomepagePeek();
+    }
+
+    /// <summary>The selected tab is Mori's own new tab page.</summary>
+    private bool IsHomepageTab =>
+        Store.SelectedTab?.UrlString?.StartsWith("mori://newtab", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>
+    /// Hold the peek sidebar out on the new tab page, the way Arc does, and let
+    /// it retract once the tab navigates somewhere real.
+    ///
+    /// <para>
+    /// Only applies while the sidebar is hidden — docked, there is nothing to
+    /// peek. The latch is what stops the hover close-timer from pulling it back
+    /// in while the pointer is elsewhere.
+    /// </para>
+    /// </summary>
+    private void SyncHomepagePeek()
+    {
+        bool shouldLatch = !Store.SidebarVisible && IsHomepageTab;
+        if (shouldLatch == _homepagePeekLatched) return;
+
+        _homepagePeekLatched = shouldLatch;
+        if (shouldLatch)
+        {
+            EnsurePeekReady();
+            LayoutPeek();
+            EnterPeek();
+        }
+        else
+        {
+            _peekCloseTimer.Start();
+        }
+    }
+
+    /// <summary>
+    /// Show or hide the peek host without collapsing it, so its ItemsRepeaters
+    /// stay laid out and keep their tiles and folders realized.
+    /// </summary>
+    private void SetPeekHostShown(bool shown)
+    {
+        PeekHost.Opacity = shown ? 1 : 0;
+        PeekHost.IsHitTestVisible = shown;
+    }
+
     private void EnterPeek()
     {
         if (_isPeeking) return;
         _isPeeking = true;
         _peekCloseTimer.Stop();
         AnimatePeek(open: true);
+
     }
 
     private void ExitPeek()
@@ -999,6 +1156,8 @@ public sealed partial class MainWindow : Window
     {
         if (IsPeekFlyoutOpen()) return; // DispatcherTimer repeats; re-check next tick
         _peekCloseTimer.Stop();
+        // Held open by the new tab page, not by the pointer.
+        if (_homepagePeekLatched) return;
         ExitPeek();
     }
 
@@ -1037,6 +1196,7 @@ public sealed partial class MainWindow : Window
         PeekHandleChevron.Opacity = chevNow;
 
         double cardTo = open ? 0 : ClosedCardOffset;
+        SidebarPeekCard.IsHitTestVisible = open;
         double handleTo = open ? OpenHandleOffset : RestingHandleOffset;
         double capTo = open ? 0 : 0.22;
         double chevTo = open ? 1 : 0;

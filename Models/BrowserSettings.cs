@@ -57,6 +57,26 @@ public partial class BrowserSettings : ObservableObject
     [ObservableProperty]
     private bool _restoreTabsOnLaunch;
 
+    /// <summary>
+    /// Width of the docked sidebar, in DIPs. The Mac pins this at 256; here it
+    /// is user-draggable from the sidebar's inner edge and remembered between
+    /// sessions.
+    /// </summary>
+    [ObservableProperty]
+    private double _sidebarWidth = DefaultSidebarWidth;
+
+    public const double DefaultSidebarWidth = 260;
+
+    /// <summary>Narrow enough stays usable — the tab rows still fit their close buttons.</summary>
+    public const double MinSidebarWidth = 200;
+
+    /// <summary>Beyond this the sidebar starts crowding the page rather than framing it.</summary>
+    public const double MaxSidebarWidth = 480;
+
+    /// <summary>Clamp an arbitrary drag position to the allowed range.</summary>
+    public static double ClampSidebarWidth(double width)
+        => Math.Clamp(width, MinSidebarWidth, MaxSidebarWidth);
+
     /// <summary>Guards the initial load so applying it doesn't write straight back.</summary>
     private bool _loading;
 
@@ -86,10 +106,17 @@ public partial class BrowserSettings : ObservableObject
         Theme = saved.Theme;
         SidebarPosition = saved.SidebarPosition;
         ShowSidebarOnLaunch = saved.ShowSidebarOnLaunch;
+        SidebarWidth = ClampSidebarWidth(saved.SidebarWidth);
         BlockAds = saved.BlockAds;
         AutoPiP = saved.AutoPiP;
         RestoreTabsOnLaunch = saved.RestoreTabsOnLaunch;
         _loading = false;
+
+        // Write back after loading so a file saved by an older build gains any
+        // newly added keys. Without this a new preference stays absent from the
+        // file until it happens to change, since loading a missing key yields
+        // the default and so raises no PropertyChanged to trigger a save.
+        Save();
     }
 
     private void Save()
@@ -105,6 +132,7 @@ public partial class BrowserSettings : ObservableObject
             Theme = Theme,
             SidebarPosition = SidebarPosition,
             ShowSidebarOnLaunch = ShowSidebarOnLaunch,
+            SidebarWidth = SidebarWidth,
             BlockAds = BlockAds,
             AutoPiP = AutoPiP,
             RestoreTabsOnLaunch = RestoreTabsOnLaunch,

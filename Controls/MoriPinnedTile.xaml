@@ -11,10 +11,9 @@
     <Grid
         x:Name="RootGrid"
         HorizontalAlignment="Stretch"
-        MaxWidth="80"
-        Height="40"
+        Height="50"
         Background="Transparent"
-        CornerRadius="10"
+        CornerRadius="6"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited"
         PointerPressed="RootGrid_PointerPressed"
@@ -88,15 +87,27 @@
             selected lift. Painted in code-behind — see MoriTabRow for why the
             Fluent theme brushes are not used.
         -->
-        <Grid x:Name="RestBackground" CornerRadius="10" />
+        <!--
+            The 6pt gutter lives here, inside the tile, not as an outer Margin,
+            so the tile occupies exactly the cell PinnedTileGrid gives it and the
+            gap is drawn rather than laid out. An outer margin would have to be
+            compensated for in the cell size, which either wrapped the last tile
+            onto its own row or left the row short and clipped the tiles.
 
-        <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="10" />
+            No MinWidth either: the panel already refuses to make a cell narrower
+            than a tile can read at, and a second copy of that number here only
+            let the tile overflow the cell it was given.
+        -->
+        <Grid x:Name="TileSurface" Margin="0,0,6,6">
+        <Grid x:Name="RestBackground" CornerRadius="6" />
+
+        <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="6" />
 
         <Border x:Name="SelectedBackground"
                 BorderThickness="0"
                 Translation="0,1,2"
                 Opacity="0"
-                CornerRadius="10">
+                CornerRadius="6">
             <Border.Shadow>
                 <ThemeShadow />
             </Border.Shadow>
@@ -140,6 +151,8 @@
                     Source="{x:Bind GetFaviconSource(Tab.FaviconUrl, Tab.UrlString), Mode=OneWay}"
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
+        </Grid>
+
         </Grid>
 
         <!--

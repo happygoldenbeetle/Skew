@@ -45,7 +45,9 @@ public sealed partial class MoriSidebar : UserControl
 
     private void PinnedTabs_CollectionChanged(object? sender,
         System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        => UpdatePinnedDropZone();
+    {
+        UpdatePinnedDropZone();
+    }
 
     /// <summary>
     /// The pinned catch zone exists only while a drag is in flight and there is
@@ -73,6 +75,7 @@ public sealed partial class MoriSidebar : UserControl
     {
         InitializeComponent();
         Loaded += MoriSidebar_Loaded;
+
         DownloadStore.Shared.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(DownloadStore.ActivityToken))
@@ -190,6 +193,7 @@ public sealed partial class MoriSidebar : UserControl
         UpdateReloadIcon();
     }
 
+
     private void RootGrid_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
     {
         var flyout = new Microsoft.UI.Xaml.Controls.MenuFlyout();
@@ -273,25 +277,12 @@ public sealed partial class MoriSidebar : UserControl
         }
     }
 
-    // ── Drag & Drop Resizing Math ──
-    private void PinnedGrid_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (PinnedGrid.ItemsPanelRoot is ItemsWrapGrid wrapGrid)
-        {
-            double availableWidth = e.NewSize.Width;
-            if (availableWidth <= 0) return;
+    // The pinned grid sizes itself: PinnedTileGrid computes its columns and cell
+    // width during measure, from the width it is handed. Driving that from here
+    // meant reacting to SizeChanged, which fires a pass too late — see
+    // PinnedTileGrid for the flicker that caused.
 
-            // Tile min width is 56, plus 6 for the right margin.
-            double minCellWidth = 56 + 6;
 
-            int columns = (int)(availableWidth / minCellWidth);
-            if (columns < 1) columns = 1;
-
-            // Divide the space evenly so it perfectly stretches.
-            wrapGrid.ItemWidth = availableWidth / columns;
-            wrapGrid.ItemHeight = 40 + 6; // Mac tile height is 40, plus the 6pt gap
-        }
-    }
 
     // AIToggle_Click, ThemeToggle_Click and Settings_Click are gone with their
     // buttons. Settings is still reachable from the sidebar context menu, and

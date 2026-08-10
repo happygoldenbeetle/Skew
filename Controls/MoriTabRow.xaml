@@ -94,12 +94,12 @@
             translucent sidebar, and the Fluent equivalents read noticeably
             heavier.
         -->
-        <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="10" />
+        <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="6" />
 
         <Border x:Name="SelectedBackground"
                 BorderThickness="0"
                 Opacity="0"
-                CornerRadius="10"
+                CornerRadius="6"
                 Translation="0,1,2">
             <Border.Shadow>
                 <ThemeShadow />
