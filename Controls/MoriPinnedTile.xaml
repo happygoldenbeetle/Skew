@@ -11,7 +11,6 @@
     <Grid
         x:Name="RootGrid"
         HorizontalAlignment="Stretch"
-        Height="50"
         Background="Transparent"
         CornerRadius="6"
         PointerEntered="RootGrid_PointerEntered"
@@ -88,17 +87,14 @@
             Fluent theme brushes are not used.
         -->
         <!--
-            The 6pt gutter lives here, inside the tile, not as an outer Margin,
-            so the tile occupies exactly the cell PinnedTileGrid gives it and the
-            gap is drawn rather than laid out. An outer margin would have to be
-            compensated for in the cell size, which either wrapped the last tile
-            onto its own row or left the row short and clipped the tiles.
-
-            No MinWidth either: the panel already refuses to make a cell narrower
-            than a tile can read at, and a second copy of that number here only
-            let the tile overflow the cell it was given.
+            No size of its own — no width, no height, no gutter. The tile is
+            exactly the cell PinnedTileGrid arranges it into, and the panel lays
+            the 6pt gaps out between cells so a full row spans the sidebar edge
+            to edge, flush with the omnibox above it. Drawing the gutter in here
+            instead left every row a gutter short on the right, and a MinWidth
+            here was a second copy of the panel's minimum that only let a tile
+            overflow the cell it was given.
         -->
-        <Grid x:Name="TileSurface" Margin="0,0,6,6">
         <Grid x:Name="RestBackground" CornerRadius="6" />
 
         <Grid x:Name="HoverBackground" Opacity="0" CornerRadius="6" />
@@ -151,8 +147,6 @@
                     Source="{x:Bind GetFaviconSource(Tab.FaviconUrl, Tab.UrlString), Mode=OneWay}"
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
             </Grid>
-        </Grid>
-
         </Grid>
 
         <!--

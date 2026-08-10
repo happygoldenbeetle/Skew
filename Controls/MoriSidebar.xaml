@@ -122,7 +122,13 @@
                     is no SizeChanged handler here — see its remarks for why one
                     was the source of the resize flicker.
                 -->
-                <ItemsControl x:Name="PinnedGrid" Margin="2,0">
+                <!--
+                    2px side margins put the row's edges on the same line as the
+                    omnibox above (header padding 10, this StackPanel's 8 + 2).
+                    The 6 at the bottom is the gap the tiles used to draw below
+                    themselves, kept so the space to the folders is unchanged.
+                -->
+                <ItemsControl x:Name="PinnedGrid" Margin="2,0,2,6">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <controls:PinnedTileGrid />

@@ -34,17 +34,18 @@ public sealed class PinnedTileGrid : Panel
     /// <summary>Upper bound on tiles per row, not a target.</summary>
     private const int MaxColumns = 4;
 
-    /// <summary>Gap between tiles. Drawn inside the tile, so it is part of the cell.</summary>
+    /// <summary>
+    /// Gap between tiles. Laid out *between* them and never on the outside, so a
+    /// full row spans the panel exactly and its edges line up with the omnibox
+    /// above it. Drawing it inside each tile instead left the row a gutter short
+    /// of the sidebar's right edge.
+    /// </summary>
     private const double Gutter = 6;
 
-    /// <summary>
-    /// Narrowest cell that still reads as a favicon target: 56pt of tile plus
-    /// the gutter it draws. Below this the row drops a column instead.
-    /// </summary>
-    private const double MinCellWidth = 56 + Gutter;
+    /// <summary>Below this a tile is too narrow to read as a favicon target.</summary>
+    private const double MinTileWidth = 56;
 
-    /// <summary>Tile height plus the gutter it draws below itself.</summary>
-    private const double CellHeight = 44 + Gutter;
+    private const double TileHeight = 44;
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -55,15 +56,18 @@ public sealed class PinnedTileGrid : Panel
         // Unconstrained (a measure pass with infinite width) asks for the
         // widest row we would ever draw rather than collapsing to one column.
         if (double.IsInfinity(width) || double.IsNaN(width))
-            width = MinCellWidth * Math.Min(count, MaxColumns);
+        {
+            int widest = Math.Min(count, MaxColumns);
+            width = MinTileWidth * widest + Gutter * (widest - 1);
+        }
 
-        (int columns, double cellWidth) = Metrics(width, count);
+        (int columns, double tileWidth) = Metrics(width, count);
 
-        var cell = new Size(cellWidth, CellHeight);
+        var cell = new Size(tileWidth, TileHeight);
         foreach (UIElement child in Children)
             child.Measure(cell);
 
-        return new Size(columns * cellWidth, Rows(count, columns) * CellHeight);
+        return new Size(width, Height(count, columns));
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -71,32 +75,42 @@ public sealed class PinnedTileGrid : Panel
         int count = Children.Count;
         if (count == 0) return finalSize;
 
-        (int columns, double cellWidth) = Metrics(finalSize.Width, count);
+        (int columns, double tileWidth) = Metrics(finalSize.Width, count);
 
         for (int i = 0; i < count; i++)
         {
             Children[i].Arrange(new Rect(
-                (i % columns) * cellWidth,
-                (i / columns) * CellHeight,
-                cellWidth,
-                CellHeight));
+                (i % columns) * (tileWidth + Gutter),
+                (i / columns) * (TileHeight + Gutter),
+                tileWidth,
+                TileHeight));
         }
 
-        return new Size(finalSize.Width, Rows(count, columns) * CellHeight);
+        return new Size(finalSize.Width, Height(count, columns));
     }
 
     /// <summary>
-    /// Columns and cell width for a given panel width. Measure and arrange both
+    /// Columns and tile width for a given panel width. Measure and arrange both
     /// go through this, so the two passes can never disagree about the wrap.
     /// </summary>
-    private static (int Columns, double CellWidth) Metrics(double width, int count)
+    private static (int Columns, double TileWidth) Metrics(double width, int count)
     {
-        int fits = Math.Max(1, (int)(width / MinCellWidth));
+        // n tiles carry n-1 gutters, so adding one gutter to both sides of the
+        // ratio gives how many fit without over-counting the trailing gap.
+        int fits = Math.Max(1, (int)((width + Gutter) / (MinTileWidth + Gutter)));
         int columns = Math.Max(1, Math.Min(Math.Min(count, MaxColumns), fits));
 
-        // Floored, so the row can never round its way past the panel edge —
-        // overflowing by a fraction of a pixel is what wraps a trailing tile.
-        return (columns, Math.Floor(width / columns));
+        // Left exact rather than floored: the remainder of the division is what
+        // used to leave the row a couple of pixels short of the panel edge, and
+        // nothing here wraps on overflow, so fractional widths are safe.
+        double tileWidth = (width - Gutter * (columns - 1)) / columns;
+        return (columns, Math.Max(0, tileWidth));
+    }
+
+    private static double Height(int count, int columns)
+    {
+        int rows = Rows(count, columns);
+        return rows * TileHeight + (rows - 1) * Gutter;
     }
 
     private static int Rows(int count, int columns) => (count + columns - 1) / columns;
