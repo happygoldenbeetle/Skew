@@ -288,37 +288,64 @@ public sealed partial class MoriSidebar : UserControl
         }
     }
 
+    /// <summary>
+    /// The rename field that currently holds focus, or null while one is on its
+    /// way to being focused. Renaming ends on losing focus, and the field cannot
+    /// tell the user clicking away from the menu handing focus back — so a
+    /// LostFocus for a field not in here is ignored as the latter.
+    /// </summary>
+    private TextBox? _renameBox;
+
     private void RenameFolder_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is TextBox tb)
+        if (sender is not TextBox tb) return;
+
+        tb.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) =>
         {
-            tb.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (s, dp) =>
+            if (tb.Visibility == Visibility.Visible) BeginRename(tb);
+        });
+
+        if (tb.Visibility == Visibility.Visible) BeginRename(tb);
+    }
+
+    /// <summary>
+    /// Take focus once the menu that started the rename has finished with it.
+    ///
+    /// <para>
+    /// Focusing straight away looked like it worked and did not: a closing
+    /// flyout restores focus to whatever it was opened from, which happens after
+    /// this runs. The field would light up, lose focus to the folder button a
+    /// moment later, and the LostFocus handler would end the rename before a key
+    /// could be pressed — the field flickering once and the name never changing.
+    /// Queued at low priority, this lands after the flyout is done.
+    /// </para>
+    /// </summary>
+    private void BeginRename(TextBox tb)
+    {
+        _renameBox = null;
+
+        tb.DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () =>
             {
-                if (tb.Visibility == Visibility.Visible)
-                {
-                    tb.SelectAll();
-                    tb.Focus(FocusState.Programmatic);
-                }
-            });
-            
-            if (tb.Visibility == Visibility.Visible)
-            {
+                if (tb.Visibility != Visibility.Visible) return;
                 tb.SelectAll();
                 tb.Focus(FocusState.Programmatic);
-            }
-        }
+                _renameBox = tb;
+            });
     }
 
     private void RenameFolder_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (sender is TextBox tb && tb.Tag is Guid folderId)
-        {
-            var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);
-            if (folder != null)
-            {
-                folder.IsRenaming = false;
-            }
-        }
+        if (sender is not TextBox tb || tb.Tag is not Guid folderId) return;
+
+        // Not the field the user is in yet — this is the menu's focus restore.
+        if (!ReferenceEquals(_renameBox, tb)) return;
+        _renameBox = null;
+
+        var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);
+        if (folder != null)
+            folder.IsRenaming = false;
     }
 
     private void RenameFolder_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
@@ -327,6 +354,10 @@ public sealed partial class MoriSidebar : UserControl
         {
             if (sender is TextBox tb && tb.Tag is Guid folderId)
             {
+                // Cleared first: the focus move below raises LostFocus, which
+                // would otherwise end a rename that has already ended.
+                _renameBox = null;
+
                 var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);
                 if (folder != null)
                 {
@@ -334,7 +365,6 @@ public sealed partial class MoriSidebar : UserControl
                 }
             }
             this.Focus(FocusState.Programmatic);
-            e.Handled = true;
             e.Handled = true;
         }
     }

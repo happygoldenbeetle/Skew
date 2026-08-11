@@ -118,18 +118,45 @@
 
                 <!-- Folders -->
                 <ItemsControl x:Name="FolderList">
+                    <!--
+                        The gap between folders belongs here, on the panel that
+                        stacks them, rather than as a margin on the template
+                        root: a margin would sit inside each folder and be added
+                        by an expanded empty one too, which is the nudge the
+                        template's own Spacing was removed for.
+                    -->
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:TabFolder">
-                            <StackPanel Spacing="2">
+                            <!--
+                                No Spacing: it applied to any visible child, and
+                                an expanded empty folder is a visible child of
+                                zero height — enough to nudge the whole list down
+                                by 2 on open. The gap it provided lives on the
+                                row list inside the reveal instead, where it
+                                collapses along with the rows.
+                            -->
+                            <StackPanel>
                                 <!-- Folder header -->
                                 <!--
                                     Ghost style, not the default Button: the Mac
                                     hover is a 5% foreground wash, where the
                                     stock WinUI Button fill is far heavier.
                                 -->
+                                <!--
+                                    5.6 both sides — the same inset the New Tab
+                                    row and the tab rows carry, so the folder
+                                    icon, the plus and the favicons all start on
+                                    one line, and the row is even rather than
+                                    heavier on the right as it was at 9.
+                                -->
                                 <Button
-                                    Height="32"
-                                    Padding="9,0"
+                                    Height="36"
+                                    Padding="5.6,0"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"
                                     Style="{StaticResource MoriGhostButtonStyle}"
@@ -175,28 +202,52 @@
                                             dots that appear when a collapsed
                                             folder holds the active tab.
                                         -->
+                                        <!--
+                                            The folder is drawn in a 32-unit
+                                            space spanning 4.8 to 27.2, so its
+                                            ink sits 15% of the box in from each
+                                            side — 3.6 at this size. Both margins
+                                            are net of that: -3.6 cancels the
+                                            bearing so the drawn edge lands on the
+                                            row's 5.6 padding like the favicons
+                                            do, and 8.4 leaves the 15px gap to
+                                            the label.
+                                        -->
                                         <controls:MorphingFolderIcon
                                             Grid.Column="0"
                                             Width="24" Height="24"
-                                            Margin="0,0,8,0"
+                                            Margin="-3.6,0,8.4,0"
                                             VerticalAlignment="Center"
                                             IsOpen="{x:Bind IsExpanded, Mode=OneWay}"
                                             ShowsDots="{x:Bind ShowsActiveDots, Mode=OneWay}" />
 
-                                        <!-- Folder Name (Normal mode) -->
+                                        <!--
+                                            Folder Name (Normal mode). Heavier
+                                            than the tab rows it holds, and at
+                                            full strength rather than their 0.78
+                                            — a folder is the heading of what is
+                                            under it, and matching the tabs made
+                                            it disappear into them.
+                                        -->
                                         <TextBlock
                                             Grid.Column="1"
-                                            FontSize="13"
-                                            FontWeight="Medium"
+                                            FontSize="13.6"
+                                            FontWeight="SemiBold"
+                                            Foreground="#D9DCDD"
                                             Text="{x:Bind Name, Mode=OneWay}"
                                             VerticalAlignment="Center"
                                             Visibility="{x:Bind NormalVisibility, Mode=OneWay}" />
 
-                                        <!-- Folder Rename (Editing mode) -->
+                                        <!--
+                                            Folder Rename (Editing mode). Same
+                                            size and weight as the label it
+                                            stands in for, or the text jumps
+                                            heavier the moment renaming starts.
+                                        -->
                                         <TextBox
                                             Grid.Column="1"
-                                            FontSize="13"
-                                            FontWeight="Medium"
+                                            FontSize="13.6"
+                                            FontWeight="SemiBold"
                                             Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             VerticalAlignment="Center"
                                             Visibility="{x:Bind RenameVisibility, Mode=OneWay}"
@@ -230,7 +281,17 @@
                                 -->
                                 <controls:ExpandReveal IsOpen="{x:Bind IsExpanded, Mode=OneWay}">
                                     <StackPanel Margin="16,0,0,0">
-                                        <ItemsControl ItemsSource="{x:Bind Tabs, Mode=OneWay}">
+                                        <!--
+                                            Both collapse when the folder is
+                                            empty, so an expanded empty folder
+                                            measures zero rather than a gap. The
+                                            2 above the first row is the spacing
+                                            the list used to add, moved in here
+                                            where it goes away with the rows.
+                                        -->
+                                        <ItemsControl ItemsSource="{x:Bind Tabs, Mode=OneWay}"
+                                                      Margin="0,2,0,0"
+                                                      Visibility="{x:Bind ContentVisibility, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="models:BrowserTab">
                                                     <controls:MoriTabRow Tab="{x:Bind}" Margin="0,0,0,2"/>
@@ -242,7 +303,8 @@
                                             Height="12"
                                             ZoneCornerRadius="2.4"
                                             Kind="Folder"
-                                            FolderId="{x:Bind Id}" />
+                                            FolderId="{x:Bind Id}"
+                                            Visibility="{x:Bind ContentVisibility, Mode=OneWay}" />
                                     </StackPanel>
                                 </controls:ExpandReveal>
                             </StackPanel>
@@ -266,8 +328,8 @@
                 <!-- "New Tab" row -->
                 <Button
                     x:Name="NewTabButton"
-                    Height="32"
-                    Padding="9,0"
+                    Height="36"
+                    Padding="5.6,0"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Left"
                     Style="{StaticResource MoriGhostButtonStyle}"

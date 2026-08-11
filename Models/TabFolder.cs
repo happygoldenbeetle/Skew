@@ -29,6 +29,27 @@ public partial class TabFolder : ObservableObject
     private bool _isRenaming;
 
     public Microsoft.UI.Xaml.Visibility ExpandedVisibility => IsExpanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    /// <summary>
+    /// Everything an expanded folder shows below its header: the rows, the gap
+    /// above them, and the end cap that sits under the last one.
+    ///
+    /// <para>
+    /// Collapsed rather than merely empty, so an expanded folder with nothing in
+    /// it takes up no height at all — the folder plays its animation and the
+    /// list below does not move, which is what Arc does. Merely empty is not
+    /// enough: a visible child of zero height still collects the list's spacing,
+    /// and the end cap's 12pt was the whole height of an empty folder.
+    /// </para>
+    ///
+    /// <para>
+    /// An empty folder still takes a drop — its header is a target in its own
+    /// right — and the end cap's other job, appending after the last row, only
+    /// means anything once there is one.
+    /// </para>
+    /// </summary>
+    public Microsoft.UI.Xaml.Visibility ContentVisibility =>
+        Tabs.Count > 0 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public Microsoft.UI.Xaml.Visibility RenameVisibility => IsRenaming ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public Microsoft.UI.Xaml.Visibility NormalVisibility => !IsRenaming ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public string ChevronGlyph => IsExpanded ? "\uE70D" : "\uE76C"; // ChevronDown : ChevronRight
@@ -68,6 +89,8 @@ public partial class TabFolder : ObservableObject
             if (e.NewItems is not null)
                 foreach (BrowserTab t in e.NewItems) t.PropertyChanged += Tab_PropertyChanged;
             OnPropertyChanged(nameof(ShowsActiveDots));
+            // The folder's contents appear with the first tab and go with the last.
+            OnPropertyChanged(nameof(ContentVisibility));
         };
     }
 

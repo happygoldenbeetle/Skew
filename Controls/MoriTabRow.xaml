@@ -10,7 +10,7 @@
     <Grid
         x:Name="RootGrid"
         HorizontalAlignment="Stretch"
-        Height="34"
+        Height="36"
         Margin="0,0,0,2"
         Background="Transparent"
         PointerEntered="RootGrid_PointerEntered"
@@ -106,8 +106,13 @@
             </Border.Shadow>
         </Border>
 
-        <!-- Content -->
-        <Grid Margin="9,0">
+        <!--
+            Content, inset 5.6 on both sides — even, where the old 9 sat only
+            inside the row's own edges and read heavier on the right once the
+            left was flush. The favicon starts on the same line as the folder
+            icons and the New Tab plus, so the list reads down one column.
+        -->
+        <Grid Margin="5.6,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

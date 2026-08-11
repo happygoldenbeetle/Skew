@@ -97,15 +97,26 @@ public sealed partial class MorphingFolderIcon : UserControl
     {
         var p = ThemeService.Instance.Palette;
 
-        BackPanel.Fill = p.Primary.WithOpacity(0.32).ToBrush();
-        BackPanel.Stroke = p.SidebarForeground.WithOpacity(0.55).ToBrush();
+        // Outline, not a tinted solid — Arc's folder is a drawn edge and nothing
+        // else. The fills that used to carry a wash of Primary are gone; the
+        // stroke takes that colour instead, which is what gives the icon its
+        // tint now.
+        //
+        // FrontBase stays opaque and stays the sidebar's own colour. It is not
+        // decoration: it is what lets the front pocket hide the rear panel as
+        // the folder splays open. Closed, it covers the rear panel completely,
+        // so the icon reads as one outlined folder.
+        BackPanel.Fill = Transparent;
+        BackPanel.Stroke = p.Primary.ToBrush();
 
         FrontBase.Fill = p.Sidebar.ToBrush();
-        FrontTint.Fill = p.Primary.WithOpacity(0.18).ToBrush();
-        FrontStroke.Stroke = p.SidebarForeground.WithOpacity(0.55).ToBrush();
+        FrontTint.Fill = Transparent;
+        FrontStroke.Stroke = p.Primary.ToBrush();
 
-        Dots.Fill = p.SidebarForeground.WithOpacity(0.55).ToBrush();
+        Dots.Fill = p.Primary.ToBrush();
     }
+
+    private static SolidColorBrush Transparent => new(Microsoft.UI.Colors.Transparent);
 
     private void ApplyState(bool animate)
     {
