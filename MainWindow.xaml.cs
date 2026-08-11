@@ -81,6 +81,10 @@ public sealed partial class MainWindow : Window
         {
             EnsurePeekReady();
             UpdateColumnLayout();
+            // Both need the XamlRoot: one for its scale, the other for a
+            // selected tab that may already have been restored by now.
+            SyncCaptionButtonSpacer();
+            UpdateTitleBarChrome();
         };
 
         // Keep the floating peek card's themed brushes in sync with light/dark.
@@ -199,8 +203,8 @@ public sealed partial class MainWindow : Window
             case nameof(BrowserStore.SelectedTab):
                 UpdateLoadingBar();
                 ShowSelectedBrowserView();
-                TitleBarTitle.Text = Store.SelectedTab?.Title ?? "Mori";
                 WatchSelectedTabUrl();
+                UpdateTitleBarChrome();
                 SyncHomepagePeek();
                 break;
         }
@@ -233,6 +237,11 @@ public sealed partial class MainWindow : Window
 
         if (_peekReady && !Store.SidebarVisible)
             LayoutPeek();
+
+        // The caption buttons' width changes with the window: maximising drops
+        // the rounded corner, and a monitor with a different scale rewrites it
+        // outright.
+        SyncCaptionButtonSpacer();
     }
 
     /// <summary>Size the launcher to the web card, which it floats over.</summary>
@@ -468,6 +477,11 @@ public sealed partial class MainWindow : Window
         if (Store.SidebarOnLeft) SidebarColumn.Width = length;
         else AIPanelColumn.Width = length;
 
+        // Straight to the column too, for the same reason the width is: the
+        // setting is not written until the drag ends, so reading it here would
+        // leave the nav buttons a drag behind the edge they follow.
+        SyncTitleBarSidebarColumn(width);
+
         e.Handled = true;
     }
 
@@ -532,6 +546,8 @@ public sealed partial class MainWindow : Window
         AIPanelColumn.Width = Store.SidebarOnLeft
             ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
             : (Store.SidebarVisible ? sidebarWidth : new GridLength(0));
+
+        SyncTitleBarSidebarColumn();
 
         // The card's own 8pt side inset stacks with the sidebar's 10pt padding
         // on the edge the two share, so the gap there read 18 against the 10 on
@@ -840,6 +856,103 @@ public sealed partial class MainWindow : Window
         _peekReady = true;
     }
 
+    // ── Title bar chrome ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Line the title bar's first column up with the docked sidebar, so the nav
+    /// buttons that follow it start where the page starts — and travel with the
+    /// sidebar's edge when it is dragged, the way Arc's do.
+    ///
+    /// <para>
+    /// Only while the sidebar is docked on the left. Docked right or hidden,
+    /// there is nothing on that side to line up with, and the column falls back
+    /// to the width of the app icon and toggle it holds.
+    /// </para>
+    /// </summary>
+    private void SyncTitleBarSidebarColumn()
+        => SyncTitleBarSidebarColumn(BrowserSettings.Shared.SidebarWidth);
+
+    private void SyncTitleBarSidebarColumn(double sidebarWidth)
+    {
+        TitleBarSidebarColumn.Width = Store.SidebarVisible && Store.SidebarOnLeft
+            ? new GridLength(sidebarWidth)
+            : GridLength.Auto;
+    }
+
+    /// <summary>
+    /// Follow the selected tab: the address, and whether back, forward and copy
+    /// have anything to act on.
+    /// </summary>
+    private void UpdateTitleBarChrome()
+    {
+        var tab = Store.SelectedTab;
+
+        TitleBarBack.IsEnabled = tab?.CanGoBack ?? false;
+        TitleBarForward.IsEnabled = tab?.CanGoForward ?? false;
+
+        // DisplayUrl is empty on the new tab page and on mori:// pages, which is
+        // where the placeholder belongs — there is no address to show yet.
+        string host = tab?.DisplayUrl ?? "";
+        bool hasAddress = !string.IsNullOrEmpty(host);
+
+        TitleBarUrl.Text = hasAddress ? host : "Search or enter address";
+        TitleBarUrl.Opacity = hasAddress ? 0.9 : 0.5;
+        TitleBarCopyLink.IsEnabled = hasAddress;
+
+        // Reload doubles as stop while the page is loading, the way the old
+        // sidebar header's did.
+        bool loading = tab?.IsLoading ?? false;
+        TitleBarReloadIcon.Glyph = loading ? "" : "";
+        ToolTipService.SetToolTip(TitleBarReload, loading ? "Stop" : "Reload");
+    }
+
+    /// <summary>
+    /// Hold the right-hand column open by exactly as much as the system's
+    /// caption buttons take, so nothing in the bar ends up underneath them.
+    /// RightInset is in physical pixels, hence the scale.
+    /// </summary>
+    private void SyncCaptionButtonSpacer()
+    {
+        double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1;
+        if (scale <= 0) scale = 1;
+        CaptionButtonSpacer.Width = new GridLength(AppWindow.TitleBar.RightInset / scale);
+    }
+
+    private void TitleBarBack_Click(object sender, RoutedEventArgs e) => Store.GoBack();
+
+    private void TitleBarForward_Click(object sender, RoutedEventArgs e) => Store.GoForward();
+
+    private void TitleBarReload_Click(object sender, RoutedEventArgs e)
+    {
+        if (Store.SelectedTab?.IsLoading == true) Store.Stop();
+        else Store.Reload();
+    }
+
+    private void TitleBarCopyLink_Click(object sender, RoutedEventArgs e)
+    {
+        string? url = Store.SelectedTab?.UrlString;
+        if (string.IsNullOrEmpty(url)) return;
+
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        package.SetText(url);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+    }
+
+    /// <summary>
+    /// Standing in for an editable field: the launcher is where an address gets
+    /// typed today, so the address chip opens it rather than pretending to be a
+    /// text box.
+    /// </summary>
+    private void TitleBarAddress_Click(object sender, RoutedEventArgs e)
+        => Store.ToggleLauncher();
+
+    private void TitleBarPageOptions_Click(object sender, RoutedEventArgs e)
+    {
+        var flyout = new MenuFlyout();
+        Mori.Helpers.MenuBuilder.BuildSidebarMenu(flyout);
+        flyout.ShowAt((FrameworkElement)sender);
+    }
+
     /// <summary>
     /// Tint the system caption buttons to the active theme.
     ///
@@ -1006,6 +1119,18 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(BrowserTab.UrlString))
             SyncHomepagePeek();
+
+        // The title bar rides on this subscription rather than its own: it is
+        // the one that is properly torn down when the selection moves, so the
+        // chrome cannot end up following a tab that is no longer on screen.
+        if (e.PropertyName is nameof(BrowserTab.UrlString)
+                           or nameof(BrowserTab.DisplayUrl)
+                           or nameof(BrowserTab.CanGoBack)
+                           or nameof(BrowserTab.CanGoForward)
+                           or nameof(BrowserTab.IsLoading))
+        {
+            UpdateTitleBarChrome();
+        }
     }
 
     /// <summary>The selected tab is Mori's own new tab page.</summary>

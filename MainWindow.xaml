@@ -63,14 +63,131 @@
             here in a later pass.
         -->
         <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" Background="Transparent">
-            <TextBlock x:Name="TitleBarTitle"
-                       HorizontalAlignment="Center"
+            <Grid.ColumnDefinitions>
+                <!--
+                    App icon and sidebar toggle. Held to the docked sidebar's
+                    width by UpdateColumnLayout — and by the resize drag itself,
+                    so the nav buttons after it start where the page starts and
+                    travel with the sidebar's edge as it is dragged. Auto when
+                    there is no sidebar on this side to line up with.
+                -->
+                <ColumnDefinition x:Name="TitleBarSidebarColumn" Width="Auto" />
+                <!-- Back, forward, reload -->
+                <ColumnDefinition Width="Auto" />
+                <!-- Address, centred over what is left: the page -->
+                <ColumnDefinition Width="*" />
+                <!--
+                    Held clear for the caption buttons. Sized from
+                    AppWindow.TitleBar.RightInset rather than guessed, since how
+                    much room the system takes is its business, not ours.
+                -->
+                <ColumnDefinition x:Name="CaptionButtonSpacer" Width="0" />
+            </Grid.ColumnDefinitions>
+
+            <!--
+                Buttons inside the drag region are live: XAML hit-tests the
+                interactive content of a SetTitleBar element and hands the rest
+                to the window, so these click and the gaps between them drag.
+            -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="10,0,0,0"
+                        Spacing="2">
+
+                <!-- Placeholder mark until there is a real one. -->
+                <Image Width="16" Height="16"
+                       Margin="0,0,10,0"
                        VerticalAlignment="Center"
-                       Margin="160,0"
-                       FontSize="12"
-                       Opacity="0.75"
-                       TextTrimming="CharacterEllipsis"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                       Source="ms-appx:///Assets/Square44x44Logo.targetsize-24_altform-unplated.png" />
+
+                <Button x:Name="TitleBarSidebarToggle"
+                        Width="30" Height="26"
+                        Padding="0"
+                        CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="SidebarReveal_Click"
+                        ToolTipService.ToolTip="Toggle Sidebar (Ctrl+S)">
+                    <!-- Same panel mark as the floating reveal button. -->
+                    <PathIcon Data="F1 M 9.16667 5.5 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.16667 3.66667 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.5 1.33333 A 1.83333 1.83333 0 0 1 11.3333 3.16667 v 5.66667 A 1.83333 1.83333 0 0 1 9.5 10.6667 H 2.5 A 1.83333 1.83333 0 0 1 0.666667 8.83333 v -5.66667 A 1.83333 1.83333 0 0 1 2.5 1.33333 z M 2.5 2.33333 c -0.46 0 -0.833333 0.373333 -0.833333 0.833333 v 5.66667 c 0 0.46 0.373333 0.833333 0.833333 0.833333 H 6 v -7.33333 z m 4.5 7.33333 h 2.5 c 0.46 0 0.833333 -0.373333 0.833333 -0.833333 v -5.66667 c 0 -0.46 -0.373333 -0.833333 -0.833333 -0.833333 H 7 z"
+                              Width="12" Height="12" />
+                </Button>
+            </StackPanel>
+
+            <!--
+                Nav, starting where the page starts: this column follows the one
+                before it, which is the sidebar's width while it is docked left.
+            -->
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="8,0,0,0"
+                        Spacing="2">
+
+                <Button x:Name="TitleBarBack"
+                        Width="30" Height="26" Padding="0" CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="TitleBarBack_Click"
+                        ToolTipService.ToolTip="Go back">
+                    <FontIcon Glyph="&#xE76B;" FontSize="14" />
+                </Button>
+
+                <Button x:Name="TitleBarForward"
+                        Width="30" Height="26" Padding="0" CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="TitleBarForward_Click"
+                        ToolTipService.ToolTip="Go forward">
+                    <FontIcon Glyph="&#xE76C;" FontSize="14" />
+                </Button>
+
+                <Button x:Name="TitleBarReload"
+                        Width="30" Height="26" Padding="0" CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="TitleBarReload_Click"
+                        ToolTipService.ToolTip="Reload">
+                    <FontIcon x:Name="TitleBarReloadIcon" Glyph="&#xE72C;" FontSize="14" />
+                </Button>
+            </StackPanel>
+
+            <!--
+                The address, host only — DisplayUrl on the tab already drops the
+                scheme, the www and the path, which is the whole point of showing
+                it here rather than a full URL.
+            -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+
+                <Button x:Name="TitleBarCopyLink"
+                        Width="28" Height="26" Padding="0" CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="TitleBarCopyLink_Click"
+                        ToolTipService.ToolTip="Copy link">
+                    <FontIcon Glyph="&#xE71B;" FontSize="13" />
+                </Button>
+
+                <Button x:Name="TitleBarAddress"
+                        Height="26" Padding="10,0" CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="TitleBarAddress_Click"
+                        ToolTipService.ToolTip="Search or enter address">
+                    <TextBlock x:Name="TitleBarUrl"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                </Button>
+
+                <Button x:Name="TitleBarPageOptions"
+                        Width="28" Height="26" Padding="0" CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        Click="TitleBarPageOptions_Click"
+                        ToolTipService.ToolTip="Options">
+                    <FontIcon Glyph="&#xE713;" FontSize="13" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- ═══ Main columns: [Sidebar] | [Web card] | [AI / extension panel] ═══ -->
