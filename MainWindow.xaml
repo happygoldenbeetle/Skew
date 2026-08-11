@@ -95,11 +95,16 @@
                         Margin="10,0,0,0"
                         Spacing="2">
 
-                <!-- Placeholder mark until there is a real one. -->
-                <Image Width="16" Height="16"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       Source="ms-appx:///Assets/Square44x44Logo.targetsize-24_altform-unplated.png" />
+                <!--
+                    Placeholder mark until there is a real one. A glyph rather
+                    than Square44x44Logo: that is still the stock project-template
+                    image, and at 16 it read as a broken-image box.
+                -->
+                <FontIcon Glyph="&#xE774;"
+                          FontSize="15"
+                          Margin="2,0,12,0"
+                          VerticalAlignment="Center"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
                 <Button x:Name="TitleBarSidebarToggle"
                         Width="30" Height="26"
@@ -108,20 +113,36 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="SidebarReveal_Click"
                         ToolTipService.ToolTip="Toggle Sidebar (Ctrl+S)">
-                    <!-- Same panel mark as the floating reveal button. -->
-                    <PathIcon Data="F1 M 9.16667 5.5 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.16667 3.66667 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.5 1.33333 A 1.83333 1.83333 0 0 1 11.3333 3.16667 v 5.66667 A 1.83333 1.83333 0 0 1 9.5 10.6667 H 2.5 A 1.83333 1.83333 0 0 1 0.666667 8.83333 v -5.66667 A 1.83333 1.83333 0 0 1 2.5 1.33333 z M 2.5 2.33333 c -0.46 0 -0.833333 0.373333 -0.833333 0.833333 v 5.66667 c 0 0.46 0.373333 0.833333 0.833333 0.833333 H 6 v -7.33333 z m 4.5 7.33333 h 2.5 c 0.46 0 0.833333 -0.373333 0.833333 -0.833333 v -5.66667 c 0 -0.46 -0.373333 -0.833333 -0.833333 -0.833333 H 7 z"
-                              Width="12" Height="12" />
+                    <!--
+                        The panel mark the floating reveal button used to carry.
+                        It is drawn filled-pane-on-the-right, so it wants
+                        mirroring to point at whichever edge the sidebar is
+                        docked to — UpdateColumnLayout sets the sign. Copying the
+                        path without its transform left it pointing away from a
+                        left-docked sidebar.
+                    -->
+                    <PathIcon x:Name="TitleBarSidebarToggleIcon"
+                              Data="F1 M 9.16667 5.5 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.16667 3.66667 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.5 1.33333 A 1.83333 1.83333 0 0 1 11.3333 3.16667 v 5.66667 A 1.83333 1.83333 0 0 1 9.5 10.6667 H 2.5 A 1.83333 1.83333 0 0 1 0.666667 8.83333 v -5.66667 A 1.83333 1.83333 0 0 1 2.5 1.33333 z M 2.5 2.33333 c -0.46 0 -0.833333 0.373333 -0.833333 0.833333 v 5.66667 c 0 0.46 0.373333 0.833333 0.833333 0.833333 H 6 v -7.33333 z m 4.5 7.33333 h 2.5 c 0.46 0 0.833333 -0.373333 0.833333 -0.833333 v -5.66667 c 0 -0.46 -0.373333 -0.833333 -0.833333 -0.833333 H 7 z"
+                              Width="12" Height="12"
+                              RenderTransformOrigin="0.5,0.5">
+                        <PathIcon.RenderTransform>
+                            <ScaleTransform x:Name="TitleBarSidebarToggleFlip" ScaleX="-1" />
+                        </PathIcon.RenderTransform>
+                    </PathIcon>
                 </Button>
             </StackPanel>
 
             <!--
                 Nav, starting where the page starts: this column follows the one
                 before it, which is the sidebar's width while it is docked left.
+
+                No left margin — the first button's box begins on the card's left
+                edge exactly. What space is left before the glyph is the button
+                centring its own icon, which is the hit area, not a gap.
             -->
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
                         VerticalAlignment="Center"
-                        Margin="8,0,0,0"
                         Spacing="2">
 
                 <Button x:Name="TitleBarBack"
@@ -129,7 +150,8 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarBack_Click"
                         ToolTipService.ToolTip="Go back">
-                    <FontIcon Glyph="&#xE76B;" FontSize="14" />
+                    <!-- Back/Forward, the arrows, not ChevronLeft/Right. -->
+                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
                 </Button>
 
                 <Button x:Name="TitleBarForward"
@@ -137,7 +159,7 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarForward_Click"
                         ToolTipService.ToolTip="Go forward">
-                    <FontIcon Glyph="&#xE76C;" FontSize="14" />
+                    <FontIcon Glyph="&#xE72A;" FontSize="14" />
                 </Button>
 
                 <Button x:Name="TitleBarReload"
@@ -290,38 +312,15 @@
                 Visibility="Collapsed" />
         </Grid>
 
-        <!-- Sidebar reveal button (shown when the sidebar is hidden) -->
-        <Button
-            x:Name="SidebarRevealButton"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Margin="16,16,0,0"
-            Width="32" Height="32"
-            Padding="0"
-            Background="{ThemeResource LayerFillColorDefaultBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
-            CornerRadius="8"
-            Click="SidebarReveal_Click"
-            Visibility="Collapsed"
-            ToolTipService.ToolTip="Show Sidebar (Ctrl+S)">
-            <Button.Shadow>
-                <ThemeShadow />
-            </Button.Shadow>
-            <PathIcon x:Name="SidebarRevealButtonIcon" Data="F1 M 9.16667 5.5 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.16667 3.66667 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.5 1.33333 A 1.83333 1.83333 0 0 1 11.3333 3.16667 v 5.66667 A 1.83333 1.83333 0 0 1 9.5 10.6667 H 2.5 A 1.83333 1.83333 0 0 1 0.666667 8.83333 v -5.66667 A 1.83333 1.83333 0 0 1 2.5 1.33333 z M 2.5 2.33333 c -0.46 0 -0.833333 0.373333 -0.833333 0.833333 v 5.66667 c 0 0.46 0.373333 0.833333 0.833333 0.833333 H 6 v -7.33333 z m 4.5 7.33333 h 2.5 c 0.46 0 0.833333 -0.373333 0.833333 -0.833333 v -5.66667 c 0 -0.46 -0.373333 -0.833333 -0.833333 -0.833333 H 7 z" Width="12" Height="12" RenderTransformOrigin="0.5,0.5">
-                <PathIcon.RenderTransform>
-                    <ScaleTransform ScaleX="-1" />
-                </PathIcon.RenderTransform>
-            </PathIcon>
-        </Button>
 
         <!--
-            The window drag region lives inside TopChromeStrip, not as a strip
-            floating over everything: a sibling strip at the top swallowed the
-            pointer before the hover tracker could see it, so the reveal never
-            fired. On the Mac the tracker is a pure hover watcher whose hitTest
-            always passes through, and the titlebar only becomes interactive once
-            revealed — same behaviour here.
+            No floating reveal button here any more. It existed because a hidden
+            sidebar left nothing on screen to bring it back with; the title bar
+            carries a toggle at all times now, so in peek mode the two stacked
+            one over the other in the same corner.
+
+            The drag region went with the same change: it is AppTitleBar, handed
+            to SetTitleBar, rather than a strip floating over the page.
         -->
 
         <!--
@@ -387,7 +386,13 @@
                 <Border.RenderTransform>
                     <TranslateTransform x:Name="PeekCardTranslate" X="280" />
                 </Border.RenderTransform>
-                <controls:MoriSidebar x:Name="PeekSidebar" />
+                <!--
+                    10 above the first row, matching the sides. The docked copy
+                    runs at 0 so its pins meet the title bar with the web card;
+                    inside a floating card that same 0 puts the tiles against the
+                    card's own top edge.
+                -->
+                <controls:MoriSidebar x:Name="PeekSidebar" TopInset="10" />
             </Border>
         </Grid>
 

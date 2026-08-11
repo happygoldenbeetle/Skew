@@ -37,6 +37,37 @@ public sealed partial class MoriSidebar : UserControl
 
     public bool HasPins => Store?.PinnedTabs.Count > 0;
 
+    /// <summary>
+    /// Space above the first row.
+    ///
+    /// <para>
+    /// Zero for the docked sidebar, whose top edge is the title bar's underside
+    /// and whose pinned row is meant to start on the same line as the web card
+    /// beside it. The peek copy sets it back to the inset the sides use, since
+    /// it floats as a card with a top edge of its own and content pinned to that
+    /// edge reads as a rendering fault rather than as alignment.
+    /// </para>
+    /// </summary>
+    public static readonly DependencyProperty TopInsetProperty =
+        DependencyProperty.Register(nameof(TopInset), typeof(double), typeof(MoriSidebar),
+            new PropertyMetadata(0d, OnTopInsetChanged));
+
+    public double TopInset
+    {
+        get => (double)GetValue(TopInsetProperty);
+        set => SetValue(TopInsetProperty, value);
+    }
+
+    private static void OnTopInsetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is MoriSidebar sidebar && sidebar.ListStack is not null)
+        {
+            var padding = sidebar.ListStack.Padding;
+            sidebar.ListStack.Padding = new Thickness(
+                padding.Left, sidebar.TopInset, padding.Right, padding.Bottom);
+        }
+    }
+
     private bool _tabDragActive;
 
     private void PinnedTabs_CollectionChanged(object? sender,

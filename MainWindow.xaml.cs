@@ -521,9 +521,6 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SidebarResizeGrip, 0);
             SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Right;
             Grid.SetColumn(AIPanel, 2);
-            Grid.SetColumn(SidebarRevealButton, 1);
-            SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Left;
-            SidebarRevealButton.Margin = new Thickness(16, 16, 0, 0);
         }
         else
         {
@@ -531,9 +528,6 @@ public sealed partial class MainWindow : Window
             Grid.SetColumn(SidebarResizeGrip, 2);
             SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Left;
             Grid.SetColumn(AIPanel, 0);
-            Grid.SetColumn(SidebarRevealButton, 1);
-            SidebarRevealButton.HorizontalAlignment = HorizontalAlignment.Right;
-            SidebarRevealButton.Margin = new Thickness(0, 16, 16, 0);
         }
 
         // Set column widths. The sidebar's is whatever the user last dragged to.
@@ -572,10 +566,11 @@ public sealed partial class MainWindow : Window
         // the hidden state.
         SidebarBorder.Visibility = Store.SidebarVisible ? Visibility.Visible : Visibility.Collapsed;
 
-        // Reveal button
-        SidebarRevealButton.Visibility = Store.SidebarVisible
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        // No reveal button to show or hide: the title bar's toggle is always
+        // there, whichever state the sidebar is in. Its mark still points at the
+        // docked edge, which is the one thing the reveal button did that the
+        // toggle inherited.
+        TitleBarSidebarToggleFlip.ScaleX = Store.SidebarOnLeft ? -1 : 1;
 
         // Peek overlay is live only while the sidebar is hidden.
         if (Store.SidebarVisible)
@@ -596,11 +591,6 @@ public sealed partial class MainWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        // Ensure reveal button icon flips appropriately
-        if (SidebarRevealButtonIcon.RenderTransform is Microsoft.UI.Xaml.Media.ScaleTransform st)
-        {
-            st.ScaleX = Store.SidebarOnLeft ? -1 : 1;
-        }
     }
 
     private void Content_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
