@@ -38,6 +38,20 @@ public sealed partial class MoriSidebar : UserControl
     public bool HasPins => Store?.PinnedTabs.Count > 0;
 
     /// <summary>
+    /// Whether this copy of the sidebar is the one on screen.
+    ///
+    /// <para>
+    /// There are two, bound to the same store: the docked sidebar and the one
+    /// inside the peek card. Both build the same folder rows, so a folder being
+    /// renamed opens a field in <em>both</em> — and both used to reach for
+    /// focus. The second one to take it made the first lose it, and losing focus
+    /// ends a rename, which is why the field shut the instant it opened however
+    /// the focus timing was arranged. Only the live copy takes focus now.
+    /// </para>
+    /// </summary>
+    public bool IsLive { get; set; } = true;
+
+    /// <summary>
     /// Space above the first row.
     ///
     /// <para>
@@ -296,6 +310,19 @@ public sealed partial class MoriSidebar : UserControl
     /// </summary>
     private TextBox? _renameBox;
 
+    /// <summary>
+    /// A field whose focus is already queued.
+    ///
+    /// <para>
+    /// Loaded runs more than once for the same field — the containers are built,
+    /// then built again — so the visibility callback registered there ends up
+    /// registered twice and the focus is queued twice. The second call made the
+    /// first lose focus, and losing focus is what ends a rename: the field
+    /// closed a few milliseconds after opening, with the old name intact.
+    /// </para>
+    /// </summary>
+    private TextBox? _renamePending;
+
     private void RenameFolder_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not TextBox tb) return;
@@ -322,13 +349,20 @@ public sealed partial class MoriSidebar : UserControl
     /// </summary>
     private void BeginRename(TextBox tb)
     {
+        // The off-screen copy shows the same field and must not fight for focus.
+        if (!IsLive) return;
+        if (ReferenceEquals(_renamePending, tb)) return;
+
+        _renamePending = tb;
         _renameBox = null;
 
         tb.DispatcherQueue.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
             () =>
             {
+                _renamePending = null;
                 if (tb.Visibility != Visibility.Visible) return;
+
                 tb.SelectAll();
                 tb.Focus(FocusState.Programmatic);
                 _renameBox = tb;
@@ -341,6 +375,13 @@ public sealed partial class MoriSidebar : UserControl
 
         // Not the field the user is in yet — this is the menu's focus restore.
         if (!ReferenceEquals(_renameBox, tb)) return;
+
+        // Still the field: focus was re-taken, not given up. Focusing an element
+        // that already has focus raises LostFocus on the way, and ending the
+        // rename there closed the field the moment it opened.
+        if (ReferenceEquals(Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(XamlRoot), tb))
+            return;
+
         _renameBox = null;
 
         var folder = Store?.Folders.FirstOrDefault(f => f.Id == folderId);

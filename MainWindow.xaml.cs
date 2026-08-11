@@ -654,6 +654,11 @@ public sealed partial class MainWindow : Window
         SidebarResizeGrip.Visibility = Store.SidebarVisible
             ? Visibility.Visible : Visibility.Collapsed;
 
+        // Only one of the two sidebars is on screen at a time, and only that one
+        // should take keyboard focus — see MoriSidebar.IsLive.
+        Sidebar.IsLive = Store.SidebarVisible;
+        PeekSidebar.IsLive = !Store.SidebarVisible && _isPeeking;
+
         // The docked sidebar owns the visible state; the floating peek popup owns
         // the hidden state.
         SidebarBorder.Visibility = Store.SidebarVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -1283,6 +1288,8 @@ public sealed partial class MainWindow : Window
     {
         if (_isPeeking) return;
         _isPeeking = true;
+        // On screen now, so this is the copy that may take focus.
+        PeekSidebar.IsLive = true;
         _peekCloseTimer.Stop();
         AnimatePeek(open: true);
 
@@ -1292,6 +1299,7 @@ public sealed partial class MainWindow : Window
     {
         if (!_isPeeking) return;
         _isPeeking = false;
+        PeekSidebar.IsLive = false;
         AnimatePeek(open: false);
     }
 
