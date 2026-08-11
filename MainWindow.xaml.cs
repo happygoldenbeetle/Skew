@@ -1156,13 +1156,15 @@ public sealed partial class MainWindow : Window
         // rounded corners, rather than the flat default.
         WebContentBorder.Translation = new System.Numerics.Vector3(0, 0, 16);
 
-        var sidebar = p.Sidebar.ToColor();
-        SidebarPeekCard.Background = new Microsoft.UI.Xaml.Media.AcrylicBrush
-        {
-            TintColor = sidebar,
-            TintOpacity = 0.85,
-            FallbackColor = sidebar,
-        };
+        // Solid, not acrylic. WinUI's acrylic recipe composites a noise texture
+        // along with the blur and tint — deliberate, to stop large translucent
+        // surfaces banding — and at the 0.85 tint this ran at, the tint hid most
+        // of the blur while the noise stayed, so the card read as grainy against
+        // the smooth web card beside it.
+        //
+        // The cost is that the peek card no longer shows the page through it,
+        // which was the reason it was acrylic and the docked sidebar is not.
+        SidebarPeekCard.Background = p.Sidebar.ToBrush();
         SidebarPeekCard.BorderBrush = p.Border.WithOpacity(0.7).ToBrush();
     }
 
