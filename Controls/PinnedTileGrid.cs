@@ -35,12 +35,17 @@ public sealed class PinnedTileGrid : Panel
     private const int MaxColumns = 4;
 
     /// <summary>
-    /// Gap between tiles. Laid out *between* them and never on the outside, so a
-    /// full row spans the panel exactly and its edges line up with the omnibox
-    /// above it. Drawing it inside each tile instead left the row a gutter short
-    /// of the sidebar's right edge.
+    /// Gap between tiles, horizontally and between rows. 9.6 DIPs is 12 device
+    /// pixels at the 125% scale this was set by eye at; it was 6 (7.5px) before.
+    ///
+    /// <para>
+    /// Laid out *between* the tiles and never on the outside, so a full row
+    /// spans the panel exactly and its edges line up with the omnibox above it.
+    /// Drawing it inside each tile instead left the row a gutter short of the
+    /// sidebar's right edge.
+    /// </para>
     /// </summary>
-    private const double Gutter = 6;
+    private const double Gutter = 9.6;
 
     /// <summary>Below this a tile is too narrow to read as a favicon target.</summary>
     private const double MinTileWidth = 56;

@@ -274,7 +274,7 @@
                     IsHitTestVisible="False"
                     Margin="0,8,8,8"
                     HorizontalAlignment="Right"
-                    CornerRadius="10"
+                    CornerRadius="6"
                     BorderThickness="1"
                     Shadow="{ThemeResource SharedShadow}"
                     PointerEntered="SidebarPeekCard_PointerEntered"

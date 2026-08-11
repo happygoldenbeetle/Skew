@@ -98,9 +98,19 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
+                                <!--
+                                    Padding is template-bound like the rest: without
+                                    it the setter above was the only padding a ghost
+                                    button could have, and a caller asking for its own
+                                    was silently ignored. That is what left the folder
+                                    header and the New Tab row flush against the
+                                    sidebar edge while the tab rows beside them, which
+                                    inset with a margin instead, sat 9 further in.
+                                -->
                                 <ContentPresenter x:Name="ContentPresenter"
                                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Padding="{TemplateBinding Padding}"
                                                   Content="{TemplateBinding Content}" />
                             </Grid>
                         </ControlTemplate>

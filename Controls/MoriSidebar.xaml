@@ -25,9 +25,13 @@
     </UserControl.Resources>
 
     <Grid Background="Transparent" RightTapped="RootGrid_RightTapped">
+        <!--
+            No header row. The nav buttons and the omnibox that used to open the
+            sidebar are gone, Arc-style: the list starts at the pinned tiles and
+            the address field moves to the title bar in a later pass. Ctrl+L has
+            nothing to focus until it does.
+        -->
         <Grid.RowDefinitions>
-            <!-- Header: toggle + nav buttons + omnibox -->
-            <RowDefinition Height="Auto" />
             <!-- Scrollable tab list -->
             <RowDefinition Height="*" />
             <!-- Media player strip (future) -->
@@ -36,76 +40,19 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ═══ Header ═══ -->
-        <StackPanel Grid.Row="0" Padding="10,10,10,6" Spacing="8">
-            <!--
-                Navigation row: back / forward / reload, left-aligned.
-
-                Diverges from SidebarHeader in Sidebar.swift at the user's
-                request — the Mac puts a sidebar-toggle button on the left and
-                pushes the nav buttons to the right. The toggle is gone here;
-                hiding the sidebar is still on Ctrl+S and in the sidebar's
-                context menu ("Hide Sidebar").
-            -->
-            <Grid>
-                <StackPanel
-                    HorizontalAlignment="Left"
-                    Orientation="Horizontal"
-                    Spacing="4">
-                    <Button
-                        x:Name="BackButton"
-                        Width="28" Height="28"
-                        Padding="0"
-                        Style="{StaticResource MoriGhostButtonStyle}"
-                        Click="Back_Click"
-                        CornerRadius="10"
-                        ToolTipService.ToolTip="Go back">
-                        <FontIcon Glyph="&#xE76B;" FontSize="16" />
-                    </Button>
-                    <Button
-                        x:Name="ForwardButton"
-                        Width="28" Height="28"
-                        Padding="0"
-                        Style="{StaticResource MoriGhostButtonStyle}"
-                        Click="Forward_Click"
-                        CornerRadius="10"
-                        ToolTipService.ToolTip="Go forward">
-                        <FontIcon Glyph="&#xE76C;" FontSize="16" />
-                    </Button>
-                    <Button
-                        x:Name="ReloadButton"
-                        Width="28" Height="28"
-                        Padding="0"
-                        Style="{StaticResource MoriGhostButtonStyle}"
-                        Click="Reload_Click"
-                        CornerRadius="10"
-                        ToolTipService.ToolTip="Reload">
-                        <FontIcon x:Name="ReloadIcon" Glyph="&#xE72C;" FontSize="16" />
-                    </Button>
-                </StackPanel>
-            </Grid>
-
-            <!-- Omnibox (address/search bar) -->
-            <controls:MoriOmnibox
-                x:Name="OmniboxField"
-                Store="{x:Bind Store, Mode=OneWay}"
-                Tab="{x:Bind Store.SelectedTab, Mode=OneWay}"
-                VerticalAlignment="Center" />
-        </StackPanel>
-
         <!-- ═══ Scrollable Tab Content ═══ -->
         <ScrollViewer
-            Grid.Row="1"
+            Grid.Row="0"
             HorizontalScrollBarVisibility="Disabled"
             VerticalScrollBarVisibility="Auto">
             <!--
-                10 on both sides, the same inset the header and the bottom bar
-                use, so every section in the sidebar shares one left and right
-                edge: omnibox, pinned row, folder headers, tab rows, downloads.
-                This ran at 8 while the header ran at 10, which left the tab
-                rows a step wider than the omnibox above them.
+                10 all round, so every section in the sidebar shares one left and
+                right edge: pinned row, folder headers, tab rows, downloads. The
+                sides ran at 8 against the header's 10, which left the tab rows a
+                step wider than the omnibox above them; the top matches now that
+                this is the sidebar's own top edge rather than the header's.
             -->
-            <StackPanel Padding="10,8,10,10" Spacing="10">
+            <StackPanel Padding="10,10,10,10" Spacing="10">
 
                 <!--
                     A non-virtualizing ItemsControl, not an ItemsRepeater.
@@ -341,7 +288,7 @@
 
         <!-- ═══ Media Player Strip (shows while a tab is playing) ═══ -->
         <controls:MoriMediaPlayer
-            Grid.Row="2"
+            Grid.Row="1"
             Visibility="{x:Bind MediaVisibility(Media.HasMedia), Mode=OneWay}" />
 
         <!--
@@ -354,7 +301,7 @@
             Both removed actions are still reachable: Settings from the sidebar
             context menu, light/dark from Settings.
         -->
-        <Grid Grid.Row="3" Padding="10,0,10,0" Height="46">
+        <Grid Grid.Row="2" Padding="10,0,10,0" Height="46">
             <Button
                 x:Name="DownloadsButton"
                 HorizontalAlignment="Right"

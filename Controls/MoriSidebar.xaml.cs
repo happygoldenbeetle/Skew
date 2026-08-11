@@ -23,8 +23,6 @@ public sealed partial class MoriSidebar : UserControl
             {
                 _store.PropertyChanged -= Store_PropertyChanged;
                 _store.PinnedTabs.CollectionChanged -= PinnedTabs_CollectionChanged;
-                if (_store.SelectedTab != null)
-                    _store.SelectedTab.PropertyChanged -= SelectedTab_PropertyChanged;
             }
             _store = value;
             if (_store != null)
@@ -32,8 +30,6 @@ public sealed partial class MoriSidebar : UserControl
                 _store.PropertyChanged += Store_PropertyChanged;
                 // The empty-grid catch zone appears and disappears with the pins.
                 _store.PinnedTabs.CollectionChanged += PinnedTabs_CollectionChanged;
-                if (_store.SelectedTab != null)
-                    _store.SelectedTab.PropertyChanged += SelectedTab_PropertyChanged;
             }
             RefreshUI();
         }
@@ -127,51 +123,8 @@ public sealed partial class MoriSidebar : UserControl
     {
         if (e.PropertyName == nameof(BrowserStore.SelectedTab))
         {
-            if (sender is BrowserStore oldStore && oldStore.SelectedTab != null)
-            {
-                // This is slightly tricky: 'sender' is the store.
-                // We actually want to detach from the old selected tab.
-                // Since this fires AFTER it changed, we can't get the old one easily.
-                // But we handle attaching to the new one here.
-            }
-            
-            // To properly manage the SelectedTab PropertyChanged event:
-            if (Store != null)
-            {
-                // Remove from all tabs just to be safe if we can't track the old one easily
-                foreach (var tab in Store.Tabs) tab.PropertyChanged -= SelectedTab_PropertyChanged;
-                foreach (var tab in Store.PinnedTabs) tab.PropertyChanged -= SelectedTab_PropertyChanged;
-                
-                if (Store.SelectedTab != null)
-                    Store.SelectedTab.PropertyChanged += SelectedTab_PropertyChanged;
-            }
-
             RefreshUI();
         }
-    }
-
-    private void SelectedTab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(BrowserTab.CanGoBack) || e.PropertyName == nameof(BrowserTab.CanGoForward))
-        {
-            BackButton.IsEnabled = Store?.SelectedTab?.CanGoBack ?? false;
-            ForwardButton.IsEnabled = Store?.SelectedTab?.CanGoForward ?? false;
-        }
-        else if (e.PropertyName == nameof(BrowserTab.IsLoading))
-        {
-            UpdateReloadIcon();
-        }
-    }
-
-    /// <summary>
-    /// Reload/stop toggle: mac swaps the reload glyph for a stop "✕" while the
-    /// selected tab is loading (arrow.clockwise ⇄ xmark).
-    /// </summary>
-    private void UpdateReloadIcon()
-    {
-        bool loading = Store?.SelectedTab?.IsLoading ?? false;
-        ReloadIcon.Glyph = loading ? "" : ""; // stop (Cancel) : reload (Refresh)
-        ToolTipService.SetToolTip(ReloadButton, loading ? "Stop" : "Reload");
     }
 
     /// <summary>
@@ -186,11 +139,6 @@ public sealed partial class MoriSidebar : UserControl
         LooseTabList.ItemsSource = Store.LooseTabs;
 
         UpdatePinnedDropZone();
-
-        // Update nav button states
-        BackButton.IsEnabled = Store.SelectedTab?.CanGoBack ?? false;
-        ForwardButton.IsEnabled = Store.SelectedTab?.CanGoForward ?? false;
-        UpdateReloadIcon();
     }
 
 
@@ -202,28 +150,15 @@ public sealed partial class MoriSidebar : UserControl
         e.Handled = true;
     }
 
-    public void FocusOmnibox()
-    {
-        OmniboxField.FocusProgrammatically();
-    }
-
     // -- Event Handlers --
     //
     // SidebarToggle_Click and UpdatePositionIcons went with the toggle button;
     // the latter existed only to mirror its glyph toward the docked edge.
-
-
-    private void Back_Click(object sender, RoutedEventArgs e)
-        => Store?.GoBack();
-
-    private void Forward_Click(object sender, RoutedEventArgs e)
-        => Store?.GoForward();
-
-    private void Reload_Click(object sender, RoutedEventArgs e)
-    {
-        if (Store?.SelectedTab?.IsLoading == true) Store.Stop();
-        else Store?.Reload();
-    }
+    //
+    // Back_Click, Forward_Click, Reload_Click and FocusOmnibox went with the
+    // header, along with the SelectedTab subscription that kept the nav buttons
+    // enabled and swapped the reload glyph for stop. Store.GoBack/GoForward/
+    // Reload/Stop are untouched, so a title-bar chrome can call them directly.
 
     private void DownloadsFlyout_Opened(object sender, object e)
     {

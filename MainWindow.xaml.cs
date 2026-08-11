@@ -352,7 +352,8 @@ public sealed partial class MainWindow : Window
                             if (Store.SelectedTabId is not null)
                                 Store.CloseTab(Store.SelectedTabId.Value);
                             break;
-                        case Windows.System.VirtualKey.L: Sidebar.FocusOmnibox(); break;
+                        // Ctrl+L is unbound until the omnibox reappears in the
+                        // title bar; the sidebar no longer has one to focus.
                         case Windows.System.VirtualKey.S: Store.ToggleSidebar(); break;
                         case Windows.System.VirtualKey.K: Store.ToggleAIPanel(); break;
                         case Windows.System.VirtualKey.F: Store.ToggleFindBar(); break;
@@ -583,10 +584,8 @@ public sealed partial class MainWindow : Window
                         Store.CloseTab(Store.SelectedTabId.Value);
                     e.Handled = true;
                     break;
-                case Windows.System.VirtualKey.L:
-                    Sidebar.FocusOmnibox();
-                    e.Handled = true;
-                    break;
+                // Ctrl+L falls through unhandled for now — see the accelerator
+                // path above.
                 case Windows.System.VirtualKey.S:
                     Store.ToggleSidebar();
                     e.Handled = true;
