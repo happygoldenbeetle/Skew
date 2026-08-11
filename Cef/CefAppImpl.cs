@@ -49,6 +49,20 @@ public sealed class CefAppImpl : CefApp
         // to match our WinUI shell.
         commandLine.AppendSwitch("force-dark-mode");
 
+        // Let the page render as fast as it can rather than at 60.
+        //
+        // Offscreen rendering is paced by the compositor, and the compositor
+        // paces itself twice: it waits for a vsync it does not actually have a
+        // window for, and it caps itself at a frame rate on top of that. Both
+        // are hard limits regardless of what windowless_frame_rate asks for, so
+        // the page sat at 60 on a display running well above it.
+        //
+        // The cost is real: uncapped means Chromium will happily burn a core
+        // producing frames nothing asked for. It is the trade the setting is
+        // for.
+        commandLine.AppendSwitch("disable-gpu-vsync");
+        commandLine.AppendSwitch("disable-frame-rate-limit");
+
         // NOTE: the mac build also appends use-mock-keychain / password-store=basic
         // to avoid macOS Keychain "Safe Storage" prompts on ad-hoc-signed clones.
         // Those switches are macOS-specific; on Windows Chromium uses DPAPI and

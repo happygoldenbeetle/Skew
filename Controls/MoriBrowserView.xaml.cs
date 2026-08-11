@@ -161,9 +161,14 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
 
         var settings = new CefBrowserSettings
         {
-            // Matches the compositor's cadence. Left at CEF's 30fps default the
-            // page visibly stutters against 60fps XAML animations.
-            WindowlessFrameRate = 60,
+            // Asks for far more than any display will show, so the ceiling is
+            // the compositor's rather than this. CEF's default is 30, which
+            // visibly stutters against the shell's animations; 60 pinned the
+            // page to 60 on displays running above it. CEF has historically
+            // clamped this at 60 internally — the two switches in CefAppImpl are
+            // what actually lift the limit, and this just stops being the one
+            // that binds.
+            WindowlessFrameRate = 240,
             // Transparent so the rounded card's material shows through where the
             // page has no background of its own.
             BackgroundColor = new CefColor(0, 0, 0, 0),

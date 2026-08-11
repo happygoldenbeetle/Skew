@@ -77,6 +77,29 @@ public partial class BrowserSettings : ObservableObject
     public static double ClampSidebarWidth(double width)
         => Math.Clamp(width, MinSidebarWidth, MaxSidebarWidth);
 
+    /// <summary>
+    /// Width of the floating peek card, in DIPs. Tracked separately from the
+    /// docked width: the two are dragged in different contexts and a comfortable
+    /// size for one is not the other — the peek card floats over the page, where
+    /// wide is intrusive, while the docked sidebar takes space the page never had.
+    /// </summary>
+    [ObservableProperty]
+    private double _peekWidth = DefaultPeekWidth;
+
+    public const double DefaultPeekWidth = 224;
+    public const double MinPeekWidth = 200;
+    public const double MaxPeekWidth = 480;
+
+    public static double ClampPeekWidth(double width)
+        => Math.Clamp(width, MinPeekWidth, MaxPeekWidth);
+
+    /// <summary>
+    /// Whether the sidebar was docked when the window last closed, so a launch
+    /// comes back the way it was left rather than always docked.
+    /// </summary>
+    [ObservableProperty]
+    private bool _sidebarDocked = true;
+
     /// <summary>Guards the initial load so applying it doesn't write straight back.</summary>
     private bool _loading;
 
@@ -107,6 +130,8 @@ public partial class BrowserSettings : ObservableObject
         SidebarPosition = saved.SidebarPosition;
         ShowSidebarOnLaunch = saved.ShowSidebarOnLaunch;
         SidebarWidth = ClampSidebarWidth(saved.SidebarWidth);
+        PeekWidth = ClampPeekWidth(saved.PeekWidth);
+        SidebarDocked = saved.SidebarDocked;
         BlockAds = saved.BlockAds;
         AutoPiP = saved.AutoPiP;
         RestoreTabsOnLaunch = saved.RestoreTabsOnLaunch;
@@ -133,6 +158,8 @@ public partial class BrowserSettings : ObservableObject
             SidebarPosition = SidebarPosition,
             ShowSidebarOnLaunch = ShowSidebarOnLaunch,
             SidebarWidth = SidebarWidth,
+            PeekWidth = PeekWidth,
+            SidebarDocked = SidebarDocked,
             BlockAds = BlockAds,
             AutoPiP = AutoPiP,
             RestoreTabsOnLaunch = RestoreTabsOnLaunch,

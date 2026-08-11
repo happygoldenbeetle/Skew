@@ -116,16 +116,58 @@ public static class CefRuntimeHost
     }
 
     /// <summary>
-    /// Cooperative pump: ask CEF to do a slice of work each tick. ~60Hz keeps the
-    /// engine responsive without starving the WinUI dispatcher.
+    /// Cooperative pump: ask CEF to do a slice of work each tick.
+    ///
+    /// <para>
+    /// CEF hands over painted frames from inside <c>DoMessageLoopWork</c>, so
+    /// however often this is called is how often frames can arrive: at the 16ms
+    /// this used to run at, the page could not exceed ~62fps whatever Chromium
+    /// produced behind it. 4ms lifts that ceiling to ~250.
+    /// </para>
+    ///
+    /// <para>
+    /// A timer rather than <c>CompositionTarget.Rendering</c>, which would pace
+    /// this at the display's exact refresh rate and seems the obvious fit: it
+    /// crashed the window a few seconds in, and kept crashing with a
+    /// re-entrancy guard in place. Pumping CEF from inside a XAML render
+    /// callback is not somewhere it is willing to be driven from.
+    /// </para>
     /// </summary>
     private static void StartMessagePump(DispatcherQueue dispatcher)
     {
         s_pumpTimer = dispatcher.CreateTimer();
-        s_pumpTimer.Interval = TimeSpan.FromMilliseconds(16);
+        s_pumpTimer.Interval = TimeSpan.FromMilliseconds(4);
         s_pumpTimer.IsRepeating = true;
-        s_pumpTimer.Tick += (_, _) => CefRuntime.DoMessageLoopWork();
+        s_pumpTimer.Tick += (_, _) => Pump();
         s_pumpTimer.Start();
+    }
+
+    private static bool s_pumping;
+
+    /// <summary>
+    /// One slice of CEF work, never nested.
+    ///
+    /// <para>
+    /// <c>DoMessageLoopWork</c> pumps the window's message queue, which can
+    /// dispatch the very callback that calls it, and CEF does not survive being
+    /// re-entered. At 4ms that is no longer theoretical: a slice of work can
+    /// easily outlast the interval.
+    /// </para>
+    /// </summary>
+    private static void Pump()
+    {
+        if (s_pumping)
+            return;
+
+        s_pumping = true;
+        try
+        {
+            CefRuntime.DoMessageLoopWork();
+        }
+        finally
+        {
+            s_pumping = false;
+        }
     }
 
     /// <summary>Tear down the global CEF context. Call once on app exit.</summary>

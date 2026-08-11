@@ -65,8 +65,27 @@ public sealed partial class MainWindow : Window
             presenter.SetBorderAndTitleBar(true, true);
         }
 
+        // Come back the way the window was left. Set before anything subscribes,
+        // so restoring the state is not mistaken for the user changing it and
+        // written straight back.
+        Store.SidebarVisible = BrowserSettings.Shared.SidebarDocked;
+        Store.SidebarOnLeft = BrowserSettings.Shared.SidebarPosition == SidebarPosition.Left;
+
         // Wire up store state to UI
         Store.PropertyChanged += Store_PropertyChanged;
+
+        // The side is one piece of state with two front doors — the sidebar's
+        // context menu, which sets the store, and the dropdown in Settings,
+        // which sets the preference. They were not connected: the menu moved the
+        // sidebar without remembering it, and the dropdown remembered a side it
+        // never moved. Both now meet here. The loop this looks like it closes
+        // does not, because assigning a property its current value raises
+        // nothing.
+        BrowserSettings.Shared.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BrowserSettings.SidebarPosition))
+                Store.SidebarOnLeft = BrowserSettings.Shared.SidebarPosition == SidebarPosition.Left;
+        };
 
         // Set initial sidebar data context. There are two MoriSidebar instances
         // bound to the same store: the docked one (visible state) and the one
@@ -160,8 +179,19 @@ public sealed partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(BrowserStore.SidebarVisible):
-            case nameof(BrowserStore.AiPanelVisible):
+                // Remember docked or peek, so the next launch matches.
+                BrowserSettings.Shared.SidebarDocked = Store.SidebarVisible;
+                UpdateColumnLayout();
+                break;
+
             case nameof(BrowserStore.SidebarOnLeft):
+                // Remember which side, so the next launch comes back on it.
+                BrowserSettings.Shared.SidebarPosition = Store.SidebarOnLeft
+                    ? SidebarPosition.Left : SidebarPosition.Right;
+                UpdateColumnLayout();
+                break;
+
+            case nameof(BrowserStore.AiPanelVisible):
                 UpdateColumnLayout();
                 break;
 
@@ -439,6 +469,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private const double WebCardInset = 8;
 
+
     /// <summary>
     /// Nothing above the card. The Mac floats it 4 below the top chrome, but
     /// that chrome only appeared on hover there; here the title bar is always
@@ -455,6 +486,9 @@ public sealed partial class MainWindow : Window
         _resizeStartX = e.GetCurrentPoint(RootGrid).Position.X;
         _resizeStartWidth = BrowserSettings.Shared.SidebarWidth;
         SidebarResizeGrip.CapturePointer(e.Pointer);
+        // Keep the indicator lit: the captured pointer leaves the strip almost
+        // immediately, and the hover state alone would drop it mid-drag.
+        SidebarResizeGrip.IsDragging = true;
         e.Handled = true;
     }
 
@@ -490,6 +524,7 @@ public sealed partial class MainWindow : Window
         if (!_resizingSidebar) return;
         _resizingSidebar = false;
         SidebarResizeGrip.ReleasePointerCapture(e.Pointer);
+        SidebarResizeGrip.IsDragging = false;
 
         // Commit once, at the end of the drag — one file write instead of many.
         double finalWidth = Store.SidebarOnLeft
@@ -499,6 +534,58 @@ public sealed partial class MainWindow : Window
 
         // Keep the peek card in step with the docked width.
         if (_peekReady) LayoutPeek();
+        e.Handled = true;
+    }
+
+    // ── Peek card resize ────────────────────────────────────────────────────
+    //
+    // The same gesture as the docked sidebar, against a different stored width.
+    // The card is open throughout, so the drag reads directly as the card
+    // growing under the pointer.
+
+    private bool _resizingPeek;
+    private double _peekResizeStartX;
+    private double _peekResizeStartWidth;
+
+    private void PeekResizeGrip_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        _resizingPeek = true;
+        _peekResizeStartX = e.GetCurrentPoint(RootGrid).Position.X;
+        _peekResizeStartWidth = PeekCardWidth;
+        PeekResizeGrip.CapturePointer(e.Pointer);
+        PeekResizeGrip.IsDragging = true;
+        // The close timer would retract the card out from under the drag.
+        _peekCloseTimer.Stop();
+        e.Handled = true;
+    }
+
+    private void PeekResizeGrip_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_resizingPeek) return;
+
+        double delta = e.GetCurrentPoint(RootGrid).Position.X - _peekResizeStartX;
+        // Dragging away from the docked edge grows the card, either side.
+        double target = Store.SidebarOnLeft
+            ? _peekResizeStartWidth + delta
+            : _peekResizeStartWidth - delta;
+
+        _peekDragWidth = BrowserSettings.ClampPeekWidth(target);
+        LayoutPeek();
+        e.Handled = true;
+    }
+
+    private void PeekResizeGrip_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!_resizingPeek) return;
+        _resizingPeek = false;
+        PeekResizeGrip.ReleasePointerCapture(e.Pointer);
+        PeekResizeGrip.IsDragging = false;
+
+        if (_peekDragWidth is double width)
+            BrowserSettings.Shared.PeekWidth = BrowserSettings.ClampPeekWidth(width);
+        _peekDragWidth = null;
+
+        LayoutPeek();
         e.Handled = true;
     }
 
@@ -529,6 +616,11 @@ public sealed partial class MainWindow : Window
             SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Left;
             Grid.SetColumn(AIPanel, 0);
         }
+
+        // The indicator runs the card's height, not the column's: the same top
+        // and bottom insets the card takes, so its ends finish level with the
+        // card's corners rather than carrying on past them to the window edge.
+        SidebarResizeGrip.Margin = new Thickness(0, WebCardTopInset, 0, WebCardInset);
 
         // Set column widths. The sidebar's is whatever the user last dragged to.
         var sidebarWidth = new GridLength(BrowserSettings.Shared.SidebarWidth);
@@ -819,13 +911,25 @@ public sealed partial class MainWindow : Window
     // that made the card opaque.
 
     // Geometry mirrors SidebarPeek.swift: a card inset 8pt from the edge.
-    // Fixed rather than following the docked sidebar's dragged width — the peek
-    // is a transient overlay, so resizing the docked sidebar should not move it.
-    // 224 DIP is 280 physical px at 125% scaling.
-    private const double PeekCardWidth = 224;
+    // Its width is the user's, dragged from the card's page-facing edge and
+    // remembered, but kept separate from the docked sidebar's — the peek card
+    // floats over the page, where a width that suits a docked sidebar is
+    // intrusive, so dragging one must not move the other.
     private const double PeekInset = 8;
-    /// <summary>Mac panelBand — the card plus the hover margin beyond it.</summary>
-    private const double PeekHostWidth = PeekCardWidth + 44;
+    /// <summary>Hover margin beyond the card — the Mac's panelBand.</summary>
+    private const double PeekHandleBand = 44;
+
+    /// <summary>
+    /// Live width while the card is being dragged, before it is committed. The
+    /// setting saves synchronously on change, so writing it per pointer-move
+    /// would rewrite settings.json dozens of times a drag.
+    /// </summary>
+    private double? _peekDragWidth;
+
+    private double PeekCardWidth =>
+        _peekDragWidth ?? BrowserSettings.ClampPeekWidth(BrowserSettings.Shared.PeekWidth);
+
+    private double PeekHostWidth => PeekCardWidth + PeekHandleBand;
     private bool _peekReady;
 
     private double ClosedCardOffset =>
@@ -1006,6 +1110,9 @@ public sealed partial class MainWindow : Window
         PeekEdgeStrip.HorizontalAlignment = edge;
         PeekEdgeHandle.HorizontalAlignment = edge;
         SidebarPeekCard.HorizontalAlignment = edge;
+        // The grip sits on the card's page-facing edge, opposite the docked one.
+        PeekResizeGrip.HorizontalAlignment = left
+            ? HorizontalAlignment.Right : HorizontalAlignment.Left;
         SidebarPeekCard.Margin = left ? new Thickness(8, 8, 0, 8) : new Thickness(0, 8, 8, 8);
         PeekHandleChevron.Glyph = left ? "" : ""; // point toward the page
 

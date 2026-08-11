@@ -21,6 +21,12 @@ public sealed class PersistedSettings
 
     /// <summary>Docked sidebar width in DIPs, set by dragging its inner edge.</summary>
     public double SidebarWidth { get; set; } = 260;
+
+    /// <summary>Floating peek card width in DIPs, dragged the same way.</summary>
+    public double PeekWidth { get; set; } = 224;
+
+    /// <summary>Docked last time, rather than left in peek.</summary>
+    public bool SidebarDocked { get; set; } = true;
     public bool BlockAds { get; set; } = true;
     public bool AutoPiP { get; set; }
 

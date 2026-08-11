@@ -225,14 +225,22 @@
             </Border>
 
             <!--
-                Resize gripper: a thin strip on the sidebar's page-facing edge.
-                Declared after SidebarBorder so it sits above the sidebar's own
-                content, and moved to whichever column the sidebar occupies by
+                Resize gripper: a thin strip on the sidebar's page-facing edge,
+                inside the sidebar's own column so none of it covers the page —
+                overhanging it stole clicks from the page's left edge. Declared
+                after SidebarBorder so it sits above the sidebar's content, and
+                moved to whichever column the sidebar occupies by
                 UpdateColumnLayout. The width it sets is persisted.
+
+                LineInset 0 hands the vertical extent entirely to the grip's own
+                margin, which UpdateColumnLayout matches to the web card, so the
+                indicator begins and ends level with the card's top and bottom
+                edges instead of running the full height of the column.
             -->
             <controls:ResizeGrip x:Name="SidebarResizeGrip"
                     Grid.Column="0"
                     Width="6"
+                    LineInset="0"
                     HorizontalAlignment="Right"
                     Background="Transparent"
                     Visibility="Collapsed"
@@ -310,6 +318,7 @@
                 x:Name="AIPanel"
                 Grid.Column="2"
                 Visibility="Collapsed" />
+
         </Grid>
 
 
@@ -386,13 +395,30 @@
                 <Border.RenderTransform>
                     <TranslateTransform x:Name="PeekCardTranslate" X="280" />
                 </Border.RenderTransform>
-                <!--
-                    10 above the first row, matching the sides. The docked copy
-                    runs at 0 so its pins meet the title bar with the web card;
-                    inside a floating card that same 0 puts the tiles against the
-                    card's own top edge.
-                -->
-                <controls:MoriSidebar x:Name="PeekSidebar" TopInset="10" />
+                <Grid>
+                    <!--
+                        10 above the first row, matching the sides. The docked
+                        copy runs at 0 so its pins meet the title bar with the
+                        web card; inside a floating card that same 0 puts the
+                        tiles against the card's own top edge.
+                    -->
+                    <controls:MoriSidebar x:Name="PeekSidebar" TopInset="10" />
+
+                    <!--
+                        Inside the card, not beside it: the card slides in and
+                        out on a transform, and a grip parked outside would sit
+                        in the page while the card was closed. LayoutPeek puts it
+                        on whichever edge faces the page.
+                    -->
+                    <controls:ResizeGrip x:Name="PeekResizeGrip"
+                            Width="6"
+                            HorizontalAlignment="Right"
+                            Background="Transparent"
+                            PointerPressed="PeekResizeGrip_PointerPressed"
+                            PointerMoved="PeekResizeGrip_PointerMoved"
+                            PointerReleased="PeekResizeGrip_PointerReleased"
+                            PointerCaptureLost="PeekResizeGrip_PointerReleased" />
+                </Grid>
             </Border>
         </Grid>
 
