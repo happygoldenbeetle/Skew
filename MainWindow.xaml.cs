@@ -659,7 +659,7 @@ public sealed partial class MainWindow : Window
         // there, whichever state the sidebar is in. Its mark still points at the
         // docked edge, which is the one thing the reveal button did that the
         // toggle inherited.
-        TitleBarSidebarToggleFlip.ScaleX = Store.SidebarOnLeft ? -1 : 1;
+        TitleBarSidebarToggleIcon.Glyph = Store.SidebarOnLeft ? "" : ""; // DockLeft : DockRight
 
         // Peek overlay is live only while the sidebar is hidden.
         if (Store.SidebarVisible)
@@ -981,7 +981,14 @@ public sealed partial class MainWindow : Window
 
         TitleBarUrl.Text = hasAddress ? host : "Search or enter address";
         TitleBarUrl.Opacity = hasAddress ? 0.9 : 0.5;
+
+        // Nothing to copy, reload or adjust on the new tab page: it is Mori's
+        // own blank page, not a site. The ghost style dims a disabled button's
+        // content, so these read as unavailable rather than merely inert.
+        bool onPage = !IsHomepageTab;
         TitleBarCopyLink.IsEnabled = hasAddress;
+        TitleBarReload.IsEnabled = onPage;
+        TitleBarPageOptions.IsEnabled = onPage;
 
         // Reload doubles as stop while the page is loading, the way the old
         // sidebar header's did.

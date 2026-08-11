@@ -374,12 +374,20 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
 
+                                        <!--
+                                            OnlyWhileDragging: the cap is a drop
+                                            target and nothing else, so it takes
+                                            no height until there is a drag to
+                                            catch. Its 12 plus the 8 between
+                                            folders was the gap under an expanded
+                                            folder's last row.
+                                        -->
                                         <controls:SidebarDropZone
                                             Height="12"
                                             ZoneCornerRadius="2.4"
                                             Kind="Folder"
                                             FolderId="{x:Bind Id}"
-                                            Visibility="{x:Bind ContentVisibility, Mode=OneWay}" />
+                                            OnlyWhileDragging="True" />
                                     </StackPanel>
                                 </controls:ExpandReveal>
                             </StackPanel>

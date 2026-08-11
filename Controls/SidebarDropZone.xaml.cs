@@ -54,6 +54,59 @@ public sealed partial class SidebarDropZone : UserControl
         set => SetValue(FolderIdProperty, value);
     }
 
+    public static readonly DependencyProperty OnlyWhileDraggingProperty =
+        DependencyProperty.Register(nameof(OnlyWhileDragging), typeof(bool), typeof(SidebarDropZone),
+            new PropertyMetadata(false, OnOnlyWhileDraggingChanged));
+
+    /// <summary>
+    /// Take up no room unless a tab is being dragged.
+    ///
+    /// <para>
+    /// A zone that only matters mid-drag but reserves its height at all times
+    /// reads as a gap. The end cap under a folder's last row is the case that
+    /// showed: 12 of it plus the 8 between folders left an expanded folder
+    /// sitting a long way clear of the next one, for a target nothing was
+    /// aiming at.
+    /// </para>
+    ///
+    /// <para>
+    /// Self-managed rather than driven by the sidebar, because these live inside
+    /// a folder's DataTemplate — there is one per folder and no single element
+    /// to reach for. The pinned zone above is set by the sidebar instead, since
+    /// its condition includes whether anything is pinned.
+    /// </para>
+    /// </summary>
+    public bool OnlyWhileDragging
+    {
+        get => (bool)GetValue(OnlyWhileDraggingProperty);
+        set => SetValue(OnlyWhileDraggingProperty, value);
+    }
+
+    private static void OnOnlyWhileDraggingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not SidebarDropZone zone) return;
+
+        if ((bool)e.NewValue)
+        {
+            zone.Visibility = Visibility.Collapsed;
+            MoriTabRow.TabDragActiveChanged += zone.OnTabDragActiveChanged;
+            zone.Unloaded += zone.DetachDragWatch;
+        }
+        else
+        {
+            MoriTabRow.TabDragActiveChanged -= zone.OnTabDragActiveChanged;
+            zone.Unloaded -= zone.DetachDragWatch;
+            zone.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void DetachDragWatch(object sender, RoutedEventArgs e)
+        => MoriTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
+
+    private void OnTabDragActiveChanged(bool active)
+        => DispatcherQueue.TryEnqueue(() =>
+            Visibility = active ? Visibility.Visible : Visibility.Collapsed);
+
     /// <summary>
     /// Radius of the targeting wash. The Mac uses TabSurface.radius under the
     /// pinned grid and Radius.sm elsewhere.

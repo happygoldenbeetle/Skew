@@ -96,15 +96,17 @@
                         Spacing="2">
 
                 <!--
-                    Placeholder mark until there is a real one. A glyph rather
-                    than Square44x44Logo: that is still the stock project-template
-                    image, and at 16 it read as a broken-image box.
+                    The app mark: mori is a wood, so three trees. Drawn rather
+                    than a font glyph, because no icon font ships one and the
+                    stock project logo read as a broken image at this size.
+                    Stretch fits the ink to the box, as everywhere else.
                 -->
-                <FontIcon Glyph="&#xE774;"
-                          FontSize="15"
-                          Margin="2,0,12,0"
-                          VerticalAlignment="Center"
-                          Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Path Data="F1 M 4,14 L 0.6,14 L 2.3,8.4 Z M 11.7,14 L 8.3,14 L 10,8.4 Z M 9.4,14 L 3.1,14 L 6.25,3.2 Z"
+                      Stretch="Uniform"
+                      Width="14.2" Height="14.2"
+                      Margin="2,0,12,0"
+                      VerticalAlignment="Center"
+                      Fill="{ThemeResource TextFillColorPrimaryBrush}" />
 
                 <Button x:Name="TitleBarSidebarToggle"
                         Width="30" Height="26"
@@ -114,21 +116,14 @@
                         Click="SidebarReveal_Click"
                         ToolTipService.ToolTip="Toggle Sidebar (Ctrl+S)">
                     <!--
-                        The panel mark the floating reveal button used to carry.
-                        It is drawn filled-pane-on-the-right, so it wants
-                        mirroring to point at whichever edge the sidebar is
-                        docked to — UpdateColumnLayout sets the sign. Copying the
-                        path without its transform left it pointing away from a
-                        left-docked sidebar.
+                        The dock mark the context menu uses for the same idea,
+                        pointed at the side the sidebar is on — UpdateColumnLayout
+                        sets the glyph. The panel path it replaced had to be
+                        mirrored by a transform to do the same job.
                     -->
-                    <PathIcon x:Name="TitleBarSidebarToggleIcon"
-                              Data="F1 M 9.16667 5.5 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.16667 3.66667 a 0.5 0.5 0 0 1 0 1 h -1 a 0.5 0.5 0 0 1 0 -1 z M 9.5 1.33333 A 1.83333 1.83333 0 0 1 11.3333 3.16667 v 5.66667 A 1.83333 1.83333 0 0 1 9.5 10.6667 H 2.5 A 1.83333 1.83333 0 0 1 0.666667 8.83333 v -5.66667 A 1.83333 1.83333 0 0 1 2.5 1.33333 z M 2.5 2.33333 c -0.46 0 -0.833333 0.373333 -0.833333 0.833333 v 5.66667 c 0 0.46 0.373333 0.833333 0.833333 0.833333 H 6 v -7.33333 z m 4.5 7.33333 h 2.5 c 0.46 0 0.833333 -0.373333 0.833333 -0.833333 v -5.66667 c 0 -0.46 -0.373333 -0.833333 -0.833333 -0.833333 H 7 z"
-                              Width="12" Height="12"
-                              RenderTransformOrigin="0.5,0.5">
-                        <PathIcon.RenderTransform>
-                            <ScaleTransform x:Name="TitleBarSidebarToggleFlip" ScaleX="-1" />
-                        </PathIcon.RenderTransform>
-                    </PathIcon>
+                    <FontIcon x:Name="TitleBarSidebarToggleIcon"
+                              Glyph="&#xE90C;"
+                              FontSize="13.2" />
                 </Button>
             </StackPanel>
 
@@ -151,7 +146,7 @@
                         Click="TitleBarBack_Click"
                         ToolTipService.ToolTip="Go back">
                     <!-- Back/Forward, the arrows, not ChevronLeft/Right. -->
-                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                    <FontIcon Glyph="&#xE72B;" FontSize="13.2" />
                 </Button>
 
                 <Button x:Name="TitleBarForward"
@@ -159,7 +154,7 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarForward_Click"
                         ToolTipService.ToolTip="Go forward">
-                    <FontIcon Glyph="&#xE72A;" FontSize="14" />
+                    <FontIcon Glyph="&#xE72A;" FontSize="13.2" />
                 </Button>
 
                 <Button x:Name="TitleBarReload"
@@ -167,7 +162,7 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarReload_Click"
                         ToolTipService.ToolTip="Reload">
-                    <FontIcon x:Name="TitleBarReloadIcon" Glyph="&#xE72C;" FontSize="14" />
+                    <FontIcon x:Name="TitleBarReloadIcon" Glyph="&#xE72C;" FontSize="13.2" />
                 </Button>
             </StackPanel>
 
@@ -187,7 +182,7 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarCopyLink_Click"
                         ToolTipService.ToolTip="Copy link">
-                    <FontIcon Glyph="&#xE71B;" FontSize="13" />
+                    <FontIcon Glyph="&#xE71B;" FontSize="12.2" />
                 </Button>
 
                 <Button x:Name="TitleBarAddress"
@@ -207,7 +202,19 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarPageOptions_Click"
                         ToolTipService.ToolTip="Options">
-                    <FontIcon Glyph="&#xE713;" FontSize="13" />
+                    <!--
+                        Sliders, drawn: the two-rails-and-knobs mark, which no
+                        Segoe glyph matches — Filter is a funnel and Setting is a
+                        gear, and neither says "adjust this page". Stroked, so
+                        the rails and the knob outlines share one weight.
+                    -->
+                    <Path Data="M 1,5 L 15,5 M 1,11 L 15,11 M 8,5 A 2,2 0 1,1 12,5 A 2,2 0 1,1 8,5 M 4,11 A 2,2 0 1,1 8,11 A 2,2 0 1,1 4,11"
+                          Stretch="Uniform"
+                          Width="12.2" Height="12.2"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                          StrokeThickness="0.8"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round" />
                 </Button>
             </StackPanel>
         </Grid>
