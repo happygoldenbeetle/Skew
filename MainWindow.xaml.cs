@@ -672,8 +672,17 @@ public sealed partial class MainWindow : Window
             LayoutPeek();
             if (_peekReady)
                 SetPeekHostShown(true);
-            SyncHomepagePeek();
         }
+
+        // Either way, not just when hidden. Docking has to release the latch as
+        // much as undocking has to take it: left set, the latch still read as
+        // held on the way back out, so the state matched and the peek was never
+        // told to open. It took a hover to start it, and then held correctly —
+        // which is what a stale latch looks like from the outside.
+        //
+        // snap, because this is the path where the sidebar was just docked in
+        // that spot: the peek replaces it where it stood.
+        SyncHomepagePeek(snap: true);
 
     }
 
@@ -1243,7 +1252,14 @@ public sealed partial class MainWindow : Window
     /// in while the pointer is elsewhere.
     /// </para>
     /// </summary>
-    private void SyncHomepagePeek()
+    /// <param name="snap">
+    /// True when the sidebar has just stopped being docked. The peek is taking
+    /// over from a sidebar that was already on screen in that spot, so it should
+    /// be there already rather than sliding in from off-window — the slide is
+    /// for a peek arriving from nothing, which is what a hover or a navigation
+    /// to the new tab page is.
+    /// </param>
+    private void SyncHomepagePeek(bool snap = false)
     {
         bool shouldLatch = !Store.SidebarVisible && IsHomepageTab;
         if (shouldLatch == _homepagePeekLatched) return;
@@ -1253,7 +1269,7 @@ public sealed partial class MainWindow : Window
         {
             EnsurePeekReady();
             LayoutPeek();
-            EnterPeek();
+            EnterPeek(animate: !snap);
         }
         else
         {
@@ -1271,15 +1287,25 @@ public sealed partial class MainWindow : Window
         PeekHost.IsHitTestVisible = shown;
     }
 
-    private void EnterPeek()
+    private void EnterPeek(bool animate = true)
     {
         if (_isPeeking) return;
         _isPeeking = true;
         // On screen now, so this is the copy that may take focus.
         PeekSidebar.IsLive = true;
         _peekCloseTimer.Stop();
-        AnimatePeek(open: true);
 
+        if (animate)
+        {
+            AnimatePeek(open: true);
+            return;
+        }
+
+        // Already open, no travel. Any in-flight slide has to be stopped first,
+        // or it would finish onto its own destination and undo this.
+        _sidebarAnimStoryboard?.Stop();
+        PeekCardTranslate.X = 0;
+        SidebarPeekCard.IsHitTestVisible = true;
     }
 
     private void ExitPeek()
