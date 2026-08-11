@@ -11,7 +11,6 @@
         x:Name="RootGrid"
         HorizontalAlignment="Stretch"
         Height="36"
-        Margin="0,0,0,2"
         Background="Transparent"
         PointerEntered="RootGrid_PointerEntered"
         PointerExited="RootGrid_PointerExited"
@@ -123,16 +122,17 @@
                 Favicon is 15pt on the Mac (TabRow.swift), not 20 — a 20pt icon
                 makes the row read as a list item rather than a tab.
             -->
-            <Grid x:Name="FaviconGrid" Grid.Column="0" Width="15" Height="15" Margin="0,0,9,0" VerticalAlignment="Center" Opacity="0.9">
+            <Grid x:Name="FaviconGrid" Grid.Column="0" Width="16" Height="16" Margin="0,0,12,0"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.9">
                 <ProgressRing
                     IsActive="{x:Bind Tab.IsLoading, Mode=OneWay}"
-                    Width="15" Height="15"
+                    Width="16" Height="16"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind GetVisibility(Tab.IsLoading), Mode=OneWay}" />
 
                 <!-- Temporary fallback icon when not loading -->
                 <FontIcon
-                    FontSize="12"
+                    FontSize="13"
                     Glyph="&#xE774;"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -140,7 +140,7 @@
 
                 <!-- Internal page icon (Magnifying Glass) -->
                 <FontIcon
-                    FontSize="12"
+                    FontSize="13"
                     Glyph="&#xE721;"
                     Margin="0,1,0,0"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -149,7 +149,7 @@
 
                 <!-- Actual Favicon overlaid if available -->
                 <Image
-                    Width="15" Height="15"
+                    Width="16" Height="16"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Source="{x:Bind GetFaviconSource(Tab.FaviconUrl, Tab.UrlString), Mode=OneWay}"
                     Visibility="{x:Bind GetFaviconVisibility(Tab), Mode=OneWay}" />
@@ -161,25 +161,58 @@
                 Grid.Column="1"
                 Text="{x:Bind Tab.Title, Mode=OneWay}"
                 VerticalAlignment="Center"
-                Margin="0,-1,0,0"
                 FontSize="13"
                 Opacity="0.78"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
-            <!-- Close Button -->
+            <!--
+                Close Button. Two marks, one control: a minus while there is a
+                loaded browser to close inside a folder, an X otherwise.
+
+                A folder is a saved group, so its rows have two different things
+                to do — close the tab and keep the entry, or discard the entry
+                once nothing is open. One glyph for both read as if closing a
+                folder tab threw it away.
+            -->
             <Button
                 x:Name="CloseButton"
                 Grid.Column="2"
-                Width="18" Height="18"
-                Padding="0"
-                Background="Transparent"
-                BorderThickness="0"
+                Width="22" Height="22"
                 Opacity="0"
-                CornerRadius="5"
+                VerticalAlignment="Center"
+                Style="{StaticResource MoriTabCloseButtonStyle}"
                 Click="Close_Click"
-                ToolTipService.ToolTip="Close tab">
-                <PathIcon Data="F1 M 7.48333 1.92778 a 0.416667 0.416667 0 1 1 0.588889 0.588889 L 5.58889 5 l 2.48333 2.48333 a 0.416667 0.416667 0 1 1 -0.588889 0.588889 L 5 5.58889 l -2.48333 2.48333 a 0.416667 0.416667 0 0 1 -0.588889 -0.588889 L 4.41111 5 1.92778 2.51667 a 0.416667 0.416667 0 1 1 0.588889 -0.588889 L 5 4.41111 z" Width="10" Height="10" />
+                ToolTipService.ToolTip="{x:Bind CloseTooltip(Tab.HasBrowserView), Mode=OneWay}">
+                <Grid>
+                    <!--
+                        Stretch on the Path itself, not a Viewbox around it. A
+                        Path draws its geometry where it was authored, and this
+                        X's ink starts about 1.6 in from the origin — so a
+                        Viewbox scaled that empty margin along with the mark,
+                        which pushed the X down and right inside its box and made
+                        it smaller than the size asked for. Uniform stretch fits
+                        the ink to the box and centres it, offset and all.
+                    -->
+                    <Path Data="F1 M 7.48333 1.92778 a 0.416667 0.416667 0 1 1 0.588889 0.588889 L 5.58889 5 l 2.48333 2.48333 a 0.416667 0.416667 0 1 1 -0.588889 0.588889 L 5 5.58889 l -2.48333 2.48333 a 0.416667 0.416667 0 0 1 -0.588889 -0.588889 L 4.41111 5 1.92778 2.51667 a 0.416667 0.416667 0 1 1 0.588889 -0.588889 L 5 4.41111 z"
+                          Stretch="Uniform"
+                          Width="13.6" Height="13.6"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                          Visibility="{x:Bind DiscardGlyphVisibility(Tab.HasBrowserView), Mode=OneWay}" />
+
+                    <!--
+                        Drawn rather than a font glyph, for the same reason: a
+                        FontIcon's size is its em box and the minus fills a
+                        fraction of it, so it never matched the X. This is 13.6
+                        of actual bar.
+                    -->
+                    <Rectangle Width="13.6" Height="1.6"
+                               RadiusX="0.8" RadiusY="0.8"
+                               Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{x:Bind CloseGlyphVisibility(Tab.HasBrowserView), Mode=OneWay}" />
+                </Grid>
             </Button>
         </Grid>
 

@@ -21,6 +21,7 @@ public partial class TabFolder : ObservableObject
     [NotifyPropertyChangedFor(nameof(ExpandedVisibility))]
     [NotifyPropertyChangedFor(nameof(ChevronGlyph))]
     [NotifyPropertyChangedFor(nameof(ShowsActiveDots))]
+    [NotifyPropertyChangedFor(nameof(CollapsedOpenTabsVisibility))]
     private bool _isExpanded;
 
     [ObservableProperty]
@@ -55,14 +56,69 @@ public partial class TabFolder : ObservableObject
     public string ChevronGlyph => IsExpanded ? "\uE70D" : "\uE76C"; // ChevronDown : ChevronRight
 
     /// <summary>
-    /// True when the folder is collapsed but holds the active tab. The Mac shows
-    /// three dots inside the closed folder in that case (FolderRow in
-    /// Sidebar.swift) instead of the folder's glyph, so a collapsed folder still
-    /// signals that the current tab lives inside it.
+    /// True when the folder is shut but has tabs open inside it.
+    ///
+    /// <para>
+    /// Openness, not selection. The Mac keyed this on holding the *active* tab
+    /// (FolderRow in Sidebar.swift), which meant the dots vanished the moment
+    /// the user switched to a tab elsewhere even though the folder still had
+    /// pages loaded — the one state the mark exists to report.
+    /// </para>
     /// </summary>
-    public bool ShowsActiveDots => !IsExpanded && Tabs.Any(t => t.IsSelected);
+    public bool ShowsActiveDots => !IsExpanded && HasOpenTabs;
 
     public ObservableCollection<BrowserTab> Tabs { get; } = [];
+
+    /// <summary>
+    /// The folder's tabs that are actually loaded, in folder order.
+    ///
+    /// <para>
+    /// A folder is a saved group: closing a tab inside one tears down its
+    /// browser but leaves the tab in the folder, ready to revive on the next
+    /// select (see BrowserStore.CloseTab). So membership and openness are
+    /// different things, and this is the second one — the tabs that stay on
+    /// screen under a collapsed folder, the way Arc keeps a folder's open tabs
+    /// in reach without expanding it.
+    /// </para>
+    /// </summary>
+    public ObservableCollection<BrowserTab> OpenTabs { get; } = [];
+
+    /// <summary>Anything to close — gates the folder's close-all control.</summary>
+    public bool HasOpenTabs => OpenTabs.Count > 0;
+
+    public Microsoft.UI.Xaml.Visibility CloseAllVisibility =>
+        HasOpenTabs ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    /// <summary>
+    /// Open tabs show under the header only while the folder is shut; expanded,
+    /// the full list already includes them and showing both would double them up.
+    /// </summary>
+    public Microsoft.UI.Xaml.Visibility CollapsedOpenTabsVisibility =>
+        !IsExpanded && HasOpenTabs
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    /// <summary>
+    /// Rebuild <see cref="OpenTabs"/> from the folder's membership.
+    ///
+    /// <para>
+    /// Rebuilt rather than patched: a tab's openness flips on load and on close,
+    /// membership changes by drag, and the orders have to agree. These lists are
+    /// a handful of rows.
+    /// </para>
+    /// </summary>
+    private void SyncOpenTabs()
+    {
+        var open = Tabs.Where(t => t.HasBrowserView).ToList();
+        if (OpenTabs.SequenceEqual(open)) return;
+
+        OpenTabs.Clear();
+        foreach (var tab in open) OpenTabs.Add(tab);
+
+        OnPropertyChanged(nameof(HasOpenTabs));
+        OnPropertyChanged(nameof(CloseAllVisibility));
+        OnPropertyChanged(nameof(CollapsedOpenTabsVisibility));
+        OnPropertyChanged(nameof(ShowsActiveDots));
+    }
 
     public TabFolder(string name = "Folder", string symbol = "\uE8B7", bool isExpanded = false)
         : this(Guid.NewGuid(), name, symbol, isExpanded)
@@ -91,12 +147,16 @@ public partial class TabFolder : ObservableObject
             OnPropertyChanged(nameof(ShowsActiveDots));
             // The folder's contents appear with the first tab and go with the last.
             OnPropertyChanged(nameof(ContentVisibility));
+            SyncOpenTabs();
         };
     }
 
     private void Tab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(BrowserTab.IsSelected))
-            OnPropertyChanged(nameof(ShowsActiveDots));
+        // Openness changes on both sides: a browser is built on first select,
+        // and torn down on close while the tab stays in the folder. Selection is
+        // no longer watched here — nothing the folder draws depends on it.
+        if (e.PropertyName == nameof(BrowserTab.HasBrowserView))
+            SyncOpenTabs();
     }
 }

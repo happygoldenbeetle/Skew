@@ -186,6 +186,12 @@ public partial class BrowserStore : ObservableObject
         // The tab.Dispose() call below unloads the CEF browser from memory,
         // and it will seamlessly revive itself the next time SelectTab accesses its BrowserView.
 
+        // A folder tab survives its close, so its selection has to be cleared
+        // here — SelectTab only ever walks Tabs and PinnedTabs, and this one has
+        // just left both. Left set, the folder went on showing the dots that say
+        // it holds the active tab long after it stopped holding anything open.
+        tab.IsSelected = false;
+
         tab.Dispose(); // tear down the per-tab CEF browser
 
         if (Tabs.Count == 0)
@@ -200,6 +206,42 @@ public partial class BrowserStore : ObservableObject
         {
             SelectTab(Tabs.LastOrDefault()?.Id ?? Guid.Empty);
         }
+    }
+
+    /// <summary>
+    /// Close every loose tab at once — the list below the rule, which is what
+    /// Clear means. Folders and pins are untouched: they are kept on purpose,
+    /// and this is for the pile that accumulates.
+    /// </summary>
+    [RelayCommand]
+    public void ClearLooseTabs()
+    {
+        var doomed = LooseTabs.ToList();
+        if (doomed.Count == 0) return;
+
+        // CloseTab shuts the window when the last tab goes. Clearing a list that
+        // happens to be every tab there is should leave a new tab, not an
+        // absent app — so open one first, and it survives the sweep because the
+        // snapshot above predates it.
+        if (Tabs.Count == doomed.Count) NewTab();
+
+        foreach (var tab in doomed) CloseTab(tab.Id);
+    }
+
+    /// <summary>
+    /// Close every loaded tab in a folder, leaving the folder's membership
+    /// alone — the tabs stay saved and revive when next selected, which is what
+    /// CloseTab already does for a folder tab one at a time.
+    /// </summary>
+    [RelayCommand]
+    public void CloseOpenTabsInFolder(Guid folderId)
+    {
+        var folder = Folders.FirstOrDefault(f => f.Id == folderId);
+        if (folder is null) return;
+
+        // Snapshot first: closing mutates the collections this walks.
+        foreach (var tab in folder.Tabs.Where(t => t.HasBrowserView).ToList())
+            CloseTab(tab.Id);
     }
 
     [RelayCommand]
@@ -372,6 +414,39 @@ public partial class BrowserStore : ObservableObject
         if (PinnedTabs.Contains(tab)) PinnedTabs.Remove(tab);
         if (LooseTabs.Contains(tab)) LooseTabs.Remove(tab);
         folder.IsExpanded = true;
+    }
+
+    /// <summary>
+    /// Drop a tab out of its folder for good.
+    ///
+    /// <para>
+    /// Distinct from <see cref="RemoveTabFromFolders"/>, which moves a tab out
+    /// to the loose list, and from <see cref="CloseTab"/>, which closes a folder
+    /// tab but leaves it saved. This is the one that discards the saved entry —
+    /// what the close control on an already-closed folder row means, since there
+    /// is nothing left to close.
+    /// </para>
+    ///
+    /// <para>
+    /// It also cannot go through the other two: both look the tab up in
+    /// <c>Tabs</c>, and a closed folder tab is no longer there.
+    /// </para>
+    /// </summary>
+    [RelayCommand]
+    public void DeleteTabFromFolder(Guid tabId)
+    {
+        foreach (var folder in Folders)
+        {
+            var tab = folder.Tabs.FirstOrDefault(t => t.Id == tabId);
+            if (tab is null) continue;
+
+            folder.Tabs.Remove(tab);
+            Tabs.Remove(tab);
+            LooseTabs.Remove(tab);
+            tab.IsSelected = false;
+            tab.Dispose();
+            return;
+        }
     }
 
     [RelayCommand]

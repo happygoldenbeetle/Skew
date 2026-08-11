@@ -24,7 +24,10 @@
         </Storyboard>
     </UserControl.Resources>
 
-    <Grid Background="Transparent" RightTapped="RootGrid_RightTapped">
+    <Grid Background="Transparent"
+          RightTapped="RootGrid_RightTapped"
+          PointerEntered="Sidebar_PointerEntered"
+          PointerExited="Sidebar_PointerExited">
         <!--
             No header row. The nav buttons and the omnibox that used to open the
             sidebar are gone, Arc-style: the list starts at the pinned tiles and
@@ -159,10 +162,12 @@
                                     Padding="5.6,0"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"
-                                    Style="{StaticResource MoriGhostButtonStyle}"
+                                    Style="{StaticResource MoriFolderHeaderButtonStyle}"
                                     CornerRadius="6"
                                     Tag="{x:Bind Id}"
                                     Click="FolderHeader_Click"
+                                    PointerEntered="FolderHeader_PointerEntered"
+                                    PointerExited="FolderHeader_PointerExited"
                                     AllowDrop="True"
                                     DragOver="FolderHeader_DragOver"
                                     DragLeave="FolderHeader_DragLeave"
@@ -193,6 +198,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <!--
@@ -266,8 +272,72 @@
                                                 <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#35312e" />
                                             </TextBox.Resources>
                                         </TextBox>
+
+                                        <!--
+                                            Close every open tab in the folder.
+                                            Present only when there is something
+                                            to close, and faded in on hover like
+                                            a tab row's close button — a control
+                                            that discards work should not sit
+                                            under the pointer unannounced.
+                                        -->
+                                        <Button
+                                            x:Name="FolderCloseAll"
+                                            Grid.Column="2"
+                                            Width="22" Height="22"
+                                            Opacity="0"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource MoriTabCloseButtonStyle}"
+                                            Tag="{x:Bind Id}"
+                                            Click="CloseFolderTabs_Click"
+                                            Visibility="{x:Bind CloseAllVisibility, Mode=OneWay}"
+                                            ToolTipService.ToolTip="Close this folder's tabs">
+                                            <!--
+                                                The same drawn bar the tab rows
+                                                use, not a font glyph: a
+                                                FontIcon's size is its em box and
+                                                the minus fills a fraction of it,
+                                                which is why this read small
+                                                beside them.
+                                            -->
+                                            <Rectangle Width="13.6" Height="1.6"
+                                                       RadiusX="0.8" RadiusY="0.8"
+                                                       Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Button>
                                     </Grid>
                                 </Button>
+
+                                <!--
+                                    A shut folder still shows what it has open,
+                                    the way Arc does — the tabs stay reachable
+                                    without expanding the whole group. Only while
+                                    shut: expanded, the list below already holds
+                                    them and both would show the same rows twice.
+                                -->
+                                <ItemsControl
+                                    ItemsSource="{x:Bind OpenTabs, Mode=OneWay}"
+                                    Margin="16,2,0,0"
+                                    Visibility="{x:Bind CollapsedOpenTabsVisibility, Mode=OneWay}">
+                                    <!--
+                                        Spacing on the panel, not a margin on the
+                                        rows: a row's own bottom margin follows
+                                        the last one too, and stacked onto the
+                                        gap between folders it left the next
+                                        folder further away than the one before.
+                                    -->
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="2" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:BrowserTab">
+                                            <controls:MoriTabRow Tab="{x:Bind}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                                 <!--
                                     Tabs in the folder, plus the end cap that lets
@@ -292,9 +362,14 @@
                                         <ItemsControl ItemsSource="{x:Bind Tabs, Mode=OneWay}"
                                                       Margin="0,2,0,0"
                                                       Visibility="{x:Bind ContentVisibility, Mode=OneWay}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Spacing="2" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="models:BrowserTab">
-                                                    <controls:MoriTabRow Tab="{x:Bind}" Margin="0,0,0,2"/>
+                                                    <controls:MoriTabRow Tab="{x:Bind}" />
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
@@ -323,7 +398,72 @@
                     spacing sits on both sides of it, and the 10 side padding
                     puts its ends on the same line as every row's.
                 -->
-                <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                <!--
+                    Height fixed at the taller of its two states, and the extra
+                    taken back out with a negative margin, so the row measures the
+                    same whether Clear is there or not. Left to size itself it
+                    grew from the rule's 1 to the button's 20 on hover and pushed
+                    every row below it down.
+                -->
+                <Grid Height="20" Margin="0,-9.5,0,-9.5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Rectangle Grid.Column="0" Height="1"
+                               VerticalAlignment="Center"
+                               Fill="#656D6E" />
+
+                    <!--
+                        Clear rides on the rule rather than sitting in a row of
+                        its own, so it costs no height and the line gives way to
+                        it. Collapsed rather than transparent while hidden: an
+                        invisible button still holds its column open, which kept
+                        the rule short of the edge even with nothing there.
+
+                        Shown while the pointer is anywhere in the sidebar,
+                        matching Arc — closing every loose tab at once is worth
+                        reaching for, not worth hunting for.
+                    -->
+                    <Button x:Name="ClearTabsButton"
+                            Grid.Column="1"
+                            Height="20"
+                            Padding="8,0"
+                            Visibility="Collapsed"
+                            Style="{StaticResource MoriBareButtonStyle}"
+                            Click="ClearTabs_Click"
+                            PointerEntered="ClearTabs_PointerEntered"
+                            PointerExited="ClearTabs_PointerExited"
+                            ToolTipService.ToolTip="Close all tabs below">
+                        <!-- The label brightens on hover; there is no box behind it. -->
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <!--
+                                A drawn arrow, not the ↓ character: at this size
+                                the glyph's head is a couple of pixels and reads
+                                as a plain stem. Stem and head are separate
+                                strokes here, so the head is as wide as it needs
+                                to be to be seen.
+                            -->
+                            <Path x:Name="ClearTabsArrow"
+                                  Data="M 5,0.6 L 5,9.4 M 1.2,5.6 L 5,9.4 L 8.8,5.6"
+                                  Stroke="#656D6E"
+                                  StrokeThickness="1.3"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Width="10" Height="10"
+                                  Stretch="None"
+                                  VerticalAlignment="Center" />
+
+                            <TextBlock x:Name="ClearTabsText"
+                                       Text="Clear"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Foreground="#656D6E" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
                 <!-- "New Tab" row -->
                 <Button
@@ -331,25 +471,56 @@
                     Height="36"
                     Padding="5.6,0"
                     HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     Style="{StaticResource MoriGhostButtonStyle}"
                     Click="NewTab_Click"
+                    PointerEntered="NewTabButton_PointerEntered"
+                    PointerExited="NewTabButton_PointerExited"
                     CornerRadius="6">
                     <!-- NewTabRow in Sidebar.swift: 15pt plus in a 16-wide slot, 9pt gap. -->
-                    <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
-                        <Grid Width="16" Height="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center">
                             <FontIcon FontSize="15" Glyph="&#xE710;" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
+
                         <TextBlock
+                            Grid.Column="1"
+                            Margin="9,0,0,0"
                             VerticalAlignment="Center"
                             FontSize="13"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="New Tab" />
-                    </StackPanel>
+
+                        <!--
+                            The shortcut, shown on hover rather than in a tooltip:
+                            a tooltip teaches it only to whoever waits, and this
+                            row is where the habit would be formed.
+                        -->
+                        <TextBlock
+                            x:Name="NewTabShortcut"
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Opacity="0"
+                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            Text="Ctrl+T" />
+                    </Grid>
                 </Button>
 
                 <!-- Loose (unfiled) tabs -->
                 <ItemsControl x:Name="LooseTabList">
+                    <!-- Row gap here rather than on the rows, as in the folders. -->
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:BrowserTab">
                             <controls:MoriTabRow Tab="{x:Bind}" />

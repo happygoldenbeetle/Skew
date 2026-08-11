@@ -294,6 +294,76 @@ public sealed partial class MoriSidebar : UserControl
         }
     }
 
+    /// <summary>
+    /// Fade the folder's close-all control in and out with the pointer.
+    ///
+    /// <para>
+    /// Found by name off the header's content rather than held in a field: the
+    /// header lives in a DataTemplate, so there is one of these per folder and
+    /// no single element to reference. Same shape as a tab row's close button.
+    /// </para>
+    /// </summary>
+    private void FolderHeader_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => SetFolderCloseAllOpacity(sender, 1);
+
+    private void FolderHeader_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => SetFolderCloseAllOpacity(sender, 0);
+
+    private static void SetFolderCloseAllOpacity(object sender, double opacity)
+    {
+        if (sender is Button header &&
+            header.Content is FrameworkElement content &&
+            content.FindName("FolderCloseAll") is Button closeAll)
+        {
+            closeAll.Opacity = opacity;
+        }
+    }
+
+    // Clear appears with the pointer anywhere in the sidebar, and the New Tab
+    // row's shortcut only while that row is under it — one is about the list,
+    // the other about the row.
+    // Visibility, not opacity: hidden, Clear has to give its column back so the
+    // rule runs the full width.
+    private void Sidebar_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => ClearTabsButton.Visibility = Visibility.Visible;
+
+    private void Sidebar_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => ClearTabsButton.Visibility = Visibility.Collapsed;
+
+    private void NewTabButton_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => NewTabShortcut.Opacity = 1;
+
+    private void NewTabButton_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => NewTabShortcut.Opacity = 0;
+
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush ClearRest =
+        new(Windows.UI.Color.FromArgb(0xFF, 0x65, 0x6D, 0x6E));
+
+    private static readonly Microsoft.UI.Xaml.Media.SolidColorBrush ClearHover =
+        new(Windows.UI.Color.FromArgb(0xFF, 0xCD, 0xD0, 0xD0));
+
+    private void ClearTabs_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => SetClearBrush(ClearHover);
+
+    private void ClearTabs_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        => SetClearBrush(ClearRest);
+
+    /// <summary>The arrow is stroked and the label filled, so both are set.</summary>
+    private void SetClearBrush(Microsoft.UI.Xaml.Media.Brush brush)
+    {
+        ClearTabsText.Foreground = brush;
+        ClearTabsArrow.Stroke = brush;
+    }
+
+    private void ClearTabs_Click(object sender, RoutedEventArgs e)
+        => Store?.ClearLooseTabs();
+
+    private void CloseFolderTabs_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is Guid folderId)
+            Store?.CloseOpenTabsInFolder(folderId);
+    }
+
     private void DeleteFolder_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is Guid folderId)

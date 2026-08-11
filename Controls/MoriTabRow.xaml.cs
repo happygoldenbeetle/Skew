@@ -95,10 +95,14 @@ public sealed partial class MoriTabRow : UserControl
     /// </summary>
     private void ApplySurfaceFills()
     {
-        bool isDark = Theme.ThemeService.Instance.IsDark;
-        HoverBackground.Background = Theme.TabSurface.HoverFill(isDark).ToBrush();
-        SelectedBackground.Background = Theme.TabSurface.SelectedFill(isDark).ToBrush();
+        // Chosen colours rather than TabSurface's translucent washes, which were
+        // alphas over the sidebar and so shifted with whatever sat behind them.
+        HoverBackground.Background = Solid(0x2B, 0x35, 0x38);
+        SelectedBackground.Background = Solid(0x55, 0x5E, 0x60);
     }
+
+    private static Microsoft.UI.Xaml.Media.SolidColorBrush Solid(byte r, byte g, byte b)
+        => new(Windows.UI.Color.FromArgb(0xFF, r, g, b));
 
     private static void OnTabChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -201,13 +205,50 @@ public sealed partial class MoriTabRow : UserControl
         }
     }
 
+    /// <summary>
+    /// True when this row's tab is a member of a folder, where closing and
+    /// discarding are two different things.
+    /// </summary>
+    private bool IsInFolder =>
+        Tab is not null && BrowserStore.Shared.Folders.Any(f => f.Tabs.Contains(Tab));
+
+    /// <summary>
+    /// A folder row with a loaded browser closes it and keeps the saved entry;
+    /// anything else — a loose tab, or a folder entry with nothing open — is
+    /// discarded outright.
+    /// </summary>
+    private bool ClosesRatherThanDiscards => IsInFolder && Tab?.HasBrowserView == true;
+
+    // Bound from the XAML. The parameter is the trigger, not the whole answer:
+    // it is what makes these re-evaluate when a browser is built or torn down.
+    public Visibility CloseGlyphVisibility(bool hasBrowserView)
+        => ClosesRatherThanDiscards ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility DiscardGlyphVisibility(bool hasBrowserView)
+        => ClosesRatherThanDiscards ? Visibility.Collapsed : Visibility.Visible;
+
+    public string CloseTooltip(bool hasBrowserView)
+        => ClosesRatherThanDiscards ? "Close tab"
+         : IsInFolder ? "Remove from folder"
+         : "Close tab";
+
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        if (Tab is not null)
+        if (Tab is null) return;
+
+        var id = Tab.Id;
+        // Read the state now: the click is dispatched, and by the time it runs
+        // the row may already have been rebuilt underneath us.
+        bool close = ClosesRatherThanDiscards;
+        bool inFolder = IsInFolder;
+
+        App.DispatcherQueue.TryEnqueue(() =>
         {
-            var id = Tab.Id;
-            App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.CloseTab(id));
-        }
+            if (!close && inFolder)
+                BrowserStore.Shared.DeleteTabFromFolder(id);
+            else
+                BrowserStore.Shared.CloseTab(id);
+        });
     }
 
     private void Pin_Click(object sender, RoutedEventArgs e)
