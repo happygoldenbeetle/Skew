@@ -98,7 +98,14 @@
             Grid.Row="1"
             HorizontalScrollBarVisibility="Disabled"
             VerticalScrollBarVisibility="Auto">
-            <StackPanel Padding="8,8,8,10" Spacing="10">
+            <!--
+                10 on both sides, the same inset the header and the bottom bar
+                use, so every section in the sidebar shares one left and right
+                edge: omnibox, pinned row, folder headers, tab rows, downloads.
+                This ran at 8 while the header ran at 10, which left the tab
+                rows a step wider than the omnibox above them.
+            -->
+            <StackPanel Padding="10,8,10,10" Spacing="10">
 
                 <!--
                     A non-virtualizing ItemsControl, not an ItemsRepeater.
@@ -123,12 +130,12 @@
                     was the source of the resize flicker.
                 -->
                 <!--
-                    2px side margins put the row's edges on the same line as the
-                    omnibox above (header padding 10, this StackPanel's 8 + 2).
-                    The 6 at the bottom is the gap the tiles used to draw below
-                    themselves, kept so the space to the folders is unchanged.
+                    No side margin — the StackPanel's own padding is the inset
+                    now. The 6 at the bottom is the gap the tiles used to draw
+                    below themselves, kept so the space to the folders is
+                    unchanged.
                 -->
-                <ItemsControl x:Name="PinnedGrid" Margin="2,0,2,6">
+                <ItemsControl x:Name="PinnedGrid" Margin="0,0,0,6">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <controls:PinnedTileGrid />
@@ -148,7 +155,6 @@
                 <controls:SidebarDropZone
                     x:Name="PinnedDropZone"
                     Height="44"
-                    Margin="2,0"
                     ZoneCornerRadius="6"
                     Kind="Pinned"
                     Visibility="Collapsed" />

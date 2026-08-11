@@ -407,6 +407,13 @@ public sealed partial class MainWindow : Window
     private double _resizeStartX;
     private double _resizeStartWidth;
 
+    /// <summary>
+    /// The web card's inset from the chrome around it (RootView.webCard sides
+    /// and bottom). UpdateColumnLayout drops it on the side the docked sidebar
+    /// sits on, so it never stacks with the sidebar's own padding.
+    /// </summary>
+    private const double WebCardInset = 8;
+
     private void SidebarResizeGrip_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         _resizingSidebar = true;
@@ -501,6 +508,21 @@ public sealed partial class MainWindow : Window
         AIPanelColumn.Width = Store.SidebarOnLeft
             ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
             : (Store.SidebarVisible ? sidebarWidth : new GridLength(0));
+
+        // The card's own 8pt side inset stacks with the sidebar's 10pt padding
+        // on the edge the two share, so the gap there read 18 against the 10 on
+        // the window edge — the sidebar's contents looked pushed off centre.
+        // Drop the card's inset on whichever side the docked sidebar is on, and
+        // the sidebar's padding alone sets both gaps. Only while it is docked:
+        // with the sidebar hidden the card meets the window edge and wants its
+        // inset back.
+        bool sidebarLeftOfCard = Store.SidebarVisible && Store.SidebarOnLeft;
+        bool sidebarRightOfCard = Store.SidebarVisible && !Store.SidebarOnLeft;
+        WebContentBorder.Margin = new Thickness(
+            sidebarLeftOfCard ? 0 : WebCardInset,
+            4,
+            sidebarRightOfCard ? 0 : WebCardInset,
+            WebCardInset);
 
         // Only grabbable while the sidebar is actually docked.
         SidebarResizeGrip.Visibility = Store.SidebarVisible

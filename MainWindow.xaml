@@ -147,6 +147,11 @@
                         The floating rounded card (RootView.webCard). Insets, radius
                         and hairline border are the Mac values: padding top 4 / sides
                         8 / bottom 8, Radius.window = 10, border at 0.7 opacity.
+
+                        The side inset here is the starting value; UpdateColumnLayout
+                        owns it from then on, and zeroes the side a docked sidebar is
+                        on so the card's inset and the sidebar's padding stop stacking
+                        into a gap half again as wide as the one at the window edge.
                     -->
                     <Border
                         x:Name="WebContentBorder"
