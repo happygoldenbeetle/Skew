@@ -1113,7 +1113,12 @@ public sealed partial class MainWindow : Window
         // The grip sits on the card's page-facing edge, opposite the docked one.
         PeekResizeGrip.HorizontalAlignment = left
             ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        SidebarPeekCard.Margin = left ? new Thickness(8, 8, 0, 8) : new Thickness(0, 8, 8, 8);
+        // Top inset matches the web card's, which is none: the card beside it
+        // meets the title bar, and the peek hanging 8 below it was the gap that
+        // showed. Sides and bottom keep the Mac's 8, so it still floats.
+        SidebarPeekCard.Margin = left
+            ? new Thickness(PeekInset, WebCardTopInset, 0, PeekInset)
+            : new Thickness(0, WebCardTopInset, PeekInset, PeekInset);
         PeekHandleChevron.Glyph = left ? "" : ""; // point toward the page
 
         // Settle into the resting position unless mid-peek.
