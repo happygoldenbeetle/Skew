@@ -27,6 +27,9 @@ public sealed class PersistedSettings
 
     /// <summary>Docked last time, rather than left in peek.</summary>
     public bool SidebarDocked { get; set; } = true;
+
+    /// <summary>Accent as "#rrggbb"; empty for the palette's own.</summary>
+    public string ThemeColor { get; set; } = "";
     public bool BlockAds { get; set; } = true;
     public bool AutoPiP { get; set; }
 

@@ -100,6 +100,14 @@ public partial class BrowserSettings : ObservableObject
     [ObservableProperty]
     private bool _sidebarDocked = true;
 
+    /// <summary>
+    /// The user's accent, as "#rrggbb". Empty means the palette's own — each
+    /// theme ships a Primary, and this replaces it rather than adding a token,
+    /// so anything already drawn from Primary follows without being rewired.
+    /// </summary>
+    [ObservableProperty]
+    private string _themeColor = "";
+
     /// <summary>Guards the initial load so applying it doesn't write straight back.</summary>
     private bool _loading;
 
@@ -132,6 +140,7 @@ public partial class BrowserSettings : ObservableObject
         SidebarWidth = ClampSidebarWidth(saved.SidebarWidth);
         PeekWidth = ClampPeekWidth(saved.PeekWidth);
         SidebarDocked = saved.SidebarDocked;
+        ThemeColor = saved.ThemeColor ?? "";
         BlockAds = saved.BlockAds;
         AutoPiP = saved.AutoPiP;
         RestoreTabsOnLaunch = saved.RestoreTabsOnLaunch;
@@ -160,6 +169,7 @@ public partial class BrowserSettings : ObservableObject
             SidebarWidth = SidebarWidth,
             PeekWidth = PeekWidth,
             SidebarDocked = SidebarDocked,
+            ThemeColor = ThemeColor,
             BlockAds = BlockAds,
             AutoPiP = AutoPiP,
             RestoreTabsOnLaunch = RestoreTabsOnLaunch,
