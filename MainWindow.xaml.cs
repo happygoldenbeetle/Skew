@@ -191,10 +191,6 @@ public sealed partial class MainWindow : Window
                 UpdateColumnLayout();
                 break;
 
-            case nameof(BrowserStore.AiPanelVisible):
-                UpdateColumnLayout();
-                break;
-
             case nameof(BrowserStore.LauncherVisible):
                 if (Store.LauncherVisible)
                 {
@@ -409,7 +405,6 @@ public sealed partial class MainWindow : Window
                         // Ctrl+L is unbound until the omnibox reappears in the
                         // title bar; the sidebar no longer has one to focus.
                         case Windows.System.VirtualKey.S: Store.ToggleSidebar(); break;
-                        case Windows.System.VirtualKey.K: Store.ToggleAIPanel(); break;
                         case Windows.System.VirtualKey.F: Store.ToggleFindBar(); break;
                         case Windows.System.VirtualKey.R: Store.Reload(); break;
                     }
@@ -509,7 +504,7 @@ public sealed partial class MainWindow : Window
         // times per drag, since preferences save synchronously on change.
         var length = new GridLength(width);
         if (Store.SidebarOnLeft) SidebarColumn.Width = length;
-        else AIPanelColumn.Width = length;
+        else RightColumn.Width = length;
 
         // Straight to the column too, for the same reason the width is: the
         // setting is not written until the drag ends, so reading it here would
@@ -529,7 +524,7 @@ public sealed partial class MainWindow : Window
         // Commit once, at the end of the drag — one file write instead of many.
         double finalWidth = Store.SidebarOnLeft
             ? SidebarColumn.Width.Value
-            : AIPanelColumn.Width.Value;
+            : RightColumn.Width.Value;
         BrowserSettings.Shared.SidebarWidth = BrowserSettings.ClampSidebarWidth(finalWidth);
 
         // Keep the peek card in step with the docked width.
@@ -599,22 +594,20 @@ public sealed partial class MainWindow : Window
             _sidebarAnimStoryboard?.Stop();
         }
 
-        // Position sidebar and AI panel based on side preference. The gripper
-        // rides with the sidebar and always hugs its page-facing edge — the
-        // right edge when docked left, the left edge when docked right.
+        // Position the sidebar by side preference. The gripper rides with it and
+        // always hugs its page-facing edge — the right edge when docked left,
+        // the left edge when docked right.
         if (Store.SidebarOnLeft)
         {
             Grid.SetColumn(SidebarBorder, 0);
             Grid.SetColumn(SidebarResizeGrip, 0);
             SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Right;
-            Grid.SetColumn(AIPanel, 2);
         }
         else
         {
             Grid.SetColumn(SidebarBorder, 2);
             Grid.SetColumn(SidebarResizeGrip, 2);
             SidebarResizeGrip.HorizontalAlignment = HorizontalAlignment.Left;
-            Grid.SetColumn(AIPanel, 0);
         }
 
         // The indicator runs the card's height, not the column's: the same top
@@ -622,16 +615,15 @@ public sealed partial class MainWindow : Window
         // card's corners rather than carrying on past them to the window edge.
         SidebarResizeGrip.Margin = new Thickness(0, WebCardTopInset, 0, WebCardInset);
 
-        // Set column widths. The sidebar's is whatever the user last dragged to.
-        var sidebarWidth = new GridLength(BrowserSettings.Shared.SidebarWidth);
+        // Set column widths. The sidebar's is whatever the user last dragged to;
+        // the column it is not on stays closed.
+        var open = Store.SidebarVisible
+            ? new GridLength(BrowserSettings.Shared.SidebarWidth)
+            : new GridLength(0);
+        var closed = new GridLength(0);
 
-        SidebarColumn.Width = Store.SidebarOnLeft
-            ? (Store.SidebarVisible ? sidebarWidth : new GridLength(0))
-            : (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0));
-
-        AIPanelColumn.Width = Store.SidebarOnLeft
-            ? (Store.AiPanelVisible ? new GridLength(360) : new GridLength(0))
-            : (Store.SidebarVisible ? sidebarWidth : new GridLength(0));
+        SidebarColumn.Width = Store.SidebarOnLeft ? open : closed;
+        RightColumn.Width = Store.SidebarOnLeft ? closed : open;
 
         SyncTitleBarSidebarColumn();
 
@@ -683,11 +675,6 @@ public sealed partial class MainWindow : Window
             SyncHomepagePeek();
         }
 
-        // AI Panel
-        AIPanel.Visibility = Store.AiPanelVisible
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-
     }
 
     private void Content_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
@@ -714,10 +701,6 @@ public sealed partial class MainWindow : Window
                 // path above.
                 case Windows.System.VirtualKey.S:
                     Store.ToggleSidebar();
-                    e.Handled = true;
-                    break;
-                case Windows.System.VirtualKey.K:
-                    Store.ToggleAIPanel();
                     e.Handled = true;
                     break;
                 case Windows.System.VirtualKey.F:
@@ -921,8 +904,13 @@ public sealed partial class MainWindow : Window
     // floats over the page, where a width that suits a docked sidebar is
     // intrusive, so dragging one must not move the other.
     private const double PeekInset = 8;
-    /// <summary>Hover margin beyond the card — the Mac's panelBand.</summary>
-    private const double PeekHandleBand = 44;
+    /// <summary>
+    /// Hover margin beyond the card — the Mac's panelBand. It used to hold the
+    /// edge handle as well; with that gone it is purely the band the pointer can
+    /// be in while the card counts as hovered, which is what keeps the card from
+    /// snapping shut the moment the pointer drifts a few pixels off it.
+    /// </summary>
+    private const double PeekHoverBand = 44;
 
     /// <summary>
     /// Live width while the card is being dragged, before it is committed. The
@@ -934,14 +922,11 @@ public sealed partial class MainWindow : Window
     private double PeekCardWidth =>
         _peekDragWidth ?? BrowserSettings.ClampPeekWidth(BrowserSettings.Shared.PeekWidth);
 
-    private double PeekHostWidth => PeekCardWidth + PeekHandleBand;
+    private double PeekHostWidth => PeekCardWidth + PeekHoverBand;
     private bool _peekReady;
 
     private double ClosedCardOffset =>
         Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 16) : (PeekCardWidth + PeekInset + 16);
-    private double RestingHandleOffset => Store.SidebarOnLeft ? 6 : -6;
-    private double OpenHandleOffset =>
-        Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 8) : (PeekCardWidth + PeekInset + 8);
 
     /// <summary>Apply themed brushes to the peek card.</summary>
     private void EnsurePeekReady()
@@ -1113,7 +1098,6 @@ public sealed partial class MainWindow : Window
         };
 
         PeekEdgeStrip.HorizontalAlignment = edge;
-        PeekEdgeHandle.HorizontalAlignment = edge;
         SidebarPeekCard.HorizontalAlignment = edge;
         // The grip sits on the card's page-facing edge, opposite the docked one.
         PeekResizeGrip.HorizontalAlignment = left
@@ -1124,16 +1108,12 @@ public sealed partial class MainWindow : Window
         SidebarPeekCard.Margin = left
             ? new Thickness(PeekInset, WebCardTopInset, 0, PeekInset)
             : new Thickness(0, WebCardTopInset, PeekInset, PeekInset);
-        PeekHandleChevron.Glyph = left ? "" : ""; // point toward the page
 
         // Settle into the resting position unless mid-peek.
         if (!_isPeeking)
         {
             PeekCardTranslate.X = ClosedCardOffset;
             SidebarPeekCard.IsHitTestVisible = false;
-            PeekHandleTranslate.X = RestingHandleOffset;
-            PeekHandleCapsule.Opacity = 0.22;
-            PeekHandleChevron.Opacity = 0;
         }
     }
 
@@ -1338,9 +1318,6 @@ public sealed partial class MainWindow : Window
         // so the property getters return the current animated value — animating
         // from here means no snap, even mid-flight.
         double cardNow = PeekCardTranslate.X;
-        double handleNow = PeekHandleTranslate.X;
-        double capNow = PeekHandleCapsule.Opacity;
-        double chevNow = PeekHandleChevron.Opacity;
 
         _sidebarAnimStoryboard?.Stop();
 
@@ -1348,15 +1325,9 @@ public sealed partial class MainWindow : Window
         // the card to a stale resting value — that snap was why the close had no
         // visible out-animation (the card jumped shut, then "animated" in place).
         PeekCardTranslate.X = cardNow;
-        PeekHandleTranslate.X = handleNow;
-        PeekHandleCapsule.Opacity = capNow;
-        PeekHandleChevron.Opacity = chevNow;
 
         double cardTo = open ? 0 : ClosedCardOffset;
         SidebarPeekCard.IsHitTestVisible = open;
-        double handleTo = open ? OpenHandleOffset : RestingHandleOffset;
-        double capTo = open ? 0 : 0.22;
-        double chevTo = open ? 1 : 0;
 
         var dur = TimeSpan.FromMilliseconds(220);
         var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
@@ -1384,18 +1355,9 @@ public sealed partial class MainWindow : Window
         }
 
         Add(PeekCardTranslate, "X", cardNow, cardTo, eased: true);
-        Add(PeekHandleTranslate, "X", handleNow, handleTo, eased: true);
-        Add(PeekHandleCapsule, "Opacity", capNow, capTo, eased: false);
-        Add(PeekHandleChevron, "Opacity", chevNow, chevTo, eased: false);
 
         // Commit the destination as the local base so the next Stop() starts clean.
-        sb.Completed += (s, e) =>
-        {
-            PeekCardTranslate.X = cardTo;
-            PeekHandleTranslate.X = handleTo;
-            PeekHandleCapsule.Opacity = capTo;
-            PeekHandleChevron.Opacity = chevTo;
-        };
+        sb.Completed += (s, e) => PeekCardTranslate.X = cardTo;
 
         _sidebarAnimStoryboard = sb;
         sb.Begin();

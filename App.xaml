@@ -13,11 +13,9 @@
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SvgImageSource x:Key="SparklesIconSource" UriSource="ms-appx:///Assets/Icons/sparkles.theme-light.svg" />
                     <SvgImageSource x:Key="SidebarRightIconSource" UriSource="ms-appx:///Assets/Icons/sidebar-right.theme-light.svg" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SvgImageSource x:Key="SparklesIconSource" UriSource="ms-appx:///Assets/Icons/sparkles.theme-dark.svg" />
                     <SvgImageSource x:Key="SidebarRightIconSource" UriSource="ms-appx:///Assets/Icons/sidebar-right.theme-dark.svg" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>

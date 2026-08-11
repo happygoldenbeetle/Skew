@@ -212,12 +212,18 @@
             </StackPanel>
         </Grid>
 
-        <!-- ═══ Main columns: [Sidebar] | [Web card] | [AI / extension panel] ═══ -->
+        <!--
+            ═══ Main columns: [Sidebar] | [Web card] | [Sidebar] ═══
+            Two side columns for one sidebar: it occupies whichever matches the
+            side it is docked to, and the other stays at zero. Kept as two rather
+            than moving one column about, so the card between them never has to
+            change which column it is in.
+        -->
         <Grid x:Name="ColumnsGrid" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="SidebarColumn" Width="256" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition x:Name="AIPanelColumn" Width="0" />
+                <ColumnDefinition x:Name="RightColumn" Width="0" />
             </Grid.ColumnDefinitions>
 
             <Border x:Name="SidebarBorder" Grid.Column="0">
@@ -313,12 +319,6 @@
                 </Grid>
             </Grid>
 
-            <!-- ═══ AI panel ═══ -->
-            <controls:MoriAIPanel
-                x:Name="AIPanel"
-                Grid.Column="2"
-                Visibility="Collapsed" />
-
         </Grid>
 
 
@@ -356,25 +356,13 @@
                     PointerEntered="PeekEdgeStrip_PointerEntered"
                     PointerExited="PeekEdgeStrip_PointerExited" />
 
-            <Grid x:Name="PeekEdgeHandle"
-                  Width="18" Height="44"
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Center"
-                  IsHitTestVisible="False">
-                <Grid.RenderTransform>
-                    <TranslateTransform x:Name="PeekHandleTranslate" X="-6" />
-                </Grid.RenderTransform>
-                <Rectangle x:Name="PeekHandleCapsule"
-                           Width="4" Height="40"
-                           RadiusX="2" RadiusY="2"
-                           Fill="{ThemeResource TextFillColorPrimaryBrush}"
-                           Opacity="0.22" />
-                <FontIcon x:Name="PeekHandleChevron"
-                          Glyph="&#xE76B;"
-                          FontSize="14"
-                          Opacity="0"
-                          Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-            </Grid>
+            <!--
+                No handle on the edge. A sidebar that comes out when the pointer
+                reaches the edge is a convention every browser shares, so the
+                capsule and chevron were labelling something already understood.
+                PeekEdgeStrip above is what actually triggers it, and it is
+                invisible by design.
+            -->
 
             <!--
                 Fully opaque: the card is hidden by being translated out of the

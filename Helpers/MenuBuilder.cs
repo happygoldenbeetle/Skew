@@ -160,17 +160,6 @@ public static class MenuBuilder
 
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        var sparklesXaml = @"<ImageIcon xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" Source=""{ThemeResource SparklesIconSource}"" />";
-
-        // Show/Hide AI Panel
-        var aiPanelItem = new MenuFlyoutItem 
-        { 
-            Text = store.AiPanelVisible ? "Hide AI Panel" : "Show AI Panel",
-            Icon = (ImageIcon)Microsoft.UI.Xaml.Markup.XamlReader.Load(sparklesXaml)
-        };
-        aiPanelItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleAIPanel());
-        flyout.Items.Add(aiPanelItem);
-
         // Sidebar side. One item naming where the tabs would go, rather than a
         // submenu listing both sides with a tick against the one already in use:
         // there are only two states, so the useful thing to show is the other one.
@@ -194,68 +183,9 @@ public static class MenuBuilder
 
         flyout.Items.Add(new MenuFlyoutSeparator());
 
-        // Edit Theme Color
-        var themeColorItem = new MenuFlyoutItem
-        {
-            Text = "Edit Theme Color",
-            Icon = new FontIcon { Glyph = "\uE790" } // Color
-        };
-        themeColorItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(ShowThemeColorPicker);
-        flyout.Items.Add(themeColorItem);
-
         // Settings
         var settingsItem = new MenuFlyoutItem { Text = "Settings", Icon = new FontIcon { Glyph = "\uE713" } };
         settingsItem.Click += (s, e) => App.DispatcherQueue.TryEnqueue(() => store.ToggleSettings());
         flyout.Items.Add(settingsItem);
-    }
-
-    /// <summary>
-    /// Pick the accent that replaces the palette's Primary.
-    ///
-    /// <para>
-    /// Reset sits beside Save because the setting has a meaningful empty state \u2014
-    /// the theme's own colour \u2014 that a picker cannot express on its own: there
-    /// is no swatch for "whatever the theme says".
-    /// </para>
-    /// </summary>
-    private static async void ShowThemeColorPicker()
-    {
-        var root = App.Window?.Content?.XamlRoot;
-        if (root is null) return;
-
-        var theme = Mori.Theme.ThemeService.Instance;
-
-        var picker = new ColorPicker
-        {
-            Color = theme.Palette.Primary.ToColor(),
-            IsMoreButtonVisible = true,
-            IsColorSliderVisible = true,
-            IsColorChannelTextInputVisible = true,
-            IsHexInputVisible = true,
-            IsAlphaEnabled = false,
-            IsAlphaSliderVisible = false,
-            IsAlphaTextInputVisible = false,
-        };
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = root,
-            Title = "Theme colour",
-            Content = picker,
-            PrimaryButtonText = "Save",
-            SecondaryButtonText = "Reset",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-            RequestedTheme = theme.CurrentTheme,
-        };
-
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.None) return;
-
-        Mori.Models.BrowserSettings.Shared.ThemeColor = result == ContentDialogResult.Primary
-            ? $"#{picker.Color.R:X2}{picker.Color.G:X2}{picker.Color.B:X2}"
-            : "";
-
-        theme.RefreshThemeColor();
     }
 }

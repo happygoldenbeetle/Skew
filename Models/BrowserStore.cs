@@ -37,9 +37,6 @@ public partial class BrowserStore : ObservableObject
     private bool _sidebarVisible = true;
 
     [ObservableProperty]
-    private bool _aiPanelVisible;
-
-    [ObservableProperty]
     private bool _launcherVisible;
 
     partial void OnLauncherVisibleChanged(bool value)
@@ -325,9 +322,6 @@ public partial class BrowserStore : ObservableObject
 
     [RelayCommand]
     public void ToggleSidebar() => SidebarVisible = !SidebarVisible;
-
-    [RelayCommand]
-    public void ToggleAIPanel() => AiPanelVisible = !AiPanelVisible;
 
     [RelayCommand]
     public void ToggleLauncher() => LauncherVisible = !LauncherVisible;
