@@ -36,13 +36,45 @@
             equivalent); ChromeTint carries the palette wash over it; the grain
             layer matches GrainOverlay.
         -->
-        <Grid x:Name="ChromeSurface" IsHitTestVisible="False">
+        <Grid.RowDefinitions>
+            <!-- Title bar -->
+            <RowDefinition Height="Auto" />
+            <!-- Everything else -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="ChromeSurface" Grid.RowSpan="2" IsHitTestVisible="False">
             <Rectangle x:Name="ChromeTint" />
             <Image x:Name="ChromeGrain" Stretch="UniformToFill" Opacity="0" IsHitTestVisible="False" />
         </Grid>
 
+        <!--
+            ═══ Title bar ═══
+            The real one. The window keeps its system title bar and extends the
+            content into it, so Windows draws the caption buttons and owns drag,
+            double-click to maximise, snap layouts and the Alt+Space menu. This
+            grid is what SetTitleBar is handed as the drag region — hence the
+            explicit Background, since a null one does not hit-test and the
+            window would not drag.
+
+            32 is TitleBarHeightOption.Standard, the height the system draws its
+            buttons at (40px at 125%); any other value and the drag region and
+            the buttons disagree about where the bar ends. The omnibox moves in
+            here in a later pass.
+        -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" Background="Transparent">
+            <TextBlock x:Name="TitleBarTitle"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="160,0"
+                       FontSize="12"
+                       Opacity="0.75"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
+
         <!-- ═══ Main columns: [Sidebar] | [Web card] | [AI / extension panel] ═══ -->
-        <Grid x:Name="ColumnsGrid">
+        <Grid x:Name="ColumnsGrid" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="SidebarColumn" Width="256" />
                 <ColumnDefinition Width="*" />
@@ -86,86 +118,42 @@
 
                 <Grid x:Name="WebCardArea" Grid.Row="1">
                     <!--
-                        ═══ Revealed titlebar (TopChrome.swift) ═══
-                        Sits behind the card. Hovering the top edge slides the card
-                        down by TopChromeRevealHeight to expose this strip, then
-                        slides it back. The card moves by transform and is never
-                        resized, so the page never reflows.
-
-                        The Mac fades in the real traffic lights here. This window
-                        has no system titlebar (SetBorderAndTitleBar(true, false)),
-                        so the caption buttons are ours to draw.
+                        The hover-revealed strip that used to sit behind the card
+                        is gone with TopChrome.swift's reveal: the title bar is a
+                        real one at the top of the window now, always there, so
+                        there is nothing to slide the card down for.
                     -->
-                    <Grid x:Name="TopChromeStrip"
-                          Height="28"
-                          VerticalAlignment="Top"
-                          Background="Transparent"
-                          Opacity="0"
-                          IsHitTestVisible="False"
-                          DoubleTapped="TopDragArea_DoubleTapped"
-                          ToolTipService.ToolTip="Double-click to maximize">
-                        <TextBlock x:Name="TopChromeTitle"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontSize="12"
-                                   Opacity="0.75"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right"
-                                    VerticalAlignment="Center"
-                                    Margin="0,0,4,0"
-                                    Spacing="2">
-                            <Button x:Name="CaptionMinimize"
-                                    Style="{StaticResource MoriGhostButtonStyle}"
-                                    Width="34" Height="22"
-                                    Click="CaptionMinimize_Click"
-                                    ToolTipService.ToolTip="Minimize">
-                                <FontIcon Glyph="&#xE921;" FontSize="10"
-                                          FontFamily="Segoe Fluent Icons" />
-                            </Button>
-                            <Button x:Name="CaptionMaximize"
-                                    Style="{StaticResource MoriGhostButtonStyle}"
-                                    Width="34" Height="22"
-                                    Click="CaptionMaximize_Click"
-                                    ToolTipService.ToolTip="Maximize">
-                                <FontIcon x:Name="CaptionMaximizeIcon" Glyph="&#xE922;" FontSize="10"
-                                          FontFamily="Segoe Fluent Icons" />
-                            </Button>
-                            <Button x:Name="CaptionClose"
-                                    Style="{StaticResource MoriGhostButtonStyle}"
-                                    Width="34" Height="22"
-                                    Click="CaptionClose_Click"
-                                    ToolTipService.ToolTip="Close">
-                                <FontIcon Glyph="&#xE8BB;" FontSize="10"
-                                          FontFamily="Segoe Fluent Icons" />
-                            </Button>
-                        </StackPanel>
-                    </Grid>
 
                     <!--
-                        The floating rounded card (RootView.webCard). Insets, radius
-                        and hairline border are the Mac values: padding top 4 / sides
-                        8 / bottom 8, Radius.window = 10, border at 0.7 opacity.
+                        The floating card (RootView.webCard). Insets and hairline
+                        border are the Mac values — sides and bottom 8, border at
+                        0.7 opacity — but the radius is 4 rather than the Mac's
+                        Radius.window of 10: at this card's size the Mac value
+                        read as a visibly rounder page than anything around it.
+                        Tighter than the sidebar's 6 on purpose — the page is a
+                        far larger surface, and the same radius on it looks
+                        rounder than it does on a tab row.
 
-                        The side inset here is the starting value; UpdateColumnLayout
-                        owns it from then on, and zeroes the side a docked sidebar is
-                        on so the card's inset and the sidebar's padding stop stacking
-                        into a gap half again as wide as the one at the window edge.
+                        The top inset is 0, so the card meets the title bar. The
+                        side inset here is the starting value; UpdateColumnLayout
+                        owns it from then on, and zeroes the side a docked sidebar
+                        is on so the card's inset and the sidebar's padding stop
+                        stacking into a gap half again as wide as the one at the
+                        window edge.
                     -->
                     <Border
                         x:Name="WebContentBorder"
-                        Margin="8,4,8,8"
+                        Margin="8,0,8,8"
                         SizeChanged="WebContentBorder_SizeChanged"
                         BorderThickness="1"
-                        CornerRadius="10"
+                        CornerRadius="4"
                         Shadow="{ThemeResource SharedShadow}">
-                        <Border.RenderTransform>
-                            <TranslateTransform x:Name="WebCardTranslate" />
-                        </Border.RenderTransform>
-
-                        <!-- CornerRadius on the Border clips the live page to the card. -->
-                        <Grid x:Name="WebContentHost" CornerRadius="10" />
+                        <!--
+                            Same radius again, not inherited: the Border's radius
+                            clips the live page to the card, and a host on a larger
+                            radius would square the page's own corners off inside it.
+                        -->
+                        <Grid x:Name="WebContentHost" CornerRadius="4" />
                     </Border>
 
                     <!-- Find bar, over the card (RootView webCard .overlay topTrailing) -->
@@ -234,7 +222,7 @@
             host still measures, so its repeaters are populated before it is ever
             shown. IsHitTestVisible keeps it from swallowing clicks meanwhile.
         -->
-        <Grid x:Name="PeekHost" Width="268" HorizontalAlignment="Right"
+        <Grid x:Name="PeekHost" Grid.Row="1" Width="268" HorizontalAlignment="Right"
               Opacity="0" IsHitTestVisible="False">
             <Border x:Name="PeekEdgeStrip"
                     Width="12"
@@ -291,7 +279,12 @@
             Centred over the whole window with a scrim that dims the live page
             behind it, exactly as on the Mac.
         -->
-        <Grid x:Name="LauncherHost" Visibility="Collapsed">
+        <!--
+            Row 1, like the other overlays: the launcher's scrim stops at the
+            title bar rather than dimming it, which keeps the window draggable
+            and its caption buttons live while the palette is open.
+        -->
+        <Grid x:Name="LauncherHost" Grid.Row="1" Visibility="Collapsed">
             <Rectangle x:Name="LauncherScrim" Fill="#000000" Opacity="0" Tapped="LauncherScrim_Tapped" />
             <controls:MoriLauncher x:Name="Launcher"
                                    HorizontalAlignment="Center"
@@ -300,11 +293,12 @@
 
         <!-- ═══ Swipe gesture indicator ═══ -->
         <controls:SwipeIndicatorOverlay x:Name="SwipeOverlay"
+                                        Grid.Row="1"
                                         IsHitTestVisible="False"
                                         Visibility="Collapsed" />
 
         <!-- ═══ Settings ═══ -->
-        <Grid x:Name="SettingsHost" Visibility="Collapsed">
+        <Grid x:Name="SettingsHost" Grid.Row="1" Visibility="Collapsed">
             <Rectangle x:Name="SettingsScrim" Fill="#000000" Opacity="0.35" Tapped="SettingsScrim_Tapped" />
             <controls:MoriSettings x:Name="SettingsFlyout"
                                    HorizontalAlignment="Center"

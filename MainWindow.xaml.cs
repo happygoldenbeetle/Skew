@@ -32,8 +32,17 @@ public sealed partial class MainWindow : Window
 
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
 
-        // Custom title bar — extend into content, no separate bar
+        // A real title bar, with the content extended into it: Windows draws the
+        // caption buttons and owns drag, double-click to maximise, snap layouts
+        // and the Alt+Space menu, while AppTitleBar is the drag region and is
+        // ours to put things in. The hover-revealed strip and the hand-drawn
+        // caption buttons it carried are gone.
         ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+        // Standard is 32 DIPs, which is what AppTitleBar is sized to. Tall (48)
+        // would leave the buttons and the drag region disagreeing.
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
+        ApplyTitleBarColors();
 
         // Set window size and icon
         var appWindow = AppWindow;
@@ -45,13 +54,15 @@ public sealed partial class MainWindow : Window
         _swipeResetTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _swipeResetTimer.Tick += (s, e) => EvaluateAndResetSwipe();
 
-        // Use OverlappedPresenter for a real, chrome-less window
+        // Border and title bar both on: the title bar is what the caption
+        // buttons and the system drag behaviour hang off, and turning it off is
+        // what forced the old hand-drawn ones.
         if (appWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.IsResizable = true;
             presenter.IsMaximizable = true;
             presenter.IsMinimizable = true;
-            presenter.SetBorderAndTitleBar(true, false);
+            presenter.SetBorderAndTitleBar(true, true);
         }
 
         // Wire up store state to UI
@@ -72,13 +83,17 @@ public sealed partial class MainWindow : Window
             UpdateColumnLayout();
         };
 
-        WireTopChrome();
-
         // Keep the floating peek card's themed brushes in sync with light/dark.
         ThemeService.Instance.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(ThemeService.Palette))
-                DispatcherQueue.TryEnqueue(ApplyChromeTheme);
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    ApplyChromeTheme();
+                    // The caption buttons are drawn by the system, outside the
+                    // XAML tree, so they do not follow ElementTheme on their own.
+                    ApplyTitleBarColors();
+                });
         };
 
         // Apply initial layout state
@@ -184,7 +199,7 @@ public sealed partial class MainWindow : Window
             case nameof(BrowserStore.SelectedTab):
                 UpdateLoadingBar();
                 ShowSelectedBrowserView();
-                TopChromeTitle.Text = Store.SelectedTab?.Title ?? "Mori";
+                TitleBarTitle.Text = Store.SelectedTab?.Title ?? "Mori";
                 WatchSelectedTabUrl();
                 SyncHomepagePeek();
                 break;
@@ -415,6 +430,14 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private const double WebCardInset = 8;
 
+    /// <summary>
+    /// Nothing above the card. The Mac floats it 4 below the top chrome, but
+    /// that chrome only appeared on hover there; here the title bar is always
+    /// present, and a gap under it made the run from the window's top edge to
+    /// the page 36 rather than the title bar's own 32.
+    /// </summary>
+    private const double WebCardTopInset = 0;
+
     private void SidebarResizeGrip_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         _resizingSidebar = true;
@@ -521,7 +544,7 @@ public sealed partial class MainWindow : Window
         bool sidebarRightOfCard = Store.SidebarVisible && !Store.SidebarOnLeft;
         WebContentBorder.Margin = new Thickness(
             sidebarLeftOfCard ? 0 : WebCardInset,
-            4,
+            WebCardTopInset,
             sidebarRightOfCard ? 0 : WebCardInset,
             WebCardInset);
 
@@ -648,7 +671,9 @@ public sealed partial class MainWindow : Window
                 presenter.IsResizable = true;
                 presenter.IsMaximizable = true;
                 presenter.IsMinimizable = true;
-                presenter.SetBorderAndTitleBar(true, false);
+                // Matching the constructor: leaving the title bar off here gave
+                // a window back from full screen with no caption buttons.
+                presenter.SetBorderAndTitleBar(true, true);
 
                 if (_wasMaximizedBeforeFullScreen)
                 {
@@ -676,17 +701,6 @@ public sealed partial class MainWindow : Window
     private void SidebarReveal_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         Store.ToggleSidebar();
-    }
-
-    private void TopDragArea_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
-    {
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
-        {
-            if (presenter.State == OverlappedPresenterState.Maximized)
-                presenter.Restore();
-            else
-                presenter.Maximize();
-        }
     }
 
     private void Content_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -814,158 +828,6 @@ public sealed partial class MainWindow : Window
     private double OpenHandleOffset =>
         Store.SidebarOnLeft ? -(PeekCardWidth + PeekInset + 8) : (PeekCardWidth + PeekInset + 8);
 
-    // ── Top chrome reveal (TopChrome.swift) ─────────────────────────────────
-    //
-    // Hovering the top edge of the web area slides the card down so the chrome
-    // surface — and the caption buttons — show through, then slides it back.
-    // The card moves by transform and is never resized, so the page does not
-    // reflow. On the Mac this needed an AppKit tracking area because the hosted
-    // browser swallowed mouse-moved events; here the page is a XAML layer, so a
-    // handledEventsToo PointerMoved handler on the column is enough.
-
-    /// How far the card drops. Matches TopChromeContainerView.revealHeight.
-    private const double TopChromeRevealHeight = 28;
-    /// Band at the very top that triggers the reveal when closed.
-    private const double TopChromeEdgeHeight = 18;
-    /// Band that keeps it open once revealed, with hysteresis so it can't chatter.
-    private const double TopChromeKeepOpenHeight = 52;
-    /// While the sidebar is hidden this strip belongs to sidebar peek, not top chrome.
-    private const double SidebarPeekExclusionWidth = 300;
-
-    private bool _topChromeRevealed;
-    private DispatcherTimer? _topChromeCloseTimer;
-
-    private void WireTopChrome()
-    {
-        // Tracked at the root, not on the card area: overlays and the sidebar are
-        // siblings of the card, so an event over them would never route through
-        // it. handledEventsToo because the browser view marks pointer events
-        // handled so the page receives them, and we still need the position.
-        RootGrid.AddHandler(UIElement.PointerMovedEvent,
-            new Microsoft.UI.Xaml.Input.PointerEventHandler(WebCardArea_PointerMoved), true);
-        RootGrid.AddHandler(UIElement.PointerExitedEvent,
-            new Microsoft.UI.Xaml.Input.PointerEventHandler(WebCardArea_PointerExited), true);
-
-        _topChromeCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
-        _topChromeCloseTimer.Tick += (_, _) =>
-        {
-            _topChromeCloseTimer!.Stop();
-            SetTopChromeRevealed(false);
-        };
-    }
-
-    private void WebCardArea_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        // Relative to the card area even though the event may have originated over
-        // the sidebar or an overlay.
-        var p = e.GetCurrentPoint(WebCardArea).Position;
-
-        bool outsideColumn = p.X < 0 || p.X > WebCardArea.ActualWidth;
-        if (outsideColumn || IsInSidebarPeekZone(p.X))
-        {
-            if (_topChromeRevealed) ScheduleTopChromeClose();
-            return;
-        }
-
-        if (_topChromeRevealed)
-        {
-            if (p.Y <= TopChromeKeepOpenHeight)
-                _topChromeCloseTimer?.Stop();
-            else
-                ScheduleTopChromeClose();
-        }
-        else if (p.Y <= TopChromeEdgeHeight)
-        {
-            _topChromeCloseTimer?.Stop();
-            SetTopChromeRevealed(true);
-        }
-    }
-
-    private void WebCardArea_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        if (_topChromeRevealed) ScheduleTopChromeClose();
-    }
-
-    private bool IsInSidebarPeekZone(double x)
-    {
-        if (Store.SidebarVisible) return false;
-        return Store.SidebarOnLeft
-            ? x <= SidebarPeekExclusionWidth
-            : x >= WebCardArea.ActualWidth - SidebarPeekExclusionWidth;
-    }
-
-    private void ScheduleTopChromeClose()
-    {
-        if (_topChromeCloseTimer is null || _topChromeCloseTimer.IsEnabled) return;
-        _topChromeCloseTimer.Start();
-    }
-
-    private void SetTopChromeRevealed(bool revealed)
-    {
-        if (_topChromeRevealed == revealed) return;
-        _topChromeRevealed = revealed;
-
-        TopChromeStrip.IsHitTestVisible = revealed;
-        if (revealed)
-            UpdateCaptionMaximizeGlyph();
-
-        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        var ease = new Microsoft.UI.Xaml.Media.Animation.CubicEase
-        {
-            EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut
-        };
-
-        var slide = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            To = revealed ? TopChromeRevealHeight : 0,
-            Duration = new Duration(MoriMotion.Snappy),
-            EnableDependentAnimation = true,
-            EasingFunction = ease,
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(slide, WebCardTranslate);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(slide, "Y");
-        sb.Children.Add(slide);
-
-        var fade = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            To = revealed ? 1 : 0,
-            Duration = new Duration(TimeSpan.FromMilliseconds(180)),
-            EnableDependentAnimation = true,
-            EasingFunction = ease,
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(fade, TopChromeStrip);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(fade, "Opacity");
-        sb.Children.Add(fade);
-
-        sb.Begin();
-    }
-
-    private void UpdateCaptionMaximizeGlyph()
-    {
-        bool maximized = AppWindow.Presenter is OverlappedPresenter op
-                         && op.State == OverlappedPresenterState.Maximized;
-        CaptionMaximizeIcon.Glyph = maximized ? "" : ""; // restore : maximize
-        ToolTipService.SetToolTip(CaptionMaximize, maximized ? "Restore" : "Maximize");
-    }
-
-    private void CaptionMinimize_Click(object sender, RoutedEventArgs e)
-    {
-        if (AppWindow.Presenter is OverlappedPresenter op)
-            op.Minimize();
-    }
-
-    private void CaptionMaximize_Click(object sender, RoutedEventArgs e)
-    {
-        if (AppWindow.Presenter is not OverlappedPresenter op) return;
-        if (op.State == OverlappedPresenterState.Maximized)
-            op.Restore();
-        else
-            op.Maximize();
-        UpdateCaptionMaximizeGlyph();
-    }
-
-    private void CaptionClose_Click(object sender, RoutedEventArgs e) => Close();
-
     /// <summary>Apply themed brushes to the peek card.</summary>
     private void EnsurePeekReady()
     {
@@ -976,6 +838,43 @@ public sealed partial class MainWindow : Window
         // Depth gives the ThemeShadow something to cast.
         SidebarPeekCard.Translation = new System.Numerics.Vector3(0, 0, 32);
         _peekReady = true;
+    }
+
+    /// <summary>
+    /// Tint the system caption buttons to the active theme.
+    ///
+    /// <para>
+    /// They are drawn by the window, not by XAML, so ElementTheme does not reach
+    /// them: left alone they keep the system's own foreground and paint an
+    /// opaque backdrop that cuts a grey block out of the Mica. Transparent
+    /// backgrounds let the chrome surface run behind them; the hover and pressed
+    /// washes stay because a caption button with no hover state does not read as
+    /// a button.
+    /// </para>
+    /// </summary>
+    private void ApplyTitleBarColors()
+    {
+        var bar = AppWindow.TitleBar;
+        bool dark = ThemeService.Instance.IsDark;
+
+        var fg = dark ? Microsoft.UI.Colors.White : Microsoft.UI.Colors.Black;
+        var wash = dark
+            ? Windows.UI.Color.FromArgb(24, 255, 255, 255)
+            : Windows.UI.Color.FromArgb(24, 0, 0, 0);
+        var press = dark
+            ? Windows.UI.Color.FromArgb(40, 255, 255, 255)
+            : Windows.UI.Color.FromArgb(40, 0, 0, 0);
+
+        bar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        bar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
+        bar.ButtonForegroundColor = fg;
+        bar.ButtonInactiveForegroundColor = dark
+            ? Windows.UI.Color.FromArgb(140, 255, 255, 255)
+            : Windows.UI.Color.FromArgb(140, 0, 0, 0);
+        bar.ButtonHoverBackgroundColor = wash;
+        bar.ButtonHoverForegroundColor = fg;
+        bar.ButtonPressedBackgroundColor = press;
+        bar.ButtonPressedForegroundColor = fg;
     }
 
     /// <summary>Orient the peek host and card to the active sidebar edge.</summary>

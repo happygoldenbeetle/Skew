@@ -46,13 +46,16 @@
             HorizontalScrollBarVisibility="Disabled"
             VerticalScrollBarVisibility="Auto">
             <!--
-                10 all round, so every section in the sidebar shares one left and
-                right edge: pinned row, folder headers, tab rows, downloads. The
-                sides ran at 8 against the header's 10, which left the tab rows a
-                step wider than the omnibox above them; the top matches now that
-                this is the sidebar's own top edge rather than the header's.
+                10 on the sides and bottom, so every section in the sidebar shares
+                one left and right edge: pinned row, folder headers, tab rows,
+                downloads. The sides ran at 8 against the old header's 10, which
+                left the tab rows a step wider than the omnibox above them.
+
+                Nothing on top: the pinned row starts on the same line as the web
+                card next to it, both of them meeting the title bar. An inset
+                here left the tiles floating below a card that had none.
             -->
-            <StackPanel Padding="10,10,10,10" Spacing="10">
+            <StackPanel Padding="10,0,10,10" Spacing="10">
 
                 <!--
                     A non-virtualizing ItemsControl, not an ItemsRepeater.
@@ -245,6 +248,19 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <!--
+                    Rule between the folders and the loose side of the list, at
+                    the user's request and matching Arc.
+
+                    A deliberate divergence from Sidebar.swift, which separates
+                    every section by spacing alone — the pinned row above still
+                    has none, so this reads as the one break in the list rather
+                    than as a general section style. The StackPanel's own 10 of
+                    spacing sits on both sides of it, and the 10 side padding
+                    puts its ends on the same line as every row's.
+                -->
+                <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                 <!-- "New Tab" row -->
                 <Button
