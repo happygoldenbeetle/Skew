@@ -214,29 +214,33 @@
                                     </Grid>
                                 </Button>
 
-                                <!-- Tabs in Folder -->
-                                <ItemsControl
-                                    ItemsSource="{x:Bind Tabs, Mode=OneWay}"
-                                    Visibility="{x:Bind ExpandedVisibility, Mode=OneWay}"
-                                    Margin="16,0,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="models:BrowserTab">
-                                            <controls:MoriTabRow Tab="{x:Bind}" Margin="0,0,0,2"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
                                 <!--
-                                    End cap: lets an empty folder receive tabs and
-                                    lets a tab be appended after the last row.
+                                    Tabs in the folder, plus the end cap that lets
+                                    an empty folder receive tabs and lets a tab be
+                                    appended after the last row.
+
+                                    Both live inside one ExpandReveal so they open
+                                    and close as a single block, sliding out from
+                                    under the header rather than blinking in. The
+                                    reveal takes one child, hence the StackPanel.
                                 -->
-                                <controls:SidebarDropZone
-                                    Height="12"
-                                    Margin="16,0,0,0"
-                                    ZoneCornerRadius="2.4"
-                                    Kind="Folder"
-                                    FolderId="{x:Bind Id}"
-                                    Visibility="{x:Bind ExpandedVisibility, Mode=OneWay}" />
+                                <controls:ExpandReveal IsOpen="{x:Bind IsExpanded, Mode=OneWay}">
+                                    <StackPanel Margin="16,0,0,0">
+                                        <ItemsControl ItemsSource="{x:Bind Tabs, Mode=OneWay}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="models:BrowserTab">
+                                                    <controls:MoriTabRow Tab="{x:Bind}" Margin="0,0,0,2"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <controls:SidebarDropZone
+                                            Height="12"
+                                            ZoneCornerRadius="2.4"
+                                            Kind="Folder"
+                                            FolderId="{x:Bind Id}" />
+                                    </StackPanel>
+                                </controls:ExpandReveal>
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

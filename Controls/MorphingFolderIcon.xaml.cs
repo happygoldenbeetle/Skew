@@ -31,6 +31,15 @@ public sealed partial class MorphingFolderIcon : UserControl
     private const double FrontDy = 2;
     private const double OpenScale = 0.85; // 1 - 0.15 * progress
 
+    /// <summary>
+    /// How much of the Mac's splay to use when open. The full amount reads far
+    /// wider on Windows than it does on the Mac — the icon is smaller here and
+    /// the two panels end up looking like a folder torn in half rather than one
+    /// held open. Scales the shear and the offsets; the shrink stays as it is,
+    /// since that is what keeps the open folder inside its slot.
+    /// </summary>
+    private const double SplayAmount = 0.6;
+
     private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(300);
 
     public static readonly DependencyProperty IsOpenProperty =
@@ -103,18 +112,22 @@ public sealed partial class MorphingFolderIcon : UserControl
         double progress = IsOpen ? 1 : 0;
         double scale = 1 - (1 - OpenScale) * progress;
 
+        // The shear and the offsets run at a fraction of the Mac's; the shrink
+        // is driven by the full progress.
+        double splay = progress * SplayAmount;
+
         if (!animate)
         {
-            SetSplit(BackSplit, progress, BackAngleDegrees, BackDx, BackDy, scale);
-            SetSplit(FrontSplit, progress, FrontAngleDegrees, FrontDx, FrontDy, scale);
+            SetSplit(BackSplit, splay, BackAngleDegrees, BackDx, BackDy, scale);
+            SetSplit(FrontSplit, splay, FrontAngleDegrees, FrontDx, FrontDy, scale);
             Dots.Opacity = ShowsDots ? 1 : 0;
             return;
         }
 
         var sb = new Storyboard();
 
-        AnimateSplit(sb, BackSplit, progress, BackAngleDegrees, BackDx, BackDy, scale);
-        AnimateSplit(sb, FrontSplit, progress, FrontAngleDegrees, FrontDx, FrontDy, scale);
+        AnimateSplit(sb, BackSplit, splay, BackAngleDegrees, BackDx, BackDy, scale);
+        AnimateSplit(sb, FrontSplit, splay, FrontAngleDegrees, FrontDx, FrontDy, scale);
 
         AddAnimation(sb, Dots, "Opacity", ShowsDots ? 1 : 0, dependent: false);
         sb.Begin();

@@ -207,8 +207,11 @@ public sealed partial class MoriSidebar : UserControl
     {
         if (sender is Button btn && btn.Tag is Guid folderId)
         {
+            // No RefreshUI: IsExpanded raises PropertyChanged and the folder's
+            // own bindings follow it. Reassigning the ItemsSource here rebuilt
+            // every folder container instead, which threw away the reveal
+            // mid-animation and put the rows back to snapping in and out.
             Store?.ToggleFolder(folderId);
-            RefreshUI();
         }
     }
 
