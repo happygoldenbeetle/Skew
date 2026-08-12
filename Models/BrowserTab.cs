@@ -209,6 +209,11 @@ public partial class BrowserTab : ObservableObject
     public void Stop() => _browserView?.StopLoading();
     public void ShowDevTools() => _browserView?.ShowDevTools();
 
+    // Profile-wide, despite going through one tab: the cache and the cookie
+    // jar belong to the request context every tab shares.
+    public void ClearBrowserCache() => _browserView?.ClearBrowserCache();
+    public void ClearBrowserCookies() => _browserView?.ClearBrowserCookies();
+
     /// <summary>Tear down the CEF browser when the tab closes.</summary>
     public void Dispose()
     {

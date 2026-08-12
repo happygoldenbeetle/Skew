@@ -1046,11 +1046,156 @@ public sealed partial class MainWindow : Window
     private void TitleBarAddress_Click(object sender, RoutedEventArgs e)
         => Store.ToggleLauncher();
 
-    private void TitleBarPageOptions_Click(object sender, RoutedEventArgs e)
+    // ── Page options popover (the sliders mark) ───────────────────────────
+
+    /// <summary>
+    /// Fill the popover from live state each time it opens: the extension list
+    /// and the PiP switch are shared with Settings, and the security chip reads
+    /// the tab that is in front right now.
+    /// </summary>
+    private void PageOptionsFlyout_Opened(object sender, object e)
     {
-        var flyout = new MenuFlyout();
-        Mori.Helpers.MenuBuilder.BuildSidebarMenu(flyout);
-        flyout.ShowAt((FrameworkElement)sender);
+        PageOptionsExtensions.ItemsSource = ExtensionStore.Shared.Extensions;
+
+        // Assigned, not bound: this fires Toggled, and a bound switch would
+        // write the value it was just handed straight back through Settings.
+        _syncingAutoPiP = true;
+        PageOptionsAutoPiP.IsOn = BrowserSettings.Shared.AutoPiP;
+        _syncingAutoPiP = false;
+
+        UpdatePageOptionsSecurity();
+    }
+
+    /// <summary>
+    /// The connection chip, on the omnibox's three states: https is secure,
+    /// plain http is not, and anything else (mori: pages, files) is neither —
+    /// there is no connection to speak for.
+    /// </summary>
+    private void UpdatePageOptionsSecurity()
+    {
+        string url = Store.SelectedTab?.UrlString ?? string.Empty;
+
+        if (url.StartsWith("https", StringComparison.OrdinalIgnoreCase))
+        {
+            PageOptionsSecurityIcon.Glyph = "";   // Lock
+            PageOptionsSecurityLabel.Text = "Secure";
+            PageOptionsSecurityIcon.Foreground = PageOptionsSecurityLabel.Foreground =
+                (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+        }
+        else if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            PageOptionsSecurityIcon.Glyph = "";   // Warning
+            PageOptionsSecurityLabel.Text = "Not secure";
+            PageOptionsSecurityIcon.Foreground = PageOptionsSecurityLabel.Foreground =
+                (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBrush"];
+        }
+        else
+        {
+            PageOptionsSecurityIcon.Glyph = "";   // Page
+            PageOptionsSecurityLabel.Text = "Local page";
+            PageOptionsSecurityIcon.Foreground = PageOptionsSecurityLabel.Foreground =
+                (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+        }
+    }
+
+    /// <summary>
+    /// Put the URL on the clipboard. Sharing a link is copying it: the system
+    /// share sheet wants an HWND shim to reach a desktop window and then offers
+    /// a target list nobody came here for, when the link itself is the thing.
+    /// </summary>
+    private void PageOptionsShare_Click(object sender, RoutedEventArgs e)
+    {
+        string? url = Store.SelectedTab?.UrlString;
+        if (string.IsNullOrEmpty(url)) return;
+
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        package.SetText(url);
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+        FlashShareLabel("Link copied");
+    }
+
+    /// <summary>Say what happened, then go back to naming the action.</summary>
+    private void FlashShareLabel(string message)
+    {
+        PageOptionsShareLabel.Text = message;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1400) };
+        timer.Tick += (s, e) =>
+        {
+            timer.Stop();
+            PageOptionsShareLabel.Text = "Share URL";
+        };
+        timer.Start();
+    }
+
+    private bool _syncingAutoPiP;
+
+    private void PageOptionsAutoPiP_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_syncingAutoPiP) return;
+        BrowserSettings.Shared.AutoPiP = PageOptionsAutoPiP.IsOn;
+    }
+
+    /// <summary>
+    /// Where extensions come from: the store, in a tab. The omnibox already
+    /// grows an "Add to Mori" button once a detail page is open, so this only
+    /// has to get the user there.
+    /// </summary>
+    private void PageOptionsWebStore_Click(object sender, RoutedEventArgs e)
+    {
+        PageOptionsFlyout.Hide();
+        Store.NewTab("https://chromewebstore.google.com/");
+    }
+
+    /// <summary>
+    /// The unpacked-folder import Settings offers, reachable from the page the
+    /// extension would run on. The store is the other route, on the + above.
+    /// </summary>
+    private async void PageOptionsAddExtension_Click(object sender, RoutedEventArgs e)
+    {
+        PageOptionsFlyout.Hide();
+
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Desktop;
+        picker.FileTypeFilter.Add("*");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
+
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null) return;
+
+        string? error = await ExtensionStore.Shared.ImportExtensionAsync(folder.Path);
+        if (error is null) return;
+
+        await new ContentDialog
+        {
+            Title = "Extension Error",
+            Content = error,
+            CloseButtonText = "OK",
+            XamlRoot = RootGrid.XamlRoot,
+        }.ShowAsync();
+    }
+
+    private void PageOptionsClearCache_Click(object sender, RoutedEventArgs e)
+    {
+        PageOptionsFlyout.Hide();
+        Store.SelectedTab?.ClearBrowserCache();
+    }
+
+    private void PageOptionsClearCookies_Click(object sender, RoutedEventArgs e)
+    {
+        PageOptionsFlyout.Hide();
+        Store.SelectedTab?.ClearBrowserCookies();
+    }
+
+    private void PageOptionsManageExtensions_Click(object sender, RoutedEventArgs e)
+    {
+        PageOptionsFlyout.Hide();
+        Store.SettingsVisible = true;
+    }
+
+    private void PageOptionsSiteSettings_Click(object sender, RoutedEventArgs e)
+    {
+        PageOptionsFlyout.Hide();
+        Store.SettingsVisible = true;
     }
 
     /// <summary>

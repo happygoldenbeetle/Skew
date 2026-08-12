@@ -771,6 +771,29 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
 
     public void PrintPage() => _browser?.GetHost().Print();
 
+    // ── Browsing data ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Clear the HTTP cache for the whole profile, through Chromium's own
+    /// DevTools method rather than by hand: CEF exposes no cache API of its
+    /// own, and the network service is the only thing that knows what it holds.
+    /// </summary>
+    public void ClearBrowserCache() => ExecuteDevToolsMethod("Network.clearBrowserCache");
+
+    /// <summary>Clear every cookie in the profile (Network.clearBrowserCookies).</summary>
+    public void ClearBrowserCookies() => ExecuteDevToolsMethod("Network.clearBrowserCookies");
+
+    /// <summary>
+    /// Fire a parameterless DevTools method at this browser. The agent attaches
+    /// on first use, so there is nothing to enable first.
+    /// </summary>
+    private void ExecuteDevToolsMethod(string method)
+    {
+        if (_browser is null)
+            return;
+        _browser.GetHost().ExecuteDevToolsMethod(0, method, null);
+    }
+
     // ── JavaScript (mac executeExtensionJavaScript/evaluateJavaScript) ────
 
     public void ExecuteExtensionJavaScript(string source, bool allFrames)

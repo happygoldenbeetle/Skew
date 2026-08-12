@@ -117,6 +117,15 @@ public partial class BrowserSettings : ObservableObject
         PropertyChanged += (_, _) => Save();
     }
 
+    /// <summary>
+    /// Carry the preference into the engine. It was saved and restored but never
+    /// applied, so the switch — in Settings and now in the page options popover
+    /// — only recorded an intention. Live views take it immediately; ones opened
+    /// later read the static the setter leaves behind.
+    /// </summary>
+    partial void OnAutoPiPChanged(bool value)
+        => Controls.MoriBrowserView.SetAutoPiPEnabled(value);
+
     private void Load()
     {
         var saved = SettingsStore.Load();
