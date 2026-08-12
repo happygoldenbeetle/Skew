@@ -115,6 +115,56 @@ internal sealed class SkewDisplayHandler : CefDisplayHandler
     protected override bool OnConsoleMessage(
         CefBrowser browser, CefLogSeverity level, string message, string source, int line)
     {
+        const string resourcePrefix = "__SKEW_EXTENSION_RESOURCE__";
+        if (message is not null && message.StartsWith(resourcePrefix, StringComparison.Ordinal))
+        {
+            try
+            {
+                using var resource = System.Text.Json.JsonDocument.Parse(
+                    message.Substring(resourcePrefix.Length));
+                string extensionId = resource.RootElement.TryGetProperty("extensionId", out var id)
+                    ? id.GetString() ?? "unknown" : "unknown";
+                string path = resource.RootElement.TryGetProperty("path", out var item)
+                    ? item.GetString() ?? "unknown" : "unknown";
+                ExtensionDiagnostics.Write("resource", extensionId,
+                    $"Provided declared resource {path}.");
+            }
+            catch (Exception ex)
+            {
+                ExtensionDiagnostics.Write("diagnostics-error", "unknown", ex.Message);
+            }
+            return true;
+        }
+
+        const string diagnosticPrefix = "__SKEW_EXTENSION_DIAGNOSTIC__";
+        if (message is not null && message.StartsWith(diagnosticPrefix, StringComparison.Ordinal))
+        {
+            try
+            {
+                using var diagnostic = System.Text.Json.JsonDocument.Parse(
+                    message.Substring(diagnosticPrefix.Length));
+                string extensionId = diagnostic.RootElement.TryGetProperty("extensionId", out var id)
+                    ? id.GetString() ?? "unknown" : "unknown";
+                string category = diagnostic.RootElement.TryGetProperty("category", out var kind)
+                    ? kind.GetString() ?? "javascript" : "javascript";
+                string detail = diagnostic.RootElement.TryGetProperty("message", out var text)
+                    ? text.GetString() ?? "Unknown error" : "Unknown error";
+                ExtensionDiagnostics.Write("javascript-error", extensionId,
+                    $"{category}: {detail}");
+            }
+            catch (Exception ex)
+            {
+                ExtensionDiagnostics.Write("diagnostics-error", "unknown", ex.Message);
+            }
+            return true;
+        }
+
+        string diagnosticExtensionId = ExtensionDiagnostics.ExtensionIdFromUrl(source);
+        if (!string.IsNullOrEmpty(diagnosticExtensionId) && message is not null &&
+            !message.StartsWith("__SKEW_", StringComparison.Ordinal))
+            ExtensionDiagnostics.Write("console", diagnosticExtensionId,
+                $"{level} {Path.GetFileName(source)}:{line} {message}");
+
         const string kWebStorePrefix = "__SKEW_WEBSTORE_INSTALL__";
         if (message is not null && message.StartsWith(kWebStorePrefix, StringComparison.Ordinal))
         {

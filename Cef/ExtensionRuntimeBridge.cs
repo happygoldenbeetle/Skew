@@ -31,6 +31,6 @@ public static class ExtensionRuntimeBridge
                 item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
         if (extension?.Manifest is null)
             return null;
-        return ExtensionRuntimeShim.Generate(extension.Id, extension.Manifest);
+        return ExtensionRuntimeShim.Generate(extension.Id, extension.Manifest, extension.Path);
     }
 }

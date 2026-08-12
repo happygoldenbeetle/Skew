@@ -79,16 +79,33 @@ internal static class ExtensionBackgroundManager
         string senderJson = System.Text.Json.JsonSerializer.Serialize(new
         {
             id = extensionId,
-            url = sourceUrl ?? string.Empty
+            url = sourceUrl ?? string.Empty,
+            origin = Uri.TryCreate(sourceUrl, UriKind.Absolute, out Uri? sourceUri)
+                ? sourceUri.GetLeftPart(UriPartial.Authority) : string.Empty,
+            tab = new
+            {
+                id = SelectedTabId,
+                url = sourceUrl ?? string.Empty,
+                active = true,
+                index = 0,
+                incognito = false
+            }
         });
         PendingMessages[requestId] = responseBrowser;
+        ExtensionDiagnostics.Write("message", extensionId,
+            $"Dispatching runtime message from {HostOnly(sourceUrl)}.");
         bool dispatched = ExecuteInBackground(extensionId,
             $"if(chrome.runtime&&chrome.runtime.onMessage&&chrome.runtime.onMessage._fire)" +
             $"(function(){{var sent=false;function reply(value){{if(sent)return;sent=true;" +
             $"console.info('__SKEW_EXTENSION_RESPONSE__'+JSON.stringify({{requestId:{System.Text.Json.JsonSerializer.Serialize(requestId)},extensionId:{System.Text.Json.JsonSerializer.Serialize(extensionId)},result:value}}));}}" +
-            $"var ls=chrome.runtime.onMessage._listeners.slice();for(var i=0;i<ls.length;i++){{try{{var r=ls[i]({messageJson},{senderJson},reply);if(r&&typeof r.then==='function')r.then(reply);}}catch(e){{}}}}" +
+            $"var ls=chrome.runtime.onMessage._listeners.slice();for(var i=0;i<ls.length;i++){{try{{var r=ls[i]({messageJson},{senderJson},reply);if(r&&typeof r.then==='function')r.then(reply);}}catch(e){{if(window.__skewExtDiagnostic)window.__skewExtDiagnostic('background-listener',e);}}}}" +
             $"setTimeout(function(){{reply(null);}},1000);}})();");
-        if (!dispatched) PendingMessages.TryRemove(requestId, out _);
+        if (!dispatched)
+        {
+            PendingMessages.TryRemove(requestId, out _);
+            ExtensionDiagnostics.Write("message-error", extensionId,
+                "No running background context accepted the runtime message.");
+        }
         else ScheduleMessageTimeout(requestId);
         return dispatched;
     }
@@ -117,9 +134,24 @@ internal static class ExtensionBackgroundManager
         return true;
     }
 
+    public static void DispatchStorageChanged(
+        string extensionId, IReadOnlyDictionary<string, object?> changes, string areaName)
+    {
+        string changesJson = System.Text.Json.JsonSerializer.Serialize(changes);
+        string areaJson = System.Text.Json.JsonSerializer.Serialize(areaName);
+        string source =
+            $"if(chrome.storage&&chrome.storage.onChanged&&chrome.storage.onChanged._fire)" +
+            $"chrome.storage.onChanged._fire({changesJson},{areaJson});";
+        ExecuteInBackground(extensionId, source);
+        Skew.Controls.SkewBrowserView.BroadcastExtensionJavaScript(source, extensionId);
+    }
+
     public static void CompleteMessage(string requestId, string extensionId, object? result)
     {
         if (!PendingMessages.TryRemove(requestId, out CefBrowser? browser)) return;
+        ExtensionDiagnostics.Write("message", extensionId,
+            result is null ? "Runtime message completed without a response." :
+                "Runtime message completed with a response.");
         var response = new Dictionary<string, object?>
         {
             ["requestId"] = requestId,
@@ -137,8 +169,17 @@ internal static class ExtensionBackgroundManager
     private static async void ScheduleMessageTimeout(string requestId)
     {
         await Task.Delay(1500);
-        App.DispatcherQueue.TryEnqueue(() => CompleteMessage(requestId, string.Empty, null));
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (PendingMessages.ContainsKey(requestId))
+                ExtensionDiagnostics.Write("message-timeout", "unknown",
+                    "Runtime message exceeded 1500 ms.");
+            CompleteMessage(requestId, string.Empty, null);
+        });
     }
+
+    private static string HostOnly(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ? uri.Host : "unknown";
 
     public static bool ExecuteScriptFiles(string extensionId, IReadOnlyList<string> files, bool allFrames)
     {

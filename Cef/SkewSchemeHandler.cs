@@ -97,6 +97,7 @@ internal abstract class SkewBufferedResourceHandler : CefResourceHandler
     private int _status = 200;
     private string _statusText = "OK";
     private string _mimeType = "application/octet-stream";
+    private readonly Dictionary<string, string> _responseHeaders = new(StringComparer.OrdinalIgnoreCase);
 
     protected abstract bool Resolve(CefRequest request);
 
@@ -111,6 +112,9 @@ internal abstract class SkewBufferedResourceHandler : CefResourceHandler
 
     protected void SetTextResponse(int status, string statusText, string mimeType, string body)
         => SetResponse(status, statusText, mimeType, Encoding.UTF8.GetBytes(body));
+
+    protected void SetResponseHeader(string name, string value)
+        => _responseHeaders[name] = value;
 
     protected override bool Open(CefRequest request, out bool handleRequest, CefCallback callback)
     {
@@ -131,6 +135,8 @@ internal abstract class SkewBufferedResourceHandler : CefResourceHandler
 
         var headers = response.GetHeaderMap();
         headers["Cache-Control"] = "no-store";
+        foreach (var header in _responseHeaders)
+            headers[header.Key] = header.Value;
         response.SetHeaderMap(headers);
 
         responseLength = _data.Length;
@@ -211,6 +217,13 @@ internal sealed class SkewExtensionResourceHandler : SkewBufferedResourceHandler
         }
 
         string mime = SkewExtensionCatalog.MimeTypeForPath(filePath);
+        if (IsWebAccessibleResource(extensionId, requestPath))
+        {
+            SetResponseHeader("Access-Control-Allow-Origin", "*");
+            SetResponseHeader("Cross-Origin-Resource-Policy", "cross-origin");
+            ExtensionDiagnostics.Write("resource", extensionId,
+                $"Allowed web access to {requestPath.TrimStart('/')}.");
+        }
 
         if (mime.StartsWith("text/html", StringComparison.OrdinalIgnoreCase))
         {
@@ -224,6 +237,43 @@ internal sealed class SkewExtensionResourceHandler : SkewBufferedResourceHandler
 
         SetResponse(200, "OK", mime, bytes);
         return true;
+    }
+
+    private static bool IsWebAccessibleResource(string extensionId, string requestPath)
+    {
+        Skew.Models.BrowserExtension? extension = Skew.Models.ExtensionStore.Shared.GetSnapshot()
+            .FirstOrDefault(item => item.Enabled && string.Equals(
+                item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        System.Text.Json.JsonElement? declaration = extension?.Manifest?.WebAccessibleResources;
+        if (declaration is not { ValueKind: System.Text.Json.JsonValueKind.Array }) return false;
+
+        string relative = Uri.UnescapeDataString(requestPath).TrimStart('/');
+        foreach (System.Text.Json.JsonElement item in declaration.Value.EnumerateArray())
+        {
+            if (item.ValueKind == System.Text.Json.JsonValueKind.String &&
+                ResourcePatternMatches(item.GetString(), relative))
+                return true;
+            if (item.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                !item.TryGetProperty("resources", out System.Text.Json.JsonElement resources) ||
+                resources.ValueKind != System.Text.Json.JsonValueKind.Array)
+                continue;
+            foreach (System.Text.Json.JsonElement resource in resources.EnumerateArray())
+                if (resource.ValueKind == System.Text.Json.JsonValueKind.String &&
+                    ResourcePatternMatches(resource.GetString(), relative))
+                    return true;
+        }
+        return false;
+    }
+
+    private static bool ResourcePatternMatches(string? pattern, string relative)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return false;
+        string regex = "^" + System.Text.RegularExpressions.Regex.Escape(
+            pattern.Replace('\\', '/').TrimStart('/')).Replace("\\*", ".*") + "$";
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            relative.Replace('\\', '/'), regex,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
     private static string BuildBackgroundHtml(string extensionId)

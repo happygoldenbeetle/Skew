@@ -146,20 +146,46 @@ public sealed class BrowserClient : CefClient
                     // Inject runtime shim once per extension per frame
                     if (shimInjected.Add(ext.Id))
                     {
-                        string shim = ExtensionRuntimeShim.Generate(ext.Id, ext.Manifest);
+                        string shim = ExtensionRuntimeShim.Generate(ext.Id, ext.Manifest, ext.Path);
                         frame.ExecuteJavaScript(shim, frame.Url, 0);
-
+                        ExtensionDiagnostics.Write("content", ext.Id,
+                            $"Runtime injected at {runAt} into {url.Host}.");
                     }
 
-                    // Inject JS
+                    // Run each declared script group inside an extension scoped
+                    // closure. Content scripts share the page's JavaScript world
+                    // in this CEF host, so the closure keeps chrome.* bound to
+                    // the correct extension even after other shims are injected.
+                    var scriptSource = new System.Text.StringBuilder();
                     foreach (var jsPath in script.Js)
                     {
                         var fullPath = Path.Combine(ext.Path, jsPath);
                         if (File.Exists(fullPath))
                         {
                             string code = File.ReadAllText(fullPath);
-                            frame.ExecuteJavaScript(code, frame.Url, 0);
+                            string sourceUrl = $"{SkewSchemes.ExtensionScheme}://{ext.Id}/" +
+                                jsPath.Replace('\\', '/').TrimStart('/');
+                            scriptSource.AppendLine(code);
+                            scriptSource.AppendLine($"//# sourceURL={sourceUrl}");
+                            ExtensionDiagnostics.Write("content", ext.Id,
+                                $"Injected {jsPath} at {runAt} into {url.Host}.");
                         }
+                        else ExtensionDiagnostics.Write("content-error", ext.Id,
+                            $"Missing content script {jsPath}.");
+                    }
+
+                    if (scriptSource.Length > 0)
+                    {
+                        string idJson = System.Text.Json.JsonSerializer.Serialize(ext.Id);
+                        string wrapped =
+                            "(function(chrome,browser,document){try{\n" + scriptSource +
+                            "\n}catch(error){console.info('__SKEW_EXTENSION_DIAGNOSTIC__'+" +
+                            "JSON.stringify({extensionId:" + idJson +
+                            ",category:'content-script',message:String(error&&error.message||error).slice(0,1000)}));}})" +
+                            "(window.__skewChromeById&&window.__skewChromeById[" + idJson + "]," +
+                            "window.__skewChromeById&&window.__skewChromeById[" + idJson + "]," +
+                            "window.__skewChromeById&&window.__skewChromeById[" + idJson + "].__skewDocument);";
+                        frame.ExecuteJavaScript(wrapped, frame.Url, 0);
                     }
                     
                     // Inject CSS
@@ -193,7 +219,7 @@ public sealed class BrowserClient : CefClient
     }
 
     internal static string ExtensionRuntimeJavaScript(Skew.Models.BrowserExtension extension)
-        => ExtensionRuntimeShim.Generate(extension.Id, extension.Manifest);
+        => ExtensionRuntimeShim.Generate(extension.Id, extension.Manifest, extension.Path);
 
     private static bool ScriptMatchesURL(Skew.Models.ContentScriptMeta script, Uri url)
     {
@@ -304,7 +330,7 @@ public sealed class BrowserClient : CefClient
         if (ext?.Manifest == null) return;
 
         // Inject the runtime shim
-        string shim = ExtensionRuntimeShim.Generate(ext.Id, ext.Manifest);
+        string shim = ExtensionRuntimeShim.Generate(ext.Id, ext.Manifest, ext.Path);
         frame.ExecuteJavaScript(shim, frame.Url, 0);
 
         string? declaredPage = ext.Manifest.Background?.Page?.Replace('\\', '/').TrimStart('/');
@@ -330,11 +356,36 @@ public sealed class BrowserClient : CefClient
 
             var backgroundSource = new System.Text.StringBuilder();
             backgroundSource.Append("if(!window.__skewBackgroundScriptsLoaded){window.__skewBackgroundScriptsLoaded=true;");
-            foreach (var scriptPath in scripts.Distinct(StringComparer.OrdinalIgnoreCase))
+            var orderedScripts = new List<string>();
+            foreach (string scriptPath in scripts.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                string? fullPath = SkewExtensionCatalog.SafeExtensionFilePath(ext.Path, scriptPath);
+                if (fullPath is null) continue;
+                string source = File.ReadAllText(fullPath);
+                foreach (System.Text.RegularExpressions.Match match in
+                    System.Text.RegularExpressions.Regex.Matches(
+                        source, "[\\\"']([^\\\"']+\\.js)[\\\"']",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    string dependency = match.Groups[1].Value;
+                    if (!string.Equals(dependency, scriptPath, StringComparison.OrdinalIgnoreCase) &&
+                        SkewExtensionCatalog.SafeExtensionFilePath(ext.Path, dependency) is not null &&
+                        !orderedScripts.Contains(dependency, StringComparer.OrdinalIgnoreCase))
+                        orderedScripts.Add(dependency);
+                }
+                if (!orderedScripts.Contains(scriptPath, StringComparer.OrdinalIgnoreCase))
+                    orderedScripts.Add(scriptPath);
+            }
+            backgroundSource.Append("globalThis.importScripts=globalThis.importScripts||function(){};");
+            foreach (string scriptPath in orderedScripts)
             {
                 string? fullPath = SkewExtensionCatalog.SafeExtensionFilePath(ext.Path, scriptPath);
                 if (fullPath is not null)
                 {
+                    backgroundSource.Append("\n//# sourceURL=")
+                        .Append(SkewSchemes.ExtensionScheme).Append("://")
+                        .Append(ext.Id).Append('/').Append(scriptPath.Replace('\\', '/'))
+                        .Append("\n");
                     backgroundSource.Append("\n").Append(File.ReadAllText(fullPath)).Append("\n");
                 }
             }
@@ -352,6 +403,8 @@ setTimeout(function(){{
 }},0);
 }}");
             frame.ExecuteJavaScript(backgroundSource.ToString(), frame.Url, 0);
+            ExtensionDiagnostics.Write("background", ext.Id,
+                $"Started {reason} context with {orderedScripts.Count} scripts.");
         }
     }
 
@@ -380,6 +433,8 @@ setTimeout(function(){{
             !string.Equals(uri.Host, "chromewebstore.google.com", StringComparison.OrdinalIgnoreCase))
             return;
 
+        InjectWebStoreWarningSuppression(frame);
+
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 3 || !string.Equals(segments[0], "detail", StringComparison.OrdinalIgnoreCase))
             return;
@@ -406,7 +461,6 @@ setTimeout(function(){{
               let state = incomingInstalled ? 'installed' : 'ready';
               let observer;
               let renderScheduled = false;
-              let lastBannerScan = 0;
 
               const normalize = value => (value || '').replace(/\s+/g, ' ').trim();
               const labels = [
@@ -442,47 +496,9 @@ setTimeout(function(){{
                 return candidates[0];
               };
 
-              const hideUnavailableBanner = () => {
-                const now = performance.now();
-                if (now - lastBannerScan < 750) return;
-                lastBannerScan = now;
-                const message = 'Item currently unavailable. Please check the troubleshooting guide.';
-                const root = document.body || document.documentElement;
-                if (!root) return;
-
-                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-                const messageElements = [];
-                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-                  const element = node.parentElement;
-                  if (normalize(node.nodeValue).includes(message) && element &&
-                    !element.closest('[data-skew-unavailable-banner-hidden="true"]'))
-                    messageElements.push(element);
-                }
-
-                for (const messageElement of messageElements) {
-                  let current = messageElement;
-                  for (let depth = 0; current && depth < 5; depth++, current = current.parentElement) {
-                    if (current === document.body || current === document.documentElement) break;
-                    const text = normalize(current.textContent);
-                    const rect = current.getBoundingClientRect();
-                    const hasGuideControl = Array.from(
-                      current.querySelectorAll('a, button, [role="button"]')
-                    ).some(element => normalize(element.textContent) === 'View guide');
-                    const compactAlert = rect.width >= 200 && rect.width <= innerWidth &&
-                      rect.height >= 32 && rect.height <= 180 && text.length <= message.length + 80;
-                    if (hasGuideControl && compactAlert && text.includes(message) && isVisible(current)) {
-                      current.dataset.skewUnavailableBannerHidden = 'true';
-                      current.style.setProperty('display', 'none', 'important');
-                      return;
-                    }
-                  }
-                }
-              };
-
               const render = () => {
                 const button = findButton();
                 if (!button) return;
-                hideUnavailableBanner();
                 const label = button.querySelector('[jsname="V67aGc"]') || button;
                 const text = state === 'installing' ? 'Installing...' :
                   state === 'removing' ? 'Removing...' :
@@ -569,6 +585,76 @@ setTimeout(function(){{
             })();
             """;
 
+        frame.ExecuteJavaScript(js, frame.Url, 0);
+    }
+
+    private static void InjectWebStoreWarningSuppression(CefFrame frame)
+    {
+        const string js = """
+            (() => {
+              if (window.__skewWebStoreWarningSuppression) {
+                window.__skewWebStoreWarningSuppression.scan();
+                return;
+              }
+
+              const message = 'Item currently unavailable. Please check the troubleshooting guide.';
+              const normalize = value => (value || '').replace(/\s+/g, ' ').trim();
+              let scheduled = false;
+
+              const hideCandidate = candidate => {
+                if (!(candidate instanceof Element) ||
+                    candidate.dataset.skewUnavailableBannerHidden === 'true') return false;
+                const text = normalize(candidate.textContent);
+                if (!text.includes(message) || text.length > message.length + 80) return false;
+                const rect = candidate.getBoundingClientRect();
+                if (rect.width < 200 || rect.width > innerWidth || rect.height < 32 || rect.height > 180)
+                  return false;
+                const hasGuideControl = Array.from(
+                  candidate.querySelectorAll('a, button, [role="button"]')
+                ).some(element => normalize(element.textContent) === 'View guide');
+                if (!hasGuideControl) return false;
+                candidate.dataset.skewUnavailableBannerHidden = 'true';
+                candidate.style.setProperty('display', 'none', 'important');
+                return true;
+              };
+
+              const scan = () => {
+                scheduled = false;
+                const root = document.body || document.documentElement;
+                if (!root) return;
+                for (const alert of root.querySelectorAll('[role="alert"]'))
+                  if (hideCandidate(alert)) return;
+
+                const controls = root.querySelectorAll('a, button, [role="button"]');
+                for (const control of controls) {
+                  if (normalize(control.textContent) !== 'View guide') continue;
+                  let current = control.parentElement;
+                  for (let depth = 0; current && depth < 5; depth++, current = current.parentElement) {
+                    if (current === document.body || current === document.documentElement) break;
+                    if (hideCandidate(current)) return;
+                  }
+                }
+              };
+
+              const schedule = () => {
+                if (scheduled) return;
+                scheduled = true;
+                setTimeout(scan, 0);
+              };
+              const start = () => {
+                if (!document.documentElement) return;
+                new MutationObserver(schedule).observe(document.documentElement, {
+                  childList: true,
+                  subtree: true
+                });
+                schedule();
+              };
+
+              window.__skewWebStoreWarningSuppression = { scan: schedule };
+              if (document.documentElement) start();
+              else document.addEventListener('DOMContentLoaded', start, { once: true });
+            })();
+            """;
         frame.ExecuteJavaScript(js, frame.Url, 0);
     }
 

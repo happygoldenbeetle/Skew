@@ -47,6 +47,7 @@ public partial class App : Application
 
         // Pre-initialize ExtensionStore on the UI thread so its ObservableCollection
         // captures the correct dispatcher, preventing crashes when CEF threads read it.
+        Skew.Cef.ExtensionDiagnostics.Reset();
         _ = Skew.Models.ExtensionStore.Shared;
 
         Window = new MainWindow();

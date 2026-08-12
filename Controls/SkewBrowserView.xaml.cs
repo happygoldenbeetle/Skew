@@ -968,7 +968,8 @@ public sealed partial class SkewBrowserView : UserControl, IBrowserViewDelegate,
             return;
         string guarded = string.IsNullOrEmpty(extensionId)
             ? source
-            : $"if(window.__skewExtensionID==={Json(extensionId)}){{{source}}}";
+            : $"{{const chrome=window.__skewChromeById&&window.__skewChromeById[{Json(extensionId)}];" +
+              $"if(chrome){{{source}}}}}";
         ForEachLiveView(v => v.ExecuteExtensionJavaScript(guarded, allFrames: true));
     }
 

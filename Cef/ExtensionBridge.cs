@@ -51,6 +51,10 @@ internal static class ExtensionBridge
     {
         try
         {
+            string sourceKind = sourceUrl.StartsWith(SkewSchemes.ExtensionScheme + "://",
+                StringComparison.OrdinalIgnoreCase) ? "extension" : "content";
+            ExtensionDiagnostics.Write("api", extensionId,
+                $"{sourceKind} called {method}.");
             BrowserExtension? extension = ExtensionStore.Shared.GetSnapshot().FirstOrDefault(item =>
                 item.Enabled && string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
             if (extension?.Manifest is null)
@@ -112,6 +116,14 @@ internal static class ExtensionBridge
                 App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.Reload());
                 return MakeResponse(requestId, (object?)null);
             }
+            if (method == "tabs.detectLanguage")
+            {
+                string language = System.Globalization.CultureInfo.CurrentUICulture
+                    .TwoLetterISOLanguageName.ToLowerInvariant();
+                if (string.IsNullOrWhiteSpace(language) || language.Length != 2)
+                    language = "en";
+                return MakeResponse(requestId, language);
+            }
             if (method == "scripting.executeScript")
             {
                 if (!HasPermission(extension, "scripting"))
@@ -138,13 +150,23 @@ internal static class ExtensionBridge
                     return MakeResponse(requestId, (object?)null);
                 return MakeDeferredResponse(requestId);
             }
+            if (method == "runtime.fetch")
+            {
+                if (!extensionPage)
+                    return MakeError(requestId,
+                        "Privileged extension fetch is available only to extension pages.");
+                return ExtensionNativeFetch.Start(browser, requestId, extensionId, args);
+            }
 
             // Unrecognised method — return a generic "not implemented" that
             // doesn't break the extension.
+            ExtensionDiagnostics.Write("api-unsupported", extensionId, method);
             return MakeResponse(requestId, (object?)null);
         }
         catch (Exception ex)
         {
+            ExtensionDiagnostics.Write("api-error", extensionId,
+                $"{method}: {ex.GetType().Name}: {ex.Message}");
             return MakeError(requestId, ex.Message);
         }
     }
@@ -277,17 +299,29 @@ internal static class ExtensionBridge
         {
             if (args.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Object)
             {
+                var changes = new Dictionary<string, object?>();
                 lock (store)
                 {
                     var updated = store.ToDictionary(pair => pair.Key, pair => pair.Value.Clone());
                     foreach (var prop in itemsEl.EnumerateObject())
+                    {
+                        bool hadOldValue = store.TryGetValue(prop.Name, out JsonElement oldValue);
+                        if (!hadOldValue || oldValue.GetRawText() != prop.Value.GetRawText())
+                            changes[prop.Name] = new
+                            {
+                                oldValue = hadOldValue ? oldValue.Clone() : (JsonElement?)null,
+                                newValue = prop.Value.Clone()
+                            };
                         updated[prop.Name] = prop.Value.Clone();
+                    }
                     if (JsonSerializer.SerializeToUtf8Bytes(updated).Length > StorageQuotaBytes)
                         return MakeError(requestId, "chrome.storage.local quota exceeded.");
                     store.Clear();
                     foreach (var pair in updated) store[pair.Key] = pair.Value;
                     SaveStorage(extensionId, store);
                 }
+                if (changes.Count > 0)
+                    ExtensionBackgroundManager.DispatchStorageChanged(extensionId, changes, "local");
             }
             return MakeResponse(requestId, (object?)null);
         }
@@ -296,30 +330,41 @@ internal static class ExtensionBridge
         {
             if (args.TryGetProperty("keys", out var keysEl))
             {
+                var changes = new Dictionary<string, object?>();
                 lock (store)
                 {
-                    if (keysEl.ValueKind == JsonValueKind.Array)
+                    IEnumerable<string> keys = keysEl.ValueKind switch
                     {
-                        foreach (var k in keysEl.EnumerateArray())
-                            store.Remove(k.GetString() ?? "");
-                    }
-                    else if (keysEl.ValueKind == JsonValueKind.String)
+                        JsonValueKind.Array => keysEl.EnumerateArray()
+                            .Select(item => item.GetString() ?? "").ToArray(),
+                        JsonValueKind.String => new[] { keysEl.GetString() ?? "" },
+                        _ => Array.Empty<string>()
+                    };
+                    foreach (string key in keys.Where(key => !string.IsNullOrEmpty(key)))
                     {
-                        store.Remove(keysEl.GetString() ?? "");
+                        if (store.Remove(key, out JsonElement oldValue))
+                            changes[key] = new { oldValue = oldValue.Clone() };
                     }
                     SaveStorage(extensionId, store);
                 }
+                if (changes.Count > 0)
+                    ExtensionBackgroundManager.DispatchStorageChanged(extensionId, changes, "local");
             }
             return MakeResponse(requestId, (object?)null);
         }
 
         if (method == "storage.local.clear")
         {
+            var changes = new Dictionary<string, object?>();
             lock (store)
             {
+                foreach (var pair in store)
+                    changes[pair.Key] = new { oldValue = pair.Value.Clone() };
                 store.Clear();
                 SaveStorage(extensionId, store);
             }
+            if (changes.Count > 0)
+                ExtensionBackgroundManager.DispatchStorageChanged(extensionId, changes, "local");
             return MakeResponse(requestId, (object?)null);
         }
 

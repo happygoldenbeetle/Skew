@@ -75,6 +75,9 @@ namespace Skew.Models
         [JsonPropertyName("host_permissions")]
         public List<string> HostPermissions { get; set; } = new();
 
+        [JsonPropertyName("web_accessible_resources")]
+        public System.Text.Json.JsonElement? WebAccessibleResources { get; set; }
+
         [JsonPropertyName("action")]
         public ActionMeta? Action { get; set; }
 
