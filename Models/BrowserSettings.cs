@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 public enum NewTabBehavior { Homepage, Blank, Dashboard }
 public enum SearchEngine { Google, Bing, DuckDuckGo, Brave, Custom }
@@ -124,7 +124,7 @@ public partial class BrowserSettings : ObservableObject
     /// later read the static the setter leaves behind.
     /// </summary>
     partial void OnAutoPiPChanged(bool value)
-        => Controls.MoriBrowserView.SetAutoPiPEnabled(value);
+        => Controls.SkewBrowserView.SetAutoPiPEnabled(value);
 
     private void Load()
     {

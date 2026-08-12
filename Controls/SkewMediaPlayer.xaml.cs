@@ -4,24 +4,24 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Mori.Models;
-using Mori.Theme;
+using Skew.Models;
+using Skew.Theme;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// The dynamic sidebar media player strip. 1:1 port of MediaPlayerStrip.swift —
 /// artwork, scrubbable progress, skip ±10s, play/pause, mute, and PiP. Bound to
 /// the shared <see cref="MediaController"/>.
 /// </summary>
-public sealed partial class MoriMediaPlayer : UserControl
+public sealed partial class SkewMediaPlayer : UserControl
 {
     public MediaController Media => MediaController.Shared;
 
     private bool _scrubbing;
     private double _scrubValue;
 
-    public MoriMediaPlayer()
+    public SkewMediaPlayer()
     {
         InitializeComponent();
         Loaded += (_, _) =>

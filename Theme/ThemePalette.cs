@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 
-namespace Mori.Theme;
+namespace Skew.Theme;
 
 /// <summary>
-/// A full set of Mori color tokens for one appearance.
+/// A full set of Skew color tokens for one appearance.
 /// Transcribed verbatim from the Mac app's Theme.swift — :root (light) and .dark.
 /// </summary>
 public class ThemePalette
@@ -128,7 +128,7 @@ public class ThemePalette
 /// <summary>
 /// Radius scale. Base --radius: 0.4rem ≈ 6.4px. Exact port from Theme.swift.
 /// </summary>
-public static class MoriRadius
+public static class SkewRadius
 {
     public const double Base = 6.4;
     public const double Sm = 2.4;
@@ -143,7 +143,7 @@ public static class MoriRadius
 /// <summary>
 /// Typography scale. Base interactive text is 13px; labels 12px. Port from Theme.swift.
 /// </summary>
-public static class MoriTypography
+public static class SkewTypography
 {
     public const double Base = 13;
     public const double Label = 12;
@@ -160,7 +160,7 @@ public static class MoriTypography
 /// <summary>
 /// Motion tokens (MASTER §3): snappy easing, 150ms default.
 /// </summary>
-public static class MoriMotion
+public static class SkewMotion
 {
     public static readonly TimeSpan Snappy = TimeSpan.FromMilliseconds(150);
     public static readonly TimeSpan State = TimeSpan.FromMilliseconds(150);

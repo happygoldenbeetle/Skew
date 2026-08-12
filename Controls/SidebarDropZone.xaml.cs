@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Mori.Models;
+using Skew.Models;
 using Windows.ApplicationModel.DataTransfer;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>Which list a <see cref="SidebarDropZone"/> appends to.</summary>
 public enum SidebarDropZoneKind
@@ -89,19 +89,19 @@ public sealed partial class SidebarDropZone : UserControl
         if ((bool)e.NewValue)
         {
             zone.Visibility = Visibility.Collapsed;
-            MoriTabRow.TabDragActiveChanged += zone.OnTabDragActiveChanged;
+            SkewTabRow.TabDragActiveChanged += zone.OnTabDragActiveChanged;
             zone.Unloaded += zone.DetachDragWatch;
         }
         else
         {
-            MoriTabRow.TabDragActiveChanged -= zone.OnTabDragActiveChanged;
+            SkewTabRow.TabDragActiveChanged -= zone.OnTabDragActiveChanged;
             zone.Unloaded -= zone.DetachDragWatch;
             zone.Visibility = Visibility.Visible;
         }
     }
 
     private void DetachDragWatch(object sender, RoutedEventArgs e)
-        => MoriTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
+        => SkewTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
 
     private void OnTabDragActiveChanged(bool active)
         => DispatcherQueue.TryEnqueue(() =>

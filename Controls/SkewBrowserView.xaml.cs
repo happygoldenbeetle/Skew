@@ -5,20 +5,20 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Mori.Cef;
-using Mori.Cef.Osr;
+using Skew.Cef;
+using Skew.Cef.Osr;
 using WinRT;
 using Xilium.CefGlue;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// WinUI control wrapping a single CEF browser, presented as a panel. Port of the
-/// mac MoriBrowserView (Bridge/MoriBrowserView.h/.mm).
+/// mac SkewBrowserView (Bridge/SkewBrowserView.h/.mm).
 ///
 /// <para>
 /// Why this control renders Chromium offscreen rather than hosting it as a child
-/// window: Mori is the browser UI; Chromium is the page engine underneath it. On
+/// window: Skew is the browser UI; Chromium is the page engine underneath it. On
 /// macOS a <c>SetAsChild</c> browser lands in an NSView that composites normally
 /// inside the SwiftUI tree, so the chrome can draw over, clip, and animate it.
 /// The Windows equivalent is a child HWND, which always composites above every
@@ -26,7 +26,7 @@ namespace Mori.Controls;
 /// So here the browser is windowless: Chromium paints into memory, we present
 /// those frames into an <c>Image</c>, and the page becomes ordinary XAML content.
 /// Chrome's built-in extension runtime is not available either way; extension
-/// behavior is implemented by Mori itself (see
+/// behavior is implemented by Skew itself (see
 /// <see cref="ExtensionRuntimeBridge"/> and the scheme handler).
 /// </para>
 ///
@@ -36,14 +36,14 @@ namespace Mori.Controls;
 /// navigation events below — the same boundary the mac bridging header enforces.
 /// </para>
 /// </summary>
-public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate, IOsrHost
+public sealed partial class SkewBrowserView : UserControl, IBrowserViewDelegate, IOsrHost
 {
     // One press changes the CEF zoom level by this much. CEF zoom is logarithmic
     // (scale = 1.2^level), so 0.5 is roughly a 10% step — close to Chrome's feel.
     private const double ZoomStep = 0.5;
 
     // Live views, for the class-level fan-out / suppression methods (mac g_all_views).
-    private static readonly List<WeakReference<MoriBrowserView>> s_allViews = new();
+    private static readonly List<WeakReference<SkewBrowserView>> s_allViews = new();
     private static bool s_webContentSuppressed; // mac g_web_content_suppressed
 
     private readonly DispatcherQueue _dispatcher;
@@ -82,7 +82,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
     public int BrowserIdentifier => _browser?.Identifier ?? 0;
     public int ExtensionTabId { get; set; }
 
-    // ── Navigation/display events (mac MoriBrowserViewDelegate) ────────────
+    // ── Navigation/display events (mac SkewBrowserViewDelegate) ────────────
 
     public event Action<string>? TitleChanged;
     public event Action<string>? UrlChanged;
@@ -95,16 +95,16 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
     public event Action<string>? RequestsNewTab;
     public event Action<int, int>? FindMatchUpdated;
 
-    public MoriBrowserView() : this("about:blank") { }
+    public SkewBrowserView() : this("about:blank") { }
 
-    public MoriBrowserView(string url)
+    public SkewBrowserView(string url)
     {
         InitializeComponent();
         _pendingUrl = url;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
         lock (s_allViews)
-            s_allViews.Add(new WeakReference<MoriBrowserView>(this));
+            s_allViews.Add(new WeakReference<SkewBrowserView>(this));
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -331,7 +331,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
             {
                 if (w.TryGetTarget(out var view) && view._browser is not null)
                 {
-                    view._browser.GetMainFrame().ExecuteJavaScript(js, "mori://internal", 0);
+                    view._browser.GetMainFrame().ExecuteJavaScript(js, "skew://internal", 0);
                 }
             }
         }
@@ -859,7 +859,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
 
     public void SendMediaCommand(string action, double value)
     {
-        string js = $"if(window.__moriMediaCommand)window.__moriMediaCommand(" +
+        string js = $"if(window.__skewMediaCommand)window.__skewMediaCommand(" +
             $"{JsonSerializer.Serialize(action)},{value.ToString(System.Globalization.CultureInfo.InvariantCulture)});";
         ExecuteExtensionJavaScript(js, allFrames: true);
     }
@@ -892,7 +892,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
 
     public void ApplyAutoPiP(bool enabled)
         => ExecuteExtensionJavaScript(
-            $"if(window.__moriApplyAutoPiP)window.__moriApplyAutoPiP({(enabled ? "true" : "false")});",
+            $"if(window.__skewApplyAutoPiP)window.__skewApplyAutoPiP({(enabled ? "true" : "false")});",
             allFrames: true);
 
     // ── Downloads (mac startDownload) ─────────────────────────────────────
@@ -941,14 +941,14 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
         if (string.IsNullOrEmpty(extensionId))
             return;
         string js =
-            $"if(window.__moriExtDispatchMessage){{window.__moriExtDispatchMessage(" +
+            $"if(window.__skewExtDispatchMessage){{window.__skewExtDispatchMessage(" +
             $"{Json(extensionId)},{Json(message)},{Json(requestId)},{Json(sourceUrl)},{Json(sourceOrigin)});}}";
         ForEachLiveView(v => v.ExecuteExtensionJavaScript(js, allFrames: true));
     }
 
     public static void DispatchExtensionBridgeResponse(IReadOnlyDictionary<string, object?> response)
     {
-        string js = $"if(window.__moriExtResolve){{window.__moriExtResolve({Json(response)});}}";
+        string js = $"if(window.__skewExtResolve){{window.__skewExtResolve({Json(response)});}}";
         ForEachLiveView(v => v.ExecuteExtensionJavaScript(js, allFrames: true));
     }
 
@@ -957,7 +957,7 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
         if (string.IsNullOrEmpty(eventName))
             return;
         string js =
-            $"if(window.__moriExtDispatchEvent){{window.__moriExtDispatchEvent(" +
+            $"if(window.__skewExtDispatchEvent){{window.__skewExtDispatchEvent(" +
             $"{Json(eventName)},{Json(args)},{Json(extensionId)});}}";
         ForEachLiveView(v => v.ExecuteExtensionJavaScript(js, allFrames: true));
     }
@@ -968,13 +968,13 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
             return;
         string guarded = string.IsNullOrEmpty(extensionId)
             ? source
-            : $"if(window.__moriExtensionID==={Json(extensionId)}){{{source}}}";
+            : $"if(window.__skewExtensionID==={Json(extensionId)}){{{source}}}";
         ForEachLiveView(v => v.ExecuteExtensionJavaScript(guarded, allFrames: true));
     }
 
-    private static void ForEachLiveView(Action<MoriBrowserView> action)
+    private static void ForEachLiveView(Action<SkewBrowserView> action)
     {
-        List<MoriBrowserView> live = new();
+        List<SkewBrowserView> live = new();
         lock (s_allViews)
         {
             s_allViews.RemoveAll(w => !w.TryGetTarget(out _));
@@ -993,6 +993,6 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
         // Mirrors the mac EmitEngineAuditMarker so automated checks can confirm
         // the embedding model in use.
         Console.Error.WriteLine(
-            $"__MORI_CHROMIUM_ENGINE__ runtime=alloy embedding=windowless scheme={MoriSchemes.ExtensionScheme}");
+            $"__SKEW_CHROMIUM_ENGINE__ runtime=alloy embedding=windowless scheme={SkewSchemes.ExtensionScheme}");
     }
 }

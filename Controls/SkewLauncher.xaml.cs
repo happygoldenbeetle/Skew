@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Mori.Models;
+using Skew.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 public class LauncherItem
 {
@@ -38,7 +38,7 @@ public class LauncherItem
     {
         get
         {
-            return Mori.Helpers.FaviconKit.Resolve(Tab?.FaviconUrl, Tab?.UrlString);
+            return Skew.Helpers.FaviconKit.Resolve(Tab?.FaviconUrl, Tab?.UrlString);
         }
     }
 }
@@ -47,7 +47,7 @@ public class LauncherItem
 /// The command palette / launcher — Spotlight-style search + tab switcher.
 /// Port of LauncherOverlay.swift.
 /// </summary>
-public sealed partial class MoriLauncher : UserControl
+public sealed partial class SkewLauncher : UserControl
 {
     /// <summary>
     /// Rows the card will show, and the reason the list neither scrolls nor
@@ -71,7 +71,7 @@ public sealed partial class MoriLauncher : UserControl
     /// </summary>
     private const double FullCardHeight = 2 + 52 + 1 + (4 + (MaxResults * (48 + 4)));
 
-    public MoriLauncher()
+    public SkewLauncher()
     {
         InitializeComponent();
         ResultsList.ItemsSource = _launcherItems;

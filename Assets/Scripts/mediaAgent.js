@@ -1,15 +1,15 @@
-// Mori media / Picture-in-Picture agent. Port target: mac MediaAgentScript.h.
-// Injected at OnLoadEnd into each frame. Emits structured "__MORI_MEDIA__"
+// Skew media / Picture-in-Picture agent. Port target: mac MediaAgentScript.h.
+// Injected at OnLoadEnd into each frame. Emits structured "__SKEW_MEDIA__"
 // console markers (read by BrowserClient.OnConsoleMessage) and exposes command
-// hooks the host calls via SendMediaCommand / ApplyAutoPiP. The __MORI_AUTO_PIP__
-// token is substituted by MoriAgentScripts.MediaAgent(bool) at injection time.
+// hooks the host calls via SendMediaCommand / ApplyAutoPiP. The __SKEW_AUTO_PIP__
+// token is substituted by SkewAgentScripts.MediaAgent(bool) at injection time.
 (function () {
-  if (window.__moriMediaInstalled) return;
-  window.__moriMediaInstalled = true;
-  var autoPiP = __MORI_AUTO_PIP__;
+  if (window.__skewMediaInstalled) return;
+  window.__skewMediaInstalled = true;
+  var autoPiP = __SKEW_AUTO_PIP__;
 
   function emit(payload) {
-    try { console.debug("__MORI_MEDIA__" + JSON.stringify(payload)); } catch (e) {}
+    try { console.debug("__SKEW_MEDIA__" + JSON.stringify(payload)); } catch (e) {}
   }
 
   function primaryVideo() {
@@ -21,7 +21,7 @@
     return vids[0] || null;
   }
 
-  window.__moriMediaCommand = function (action, value) {
+  window.__skewMediaCommand = function (action, value) {
     var v = primaryVideo();
     if (!v) return;
     switch (action) {
@@ -37,7 +37,7 @@
     }
   };
 
-  window.__moriApplyAutoPiP = function (enabled) {
+  window.__skewApplyAutoPiP = function (enabled) {
     autoPiP = !!enabled;
     var v = primaryVideo();
     if (v) { try { v.autoPictureInPicture = autoPiP; } catch (e) {} }

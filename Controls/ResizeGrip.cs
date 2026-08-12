@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// A drag strip that shows the horizontal resize cursor over it, and a line

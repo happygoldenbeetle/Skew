@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Xilium.CefGlue;
 
-namespace Mori.Cef.Osr;
+namespace Skew.Cef.Osr;
 
 /// <summary>
 /// Holds the offscreen BGRA frame Chromium paints into, and composites the

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// Runs the CEF subprocess fast-path before the WinUI-generated entry point.

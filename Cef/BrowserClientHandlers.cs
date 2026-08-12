@@ -1,16 +1,16 @@
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 // Per-tab CEF handlers. CefGlue splits the single mac BrowserClient (which
 // multiply-inherited every handler) into separate handler objects returned from
 // BrowserClient.Get*Handler(). Each forwards to the BrowserClient's
 // IBrowserViewDelegate, exactly as the mac handler methods did.
 
-internal sealed class MoriLifeSpanHandler : CefLifeSpanHandler
+internal sealed class SkewLifeSpanHandler : CefLifeSpanHandler
 {
     private readonly BrowserClient _client;
-    public MoriLifeSpanHandler(BrowserClient client) => _client = client;
+    public SkewLifeSpanHandler(BrowserClient client) => _client = client;
 
     protected override bool OnBeforePopup(
         CefBrowser browser, CefFrame frame, string targetUrl,
@@ -19,7 +19,7 @@ internal sealed class MoriLifeSpanHandler : CefLifeSpanHandler
         ref CefClient client, CefBrowserSettings settings,
         ref CefDictionaryValue extraInfo, ref bool noJavascriptAccess)
     {
-        // Route popups / target=_blank into Mori chrome instead of letting CEF
+        // Route popups / target=_blank into Skew chrome instead of letting CEF
         // create a top-level native window (mac OnBeforePopup + OnOpenURLFromTab).
         bool consumed = _client.Delegate?.OnOpenUrlFromTab(targetUrl) ?? false;
         return consumed; // true => cancel the CEF-created popup.
@@ -32,10 +32,10 @@ internal sealed class MoriLifeSpanHandler : CefLifeSpanHandler
         => _client.Delegate?.OnBeforeClose(browser);
 }
 
-internal sealed class MoriLoadHandler : CefLoadHandler
+internal sealed class SkewLoadHandler : CefLoadHandler
 {
     private readonly BrowserClient _client;
-    public MoriLoadHandler(BrowserClient client) => _client = client;
+    public SkewLoadHandler(BrowserClient client) => _client = client;
 
     protected override void OnLoadingStateChange(
         CefBrowser browser, bool isLoading, bool canGoBack, bool canGoForward)
@@ -58,7 +58,7 @@ internal sealed class MoriLoadHandler : CefLoadHandler
         // Inject extension content scripts.
         BrowserClient.InjectContentScripts(frame);
 
-        // If this is an extension page (mori-extension://), inject the runtime
+        // If this is an extension page (skew-extension://), inject the runtime
         // shim and background scripts so chrome.contextMenus etc. work.
         BrowserClient.InjectExtensionPageShim(frame);
 
@@ -75,10 +75,10 @@ internal sealed class MoriLoadHandler : CefLoadHandler
     }
 }
 
-internal sealed class MoriDisplayHandler : CefDisplayHandler
+internal sealed class SkewDisplayHandler : CefDisplayHandler
 {
     private readonly BrowserClient _client;
-    public MoriDisplayHandler(BrowserClient client) => _client = client;
+    public SkewDisplayHandler(BrowserClient client) => _client = client;
 
     protected override void OnTitleChange(CefBrowser browser, string title)
         => _client.Delegate?.OnTitleChange(title ?? "");
@@ -96,15 +96,15 @@ internal sealed class MoriDisplayHandler : CefDisplayHandler
         CefBrowser browser, CefLogSeverity level, string message, string source, int line)
     {
         if (message is not null &&
-            (message.StartsWith("__MORI_MEDIA__", StringComparison.Ordinal) ||
-             message.StartsWith("__MORI_EXT__", StringComparison.Ordinal)))
+            (message.StartsWith("__SKEW_MEDIA__", StringComparison.Ordinal) ||
+             message.StartsWith("__SKEW_EXT__", StringComparison.Ordinal)))
         {
-            MoriBrowserHostChannel.HandleConsoleMarker(browser, message);
+            SkewBrowserHostChannel.HandleConsoleMarker(browser, message);
             return true;
         }
 
-        // Extension API bridge: intercept __MORI_EXTENSION__ prefixed messages
-        const string kExtPrefix = "__MORI_EXTENSION__";
+        // Extension API bridge: intercept __SKEW_EXTENSION__ prefixed messages
+        const string kExtPrefix = "__SKEW_EXTENSION__";
         if (message is not null && message.StartsWith(kExtPrefix, StringComparison.Ordinal))
         {
             try
@@ -121,7 +121,7 @@ internal sealed class MoriDisplayHandler : CefDisplayHandler
                 if (response != null)
                 {
                     var responseJson = System.Text.Json.JsonSerializer.Serialize(response);
-                    var js = $"if(window.__moriExtResolve)window.__moriExtResolve({responseJson});";
+                    var js = $"if(window.__skewExtResolve)window.__skewExtResolve({responseJson});";
 
                     var frameIds = browser.GetFrameIdentifiers();
                     foreach (var fid in frameIds)
@@ -149,10 +149,10 @@ internal sealed class MoriDisplayHandler : CefDisplayHandler
     }
 }
 
-internal sealed class MoriDownloadHandler : CefDownloadHandler
+internal sealed class SkewDownloadHandler : CefDownloadHandler
 {
     private readonly BrowserClient _client;
-    public MoriDownloadHandler(BrowserClient client) => _client = client;
+    public SkewDownloadHandler(BrowserClient client) => _client = client;
 
     protected override void OnBeforeDownload(
         CefBrowser browser, CefDownloadItem downloadItem, string suggestedName,
@@ -173,16 +173,16 @@ internal sealed class MoriDownloadHandler : CefDownloadHandler
         else
             BrowserClient.RegisterDownload(id, callback);
 
-        MoriBrowserHostChannel.HandleDownloadUpdate(
+        SkewBrowserHostChannel.HandleDownloadUpdate(
             id, downloadItem.Url, downloadItem.FullPath, downloadItem.ReceivedBytes, downloadItem.TotalBytes, downloadItem.PercentComplete, downloadItem.CurrentSpeed,
             downloadItem.IsComplete, downloadItem.IsCanceled);
     }
 }
 
-internal sealed class MoriJSDialogHandler : CefJSDialogHandler
+internal sealed class SkewJSDialogHandler : CefJSDialogHandler
 {
     private readonly BrowserClient _client;
-    public MoriJSDialogHandler(BrowserClient client) => _client = client;
+    public SkewJSDialogHandler(BrowserClient client) => _client = client;
 
     protected override bool OnJSDialog(
         CefBrowser browser, string originUrl, CefJSDialogType dialogType,
@@ -190,7 +190,7 @@ internal sealed class MoriJSDialogHandler : CefJSDialogHandler
         out bool suppressMessage)
     {
         suppressMessage = false;
-        MoriBrowserHostChannel.HandleJSDialog(
+        SkewBrowserHostChannel.HandleJSDialog(
             browser, dialogType, messageText ?? "", defaultPromptText ?? "", callback);
         return true; // We handle presentation.
     }
@@ -198,7 +198,7 @@ internal sealed class MoriJSDialogHandler : CefJSDialogHandler
     protected override bool OnBeforeUnloadDialog(
         CefBrowser browser, string messageText, bool isReload, CefJSDialogCallback callback)
     {
-        MoriBrowserHostChannel.HandleBeforeUnloadDialog(browser, messageText ?? "", callback);
+        SkewBrowserHostChannel.HandleBeforeUnloadDialog(browser, messageText ?? "", callback);
         return true;
     }
 
@@ -206,10 +206,10 @@ internal sealed class MoriJSDialogHandler : CefJSDialogHandler
     protected override void OnDialogClosed(CefBrowser browser) { }
 }
 
-internal sealed class MoriFindHandler : CefFindHandler
+internal sealed class SkewFindHandler : CefFindHandler
 {
     private readonly BrowserClient _client;
-    public MoriFindHandler(BrowserClient client) => _client = client;
+    public SkewFindHandler(BrowserClient client) => _client = client;
 
     protected override void OnFindResult(
         CefBrowser browser, int identifier, int count, CefRectangle selectionRect,
@@ -217,10 +217,10 @@ internal sealed class MoriFindHandler : CefFindHandler
         => _client.Delegate?.OnFindResult(count, activeMatchOrdinal);
 }
 
-internal sealed class MoriKeyboardHandler : CefKeyboardHandler
+internal sealed class SkewKeyboardHandler : CefKeyboardHandler
 {
     private readonly BrowserClient _client;
-    public MoriKeyboardHandler(BrowserClient client) => _client = client;
+    public SkewKeyboardHandler(BrowserClient client) => _client = client;
 
     protected override bool OnPreKeyEvent(
         CefBrowser browser, CefKeyEvent keyEvent, IntPtr osEvent, out bool isKeyboardShortcut)
@@ -240,34 +240,34 @@ internal sealed class MoriKeyboardHandler : CefKeyboardHandler
         if (!ctrl && !alt && !isSpecialSingleKey)
             return false;
 
-        bool handled = MoriBrowserHostChannel.HandleShortcut(
+        bool handled = SkewBrowserHostChannel.HandleShortcut(
             keyEvent.WindowsKeyCode, keyEvent.Modifiers);
         return handled; // true => don't deliver to the page.
     }
 }
 
-internal sealed class MoriFocusHandler : CefFocusHandler
+internal sealed class SkewFocusHandler : CefFocusHandler
 {
     private readonly BrowserClient _client;
-    public MoriFocusHandler(BrowserClient client) => _client = client;
+    public SkewFocusHandler(BrowserClient client) => _client = client;
 
     protected override void OnGotFocus(CefBrowser browser)
     {
-        Mori.MainWindow.Instance.DispatcherQueue?.TryEnqueue(() =>
+        Skew.MainWindow.Instance.DispatcherQueue?.TryEnqueue(() =>
         {
-            if (Mori.Models.BrowserStore.Shared.FindBarVisible)
+            if (Skew.Models.BrowserStore.Shared.FindBarVisible)
             {
-                Mori.Models.BrowserStore.Shared.FindBarVisible = false;
+                Skew.Models.BrowserStore.Shared.FindBarVisible = false;
             }
         });
     }
 }
 
-internal sealed class MoriRequestHandler : CefRequestHandler
+internal sealed class SkewRequestHandler : CefRequestHandler
 {
     private readonly BrowserClient _client;
-    private readonly MoriResourceRequestHandler _resource = new();
-    public MoriRequestHandler(BrowserClient client) => _client = client;
+    private readonly SkewResourceRequestHandler _resource = new();
+    public SkewRequestHandler(BrowserClient client) => _client = client;
 
     protected override bool OnBeforeBrowse(
         CefBrowser browser, CefFrame frame, CefRequest request, bool userGesture,
@@ -292,25 +292,25 @@ internal sealed class MoriRequestHandler : CefRequestHandler
         CefBrowser browser, string originUrl, bool isProxy, string host, int port,
         string realm, string scheme, CefAuthCallback callback)
     {
-        return MoriBrowserHostChannel.HandleAuthCredentials(
+        return SkewBrowserHostChannel.HandleAuthCredentials(
             browser, host, port, realm ?? "", isProxy, callback);
     }
 }
 
-internal sealed class MoriResourceRequestHandler : CefResourceRequestHandler
+internal sealed class SkewResourceRequestHandler : CefResourceRequestHandler
 {
     protected override CefCookieAccessFilter? GetCookieAccessFilter(
         CefBrowser browser, CefFrame frame, CefRequest request)
         => null;
 }
 
-internal sealed class MoriContextMenuHandler : CefContextMenuHandler
+internal sealed class SkewContextMenuHandler : CefContextMenuHandler
 {
     private readonly BrowserClient _client;
     // Map from CefMenuModel command ID → (extensionId, menuItemId) for dispatch
     private readonly Dictionary<int, (string extensionId, string itemId)> _extensionMenuMap = new();
 
-    public MoriContextMenuHandler(BrowserClient client) => _client = client;
+    public SkewContextMenuHandler(BrowserClient client) => _client = client;
 
     protected override void OnBeforeContextMenu(
         CefBrowser browser, CefFrame frame, CefContextMenuParams state, CefMenuModel model)
@@ -603,11 +603,11 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
         CefBrowser browser, CefFrame frame, CefContextMenuParams state, CefMenuModel model,
         CefRunContextMenuCallback callback)
     {
-        // Mori's own pages get no page menu. The new tab page is chrome wearing
+        // Skew's own pages get no page menu. The new tab page is chrome wearing
         // a page's clothes: Back, View page source and Inspect are all aimed at
         // a site, and there is no site here.
         string frameUrl = frame.Url ?? "";
-        if (frameUrl.StartsWith("mori://", StringComparison.OrdinalIgnoreCase))
+        if (frameUrl.StartsWith("skew://", StringComparison.OrdinalIgnoreCase))
         {
             callback.Cancel();
             return true;

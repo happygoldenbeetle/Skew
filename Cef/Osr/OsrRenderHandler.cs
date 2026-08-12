@@ -1,6 +1,6 @@
 using Xilium.CefGlue;
 
-namespace Mori.Cef.Osr;
+namespace Skew.Cef.Osr;
 
 /// <summary>
 /// Windowless (offscreen) render sink. This is the piece that has no macOS

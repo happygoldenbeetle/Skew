@@ -2,7 +2,7 @@ using Microsoft.UI.Input;
 using Windows.System;
 using Xilium.CefGlue;
 
-namespace Mori.Cef.Osr;
+namespace Skew.Cef.Osr;
 
 /// <summary>
 /// Translates WinUI input into Chromium input events.

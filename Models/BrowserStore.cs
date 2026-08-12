@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 /// <summary>
 /// The single source of truth for all browser UI state.
@@ -86,7 +86,7 @@ public partial class BrowserStore : ObservableObject
         if (!RestoreSession())
         {
             // Nothing saved (or the file was unusable) — start with a home tab.
-            var homeTab = new BrowserTab("mori://newtab/", "New Tab");
+            var homeTab = new BrowserTab("skew://newtab/", "New Tab");
             Tabs.Add(homeTab);
             LooseTabs.Add(homeTab);
             SelectTab(homeTab.Id);
@@ -96,7 +96,7 @@ public partial class BrowserStore : ObservableObject
         WireSessionPersistence();
 
         // Write the starting state once. The subscriptions above only fire on
-        // change, and a freshly created home tab loading mori://newtab/ changes
+        // change, and a freshly created home tab loading skew://newtab/ changes
         // neither its URL nor its title — so without this, a first run that the
         // user never modifies would never produce a session file at all.
         ScheduleSessionSave();
@@ -139,7 +139,7 @@ public partial class BrowserStore : ObservableObject
         }
     }
 
-    public BrowserTab NewTab(string url = "mori://newtab/")
+    public BrowserTab NewTab(string url = "skew://newtab/")
     {
         string formatted = FormatUrl(url);
         var tab = new BrowserTab(formatted);
@@ -149,7 +149,7 @@ public partial class BrowserStore : ObservableObject
         return tab;
     }
 
-    public BrowserTab NewTabInFolder(Guid folderId, string url = "mori://newtab/")
+    public BrowserTab NewTabInFolder(Guid folderId, string url = "skew://newtab/")
     {
         var folder = Folders.FirstOrDefault(f => f.Id == folderId);
         if (folder is null) return NewTab(url);
@@ -194,7 +194,7 @@ public partial class BrowserStore : ObservableObject
         if (Tabs.Count == 0)
         {
             // If the last tab was closed, close the application window
-            Mori.App.Window.Close();
+            Skew.App.Window.Close();
             return;
         }
 
@@ -256,7 +256,7 @@ public partial class BrowserStore : ObservableObject
 
     public string FormatUrl(string input)
     {
-        if (input == "mori://newtab/" || input.StartsWith("mori-extension://")) return input;
+        if (input == "skew://newtab/" || input.StartsWith("skew-extension://")) return input;
         
         string url = input;
         if (!input.Contains("://") && !input.StartsWith("about:"))
@@ -783,7 +783,7 @@ public partial class BrowserStore : ObservableObject
             if (!keep) Tabs.Remove(tab);
         }
 
-        var fresh = new BrowserTab("mori://newtab/", "New Tab");
+        var fresh = new BrowserTab("skew://newtab/", "New Tab");
         Tabs.Add(fresh);
         LooseTabs.Add(fresh);
         SelectTab(fresh.Id);

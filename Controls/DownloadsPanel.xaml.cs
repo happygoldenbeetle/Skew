@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Mori.Models;
+using Skew.Models;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 public sealed partial class DownloadsPanel : UserControl
 {

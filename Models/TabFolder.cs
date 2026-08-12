@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 /// <summary>
 /// A named, collapsible group of tabs in the sidebar (Arc/SigmaOS-style folder).

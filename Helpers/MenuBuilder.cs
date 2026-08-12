@@ -3,9 +3,9 @@ using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI;
-using Mori.Models;
+using Skew.Models;
 
-namespace Mori.Helpers;
+namespace Skew.Helpers;
 
 public static class MenuBuilder
 {

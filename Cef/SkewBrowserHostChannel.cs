@@ -1,6 +1,6 @@
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// Host-side sink for CEF callbacks that need native UI or app-level routing
@@ -18,7 +18,7 @@ namespace Mori.Cef;
 /// The CEF layer never references XAML; the app layer registers delegates here.
 /// </para>
 /// </summary>
-public static class MoriBrowserHostChannel
+public static class SkewBrowserHostChannel
 {
     /// <summary>Return true if the app consumed the shortcut (mac OnPreKeyEvent).</summary>
     public static Func<int, CefEventFlags, bool>? ShortcutHandler;

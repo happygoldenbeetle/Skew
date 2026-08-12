@@ -2,7 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 public partial class DownloadStore : ObservableObject
 {
@@ -129,7 +129,7 @@ public partial class DownloadStore : ObservableObject
     {
         if (item.IsInProgress && !item.IsComplete && !item.IsCanceled)
         {
-            Mori.Cef.BrowserClient.CancelDownload(item.Id);
+            Skew.Cef.BrowserClient.CancelDownload(item.Id);
         }
     }
 }

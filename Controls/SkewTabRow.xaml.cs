@@ -1,17 +1,17 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Mori.Models;
+using Skew.Models;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
-public sealed partial class MoriTabRow : UserControl
+public sealed partial class SkewTabRow : UserControl
 {
     public static readonly DependencyProperty TabProperty =
         DependencyProperty.Register(
             nameof(Tab),
             typeof(BrowserTab),
-            typeof(MoriTabRow),
+            typeof(SkewTabRow),
             new PropertyMetadata(null, OnTabChanged));
 
     public BrowserTab Tab
@@ -56,24 +56,24 @@ public sealed partial class MoriTabRow : UserControl
         if (faviconUrl == null && pageUrl == null) return null;
         
         // Pass to our centralized Favicon resolver which handles SVG brand lookups!
-        return Mori.Helpers.FaviconKit.Resolve(faviconUrl, pageUrl);
+        return Skew.Helpers.FaviconKit.Resolve(faviconUrl, pageUrl);
     }
 
-    public MoriTabRow()
+    public SkewTabRow()
     {
         InitializeComponent();
-        Loaded += MoriTabRow_Loaded;
-        Unloaded += MoriTabRow_Unloaded;
+        Loaded += SkewTabRow_Loaded;
+        Unloaded += SkewTabRow_Unloaded;
         Theme.ThemeService.Instance.PropertyChanged += ThemeService_PropertyChanged;
     }
 
-    private void MoriTabRow_Loaded(object sender, RoutedEventArgs e)
+    private void SkewTabRow_Loaded(object sender, RoutedEventArgs e)
     {
         ApplySurfaceFills();
         UpdateVisualState();
     }
 
-    private void MoriTabRow_Unloaded(object sender, RoutedEventArgs e)
+    private void SkewTabRow_Unloaded(object sender, RoutedEventArgs e)
     {
         if (Tab != null)
         {
@@ -106,7 +106,7 @@ public sealed partial class MoriTabRow : UserControl
 
     private static void OnTabChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is MoriTabRow row)
+        if (d is SkewTabRow row)
         {
             if (e.OldValue is BrowserTab oldTab)
             {
@@ -191,7 +191,7 @@ public sealed partial class MoriTabRow : UserControl
         if (Tab is not null)
         {
             var flyout = new MenuFlyout();
-            Mori.Helpers.MenuBuilder.BuildTabMenu(flyout, Tab);
+            Skew.Helpers.MenuBuilder.BuildTabMenu(flyout, Tab);
             flyout.ShowAt((FrameworkElement)sender, e.GetPosition((FrameworkElement)sender));
             e.Handled = true;
         }

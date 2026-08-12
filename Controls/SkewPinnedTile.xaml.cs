@@ -1,16 +1,16 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Mori.Models;
+using Skew.Models;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
-public sealed partial class MoriPinnedTile : UserControl
+public sealed partial class SkewPinnedTile : UserControl
 {
     public static readonly DependencyProperty TabProperty = DependencyProperty.Register(
         nameof(Tab),
         typeof(BrowserTab),
-        typeof(MoriPinnedTile),
+        typeof(SkewPinnedTile),
         new PropertyMetadata(null, OnTabChanged));
 
     public BrowserTab Tab
@@ -55,10 +55,10 @@ public sealed partial class MoriPinnedTile : UserControl
         if (faviconUrl == null && pageUrl == null) return null;
         
         // Pass to our centralized Favicon resolver which handles SVG brand lookups!
-        return Mori.Helpers.FaviconKit.Resolve(faviconUrl, pageUrl);
+        return Skew.Helpers.FaviconKit.Resolve(faviconUrl, pageUrl);
     }
 
-    public MoriPinnedTile()
+    public SkewPinnedTile()
     {
         InitializeComponent();
         Loaded += (_, _) => ApplySurfaceFills();
@@ -87,7 +87,7 @@ public sealed partial class MoriPinnedTile : UserControl
 
     private static void OnTabChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is MoriPinnedTile tile)
+        if (d is SkewPinnedTile tile)
         {
             if (e.OldValue is BrowserTab oldTab)
             {
@@ -153,7 +153,7 @@ public sealed partial class MoriPinnedTile : UserControl
         if (Tab is not null)
         {
             var flyout = new MenuFlyout();
-            Mori.Helpers.MenuBuilder.BuildTabMenu(flyout, Tab);
+            Skew.Helpers.MenuBuilder.BuildTabMenu(flyout, Tab);
             flyout.ShowAt((FrameworkElement)sender, e.GetPosition((FrameworkElement)sender));
             e.Handled = true;
         }

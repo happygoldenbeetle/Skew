@@ -1,9 +1,9 @@
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
-/// Pure C# sink the hosting view (MoriBrowserView) implements. Direct port of
+/// Pure C# sink the hosting view (SkewBrowserView) implements. Direct port of
 /// the mac BrowserClientDelegate (BrowserClient.h).
 ///
 /// <para>
@@ -39,9 +39,9 @@ public interface IBrowserViewDelegate
     void OnLoadError(int errorCode, string errorText, string failedUrl);
 
     /// <summary>
-    /// A popup / target=_blank URL that should be routed into Mori chrome as a
+    /// A popup / target=_blank URL that should be routed into Skew chrome as a
     /// new tab instead of a CEF-created top-level native window. Return true to
-    /// indicate Mori consumed it.
+    /// indicate Skew consumed it.
     /// </summary>
     bool OnOpenUrlFromTab(string targetUrl);
 

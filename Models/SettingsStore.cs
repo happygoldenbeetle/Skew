@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.UI.Xaml;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 /// <summary>
 /// User preferences, as written to disk. Mirrors the fields the Mac keeps in
@@ -59,7 +59,7 @@ public static class SettingsStore
         {
             string dir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MoriBrowser");
+                "SkewBrowser");
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, "settings.json");
         }

@@ -1,4 +1,4 @@
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// JavaScript agents injected into pages by <see cref="BrowserClient"/>. Ports of
@@ -7,7 +7,7 @@ namespace Mori.Cef;
 /// The scripts are loaded from <c>Assets/Scripts</c> when present (so they can be
 /// edited without recompiling) and fall back to compact built-in versions.
 /// </summary>
-internal static class MoriAgentScripts
+internal static class SkewAgentScripts
 {
     private static readonly string ScriptsRoot =
         Path.Combine(AppContext.BaseDirectory, "Assets", "Scripts");
@@ -24,13 +24,13 @@ internal static class MoriAgentScripts
 
     /// <summary>
     /// Media/PiP agent. The <paramref name="autoPiP"/> flag is substituted for
-    /// the <c>__MORI_AUTO_PIP__</c> token so the engine pops the video out when
+    /// the <c>__SKEW_AUTO_PIP__</c> token so the engine pops the video out when
     /// the tab is hidden only when the user preference is enabled.
     /// </summary>
     public static string MediaAgent(bool autoPiP)
     {
         _mediaTemplate ??= Load("mediaAgent.js", DefaultMediaAgent);
-        return _mediaTemplate.Replace("__MORI_AUTO_PIP__", autoPiP ? "true" : "false");
+        return _mediaTemplate.Replace("__SKEW_AUTO_PIP__", autoPiP ? "true" : "false");
     }
 
     private static string Load(string fileName, string fallback)
@@ -52,14 +52,14 @@ internal static class MoriAgentScripts
 
     private const string DefaultPasskeyAgent = """
         (function(){
-          if (window.__moriPasskeyInstalled) return;
-          window.__moriPasskeyInstalled = true;
+          if (window.__skewPasskeyInstalled) return;
+          window.__skewPasskeyInstalled = true;
           // Placeholder shim: preserves references to the native implementations
           // so a future native passkey bridge can intercept create/get. Faithful
           // port target is mac PasskeyAgentScript.h.
           try {
             if (navigator.credentials) {
-              window.__moriNativeCredentials = {
+              window.__skewNativeCredentials = {
                 create: navigator.credentials.create && navigator.credentials.create.bind(navigator.credentials),
                 get: navigator.credentials.get && navigator.credentials.get.bind(navigator.credentials)
               };
@@ -70,12 +70,12 @@ internal static class MoriAgentScripts
 
     private const string DefaultMediaAgent = """
         (function(){
-          if (window.__moriMediaInstalled) return;
-          window.__moriMediaInstalled = true;
-          var autoPiP = __MORI_AUTO_PIP__;
+          if (window.__skewMediaInstalled) return;
+          window.__skewMediaInstalled = true;
+          var autoPiP = __SKEW_AUTO_PIP__;
 
           function emit(payload){
-            try { console.debug("__MORI_MEDIA__" + JSON.stringify(payload)); } catch(e){}
+            try { console.debug("__SKEW_MEDIA__" + JSON.stringify(payload)); } catch(e){}
           }
 
           function primaryVideo(){
@@ -85,7 +85,7 @@ internal static class MoriAgentScripts
             return vids[0] || null;
           }
 
-          window.__moriMediaCommand = function(action, value){
+          window.__skewMediaCommand = function(action, value){
             var v = primaryVideo();
             if (!v) return;
             switch(action){
@@ -101,7 +101,7 @@ internal static class MoriAgentScripts
             }
           };
 
-          window.__moriApplyAutoPiP = function(enabled){
+          window.__skewApplyAutoPiP = function(enabled){
             autoPiP = !!enabled;
             var v = primaryVideo();
             if (v) { try { v.autoPictureInPicture = autoPiP; } catch(e){} }

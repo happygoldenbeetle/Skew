@@ -2,7 +2,7 @@ using System;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 
-namespace Mori.Helpers;
+namespace Skew.Helpers;
 
 public static class ColorUtils
 {

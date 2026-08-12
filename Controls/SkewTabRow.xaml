@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <UserControl
-    x:Class="Mori.Controls.MoriTabRow"
+    x:Class="Skew.Controls.SkewTabRow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -181,7 +181,7 @@
                 Width="22" Height="22"
                 Opacity="0"
                 VerticalAlignment="Center"
-                Style="{StaticResource MoriTabCloseButtonStyle}"
+                Style="{StaticResource SkewTabCloseButtonStyle}"
                 Click="Close_Click"
                 ToolTipService.ToolTip="{x:Bind CloseTooltip(Tab.HasBrowserView), Mode=OneWay}">
                 <Grid>

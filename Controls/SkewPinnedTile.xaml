@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <UserControl
-    x:Class="Mori.Controls.MoriPinnedTile"
+    x:Class="Skew.Controls.SkewPinnedTile"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -83,7 +83,7 @@
         <!--
             The three tile fills from TabSurface (PinnedTile in Sidebar.swift):
             a faint resting wash, a quiet hover overlay, and the translucent
-            selected lift. Painted in code-behind — see MoriTabRow for why the
+            selected lift. Painted in code-behind — see SkewTabRow for why the
             Fluent theme brushes are not used.
         -->
         <!--

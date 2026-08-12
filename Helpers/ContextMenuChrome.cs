@@ -1,4 +1,4 @@
-namespace Mori.Helpers;
+namespace Skew.Helpers;
 
 /// <summary>
 /// The glyph and shortcut text for a page context-menu row.

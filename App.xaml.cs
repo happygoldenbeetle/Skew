@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 
-namespace Mori;
+namespace Skew;
 
 /// <summary>
 /// Provides application-specific behavior to supplement the default Application class.
@@ -41,21 +41,21 @@ public partial class App : Application
     {
         // Initialize the global CEF context on the WinUI thread before any
         // browser view is created (mac main.mm: CefInitialize before the window).
-        Mori.Cef.CefRuntimeHost.Initialize(
+        Skew.Cef.CefRuntimeHost.Initialize(
             System.Environment.GetCommandLineArgs(),
             Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
 
         // Pre-initialize ExtensionStore on the UI thread so its ObservableCollection
         // captures the correct dispatcher, preventing crashes when CEF threads read it.
-        _ = Mori.Models.ExtensionStore.Shared;
+        _ = Skew.Models.ExtensionStore.Shared;
 
         Window = new MainWindow();
         Window.Closed += (_, _) =>
         {
             // Flush before teardown: session saves are debounced, so closing
             // right after a change would otherwise drop it.
-            Mori.Models.BrowserStore.Shared.FlushSessionSave();
-            Mori.Cef.CefRuntimeHost.Shutdown();
+            Skew.Models.BrowserStore.Shared.FlushSessionSave();
+            Skew.Cef.CefRuntimeHost.Shutdown();
         };
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();

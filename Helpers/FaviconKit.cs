@@ -2,7 +2,7 @@ using System;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 
-namespace Mori.Helpers
+namespace Skew.Helpers
 {
     public static class FaviconKit
     {

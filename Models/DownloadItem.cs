@@ -1,7 +1,7 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 public partial class DownloadItem : ObservableObject
 {

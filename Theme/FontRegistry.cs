@@ -1,12 +1,12 @@
 using Microsoft.UI.Xaml.Media;
 
-namespace Mori.Theme;
+namespace Skew.Theme;
 
 /// <summary>
 /// Resolves the UI font family. Port of FontRegistry.swift.
 ///
 /// <para>
-/// Mori's webapp uses Söhne, but it ships only as <c>.woff2</c> and is licensed,
+/// Skew's webapp uses Söhne, but it ships only as <c>.woff2</c> and is licensed,
 /// so — exactly as on the Mac — the native app honours a system-wide Söhne if one
 /// happens to be installed and otherwise falls back to the platform UI font. The
 /// Mac's fallback is SF Pro; the Windows counterpart is Segoe UI Variable, which

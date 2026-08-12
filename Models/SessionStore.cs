@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 /// <summary>One tab, as written to disk.</summary>
 public sealed class PersistedTab
@@ -58,7 +58,7 @@ internal partial class SessionJsonContext : JsonSerializerContext { }
 /// survive a restart. Port of the session-restore half of BrowserStore.swift.
 ///
 /// <para>
-/// Lives next to the Chromium profile in <c>%LOCALAPPDATA%\MoriBrowser</c>, the
+/// Lives next to the Chromium profile in <c>%LOCALAPPDATA%\SkewBrowser</c>, the
 /// same folder <see cref="Cef.CefRuntimeHost"/> uses for its cache, so a user
 /// clearing that directory clears the session with it.
 /// </para>
@@ -71,7 +71,7 @@ public static class SessionStore
         {
             string dir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MoriBrowser");
+                "SkewBrowser");
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, "session.json");
         }

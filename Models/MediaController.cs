@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 /// <summary>
 /// Aggregates media state broadcast by every tab's injected agent (the
-/// <c>__MORI_MEDIA__</c> console markers) and exposes playback controls for the
+/// <c>__SKEW_MEDIA__</c> console markers) and exposes playback controls for the
 /// sidebar player. The "active" source is whichever tab is most recently playing.
 /// Port of MediaController.swift.
 /// </summary>
@@ -62,7 +62,7 @@ public partial class MediaController : ObservableObject
     private readonly Dictionary<int, Snap> _byBrowser = new();
     private readonly List<int> _order = new(); // browser ids, most-recent last
 
-    /// <summary>Parse one page's <c>__MORI_MEDIA__</c> payload and recompute the active source.</summary>
+    /// <summary>Parse one page's <c>__SKEW_MEDIA__</c> payload and recompute the active source.</summary>
     public void Ingest(int browserId, string json)
     {
         try

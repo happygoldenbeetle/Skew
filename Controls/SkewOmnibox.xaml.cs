@@ -2,20 +2,20 @@ using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Mori.Models;
+using Skew.Models;
 using System.Linq;
 using System.Collections.ObjectModel;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
-public sealed partial class MoriOmnibox : UserControl
+public sealed partial class SkewOmnibox : UserControl
 {
     public ObservableCollection<BrowserExtension> PinnedExtensions { get; } = new();
 
-    public MoriOmnibox()
+    public SkewOmnibox()
     {
         InitializeComponent();
-        Loaded += MoriOmnibox_Loaded;
+        Loaded += SkewOmnibox_Loaded;
         SyncPinnedExtensions();
         ExtensionStore.Shared.Extensions.CollectionChanged += (s, e) => 
         {
@@ -41,7 +41,7 @@ public sealed partial class MoriOmnibox : UserControl
     public ObservableCollection<BrowserExtension> Extensions => ExtensionStore.Shared.Extensions;
 
     public static readonly DependencyProperty StoreProperty =
-        DependencyProperty.Register(nameof(Store), typeof(BrowserStore), typeof(MoriOmnibox), new PropertyMetadata(null));
+        DependencyProperty.Register(nameof(Store), typeof(BrowserStore), typeof(SkewOmnibox), new PropertyMetadata(null));
 
     public BrowserStore? Store
     {
@@ -50,7 +50,7 @@ public sealed partial class MoriOmnibox : UserControl
     }
 
     public static readonly DependencyProperty TabProperty =
-        DependencyProperty.Register(nameof(Tab), typeof(BrowserTab), typeof(MoriOmnibox), new PropertyMetadata(null, OnTabChanged));
+        DependencyProperty.Register(nameof(Tab), typeof(BrowserTab), typeof(SkewOmnibox), new PropertyMetadata(null, OnTabChanged));
 
     public BrowserTab? Tab
     {
@@ -60,7 +60,7 @@ public sealed partial class MoriOmnibox : UserControl
 
     private static void OnTabChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is MoriOmnibox omnibox)
+        if (d is SkewOmnibox omnibox)
         {
             if (e.OldValue is BrowserTab oldTab)
                 oldTab.PropertyChanged -= omnibox.Tab_PropertyChanged;
@@ -73,7 +73,7 @@ public sealed partial class MoriOmnibox : UserControl
         }
     }
 
-    private void MoriOmnibox_Loaded(object sender, RoutedEventArgs e)
+    private void SkewOmnibox_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshFromTab();
         ApplyIdleChrome();

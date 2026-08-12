@@ -3,12 +3,12 @@ using System.Text;
 using System.Text.Json;
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// Evaluate JavaScript in the main frame and return a JSON-serializable result
 /// via Chromium's DevTools protocol (Runtime.evaluate). Port of the mac
-/// JavaScriptEvalObserver in MoriBrowserView.mm.
+/// JavaScriptEvalObserver in SkewBrowserView.mm.
 /// </summary>
 internal static class DevToolsEvaluator
 {

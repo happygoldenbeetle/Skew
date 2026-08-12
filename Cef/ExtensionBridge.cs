@@ -3,12 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using Mori.Models;
+using Skew.Models;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
-/// C# side of the extension IPC bridge. Routes incoming __MORI_EXTENSION__
+/// C# side of the extension IPC bridge. Routes incoming __SKEW_EXTENSION__
 /// requests to the appropriate handler and returns a JSON response dictionary.
 /// </summary>
 internal static class ExtensionBridge
@@ -228,7 +228,7 @@ internal static class ExtensionBridge
     {
         var result = new List<(string, string, string)>();
 
-        var extensions = Mori.Models.ExtensionStore.Shared.GetSnapshot();
+        var extensions = Skew.Models.ExtensionStore.Shared.GetSnapshot();
 
         foreach (var kvp in _contextMenuItems)
         {

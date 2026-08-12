@@ -3,40 +3,40 @@ using System.Text;
 using System.Text.Json;
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
-/// Scheme handler factory + resource handler for Mori's custom schemes. Port of
+/// Scheme handler factory + resource handler for Skew's custom schemes. Port of
 /// the C++ scheme-serving logic in mac App/CefAppImpl.mm.
 /// </summary>
-public sealed class MoriExtensionSchemeHandlerFactory : CefSchemeHandlerFactory
+public sealed class SkewExtensionSchemeHandlerFactory : CefSchemeHandlerFactory
 {
     protected override CefResourceHandler Create(
         CefBrowser browser, CefFrame frame, string schemeName, CefRequest request)
-        => new MoriExtensionResourceHandler();
+        => new SkewExtensionResourceHandler();
 }
 
-/// <summary>Serves Mori's internal pages (mori://newtab/, etc.).</summary>
-public sealed class MoriInternalSchemeHandlerFactory : CefSchemeHandlerFactory
+/// <summary>Serves Skew's internal pages (skew://newtab/, etc.).</summary>
+public sealed class SkewInternalSchemeHandlerFactory : CefSchemeHandlerFactory
 {
     protected override CefResourceHandler Create(
         CefBrowser browser, CefFrame frame, string schemeName, CefRequest request)
-        => new MoriInternalResourceHandler();
+        => new SkewInternalResourceHandler();
 }
 
 /// <summary>
 /// Shared helpers for resolving and validating extension asset paths.
 /// </summary>
-internal static class MoriExtensionCatalog
+internal static class SkewExtensionCatalog
 {
-    private const string EnvironmentCatalogKey = "MORI_EXTENSION_CATALOG_JSON";
+    private const string EnvironmentCatalogKey = "SKEW_EXTENSION_CATALOG_JSON";
 
     public static string? EnabledExtensionRootForId(string? extensionId)
     {
         if (string.IsNullOrEmpty(extensionId))
             return null;
 
-        var ext = Mori.Models.ExtensionStore.Shared.Extensions.FirstOrDefault(x => string.Equals(x.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        var ext = Skew.Models.ExtensionStore.Shared.Extensions.FirstOrDefault(x => string.Equals(x.Id, extensionId, StringComparison.OrdinalIgnoreCase));
         if (ext != null && ext.Enabled)
         {
             return ext.Path;
@@ -84,7 +84,7 @@ internal static class MoriExtensionCatalog
 /// Base class implementing the CefResourceHandler read loop over an in-memory
 /// byte buffer.
 /// </summary>
-internal abstract class MoriBufferedResourceHandler : CefResourceHandler
+internal abstract class SkewBufferedResourceHandler : CefResourceHandler
 {
     private byte[] _data = Array.Empty<byte>();
     private int _offset;
@@ -161,8 +161,8 @@ internal abstract class MoriBufferedResourceHandler : CefResourceHandler
     protected override void Cancel() { }
 }
 
-/// <summary>Serves <see cref="MoriSchemes.ExtensionScheme"/> requests.</summary>
-internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
+/// <summary>Serves <see cref="SkewSchemes.ExtensionScheme"/> requests.</summary>
+internal sealed class SkewExtensionResourceHandler : SkewBufferedResourceHandler
 {
     protected override bool Resolve(CefRequest request)
     {
@@ -170,7 +170,7 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
         string extensionId = uri.Host;
         string requestPath = uri.AbsolutePath;
 
-        string? root = MoriExtensionCatalog.EnabledExtensionRootForId(extensionId);
+        string? root = SkewExtensionCatalog.EnabledExtensionRootForId(extensionId);
         if (root is null)
         {
             SetTextResponse(404, "Not Found", "text/plain",
@@ -178,7 +178,7 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
             return true;
         }
 
-        if (string.Equals(requestPath, MoriSchemes.ExtensionBackgroundPath,
+        if (string.Equals(requestPath, SkewSchemes.ExtensionBackgroundPath,
                 StringComparison.OrdinalIgnoreCase))
         {
             string bg = BuildBackgroundHtml(extensionId);
@@ -186,7 +186,7 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
             return true;
         }
 
-        string? filePath = MoriExtensionCatalog.SafeExtensionFilePath(root, requestPath);
+        string? filePath = SkewExtensionCatalog.SafeExtensionFilePath(root, requestPath);
         if (filePath is null)
         {
             SetTextResponse(404, "Not Found", "text/plain", "Not found");
@@ -204,7 +204,7 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
             return true;
         }
 
-        string mime = MoriExtensionCatalog.MimeTypeForPath(filePath);
+        string mime = SkewExtensionCatalog.MimeTypeForPath(filePath);
 
         if (mime.StartsWith("text/html", StringComparison.OrdinalIgnoreCase))
         {
@@ -245,8 +245,8 @@ internal sealed class MoriExtensionResourceHandler : MoriBufferedResourceHandler
     }
 }
 
-/// <summary>Serves <see cref="MoriSchemes.InternalScheme"/> requests.</summary>
-internal sealed class MoriInternalResourceHandler : MoriBufferedResourceHandler
+/// <summary>Serves <see cref="SkewSchemes.InternalScheme"/> requests.</summary>
+internal sealed class SkewInternalResourceHandler : SkewBufferedResourceHandler
 {
     protected override bool Resolve(CefRequest request)
     {

@@ -1,13 +1,13 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
-using Mori.Models;
-using Mori.Theme;
+using Skew.Models;
+using Skew.Theme;
 
-namespace Mori;
+namespace Skew;
 
 /// <summary>
-/// The application window — root of the Mori browser chrome.
+/// The application window — root of the Skew browser chrome.
 /// Hosts the sidebar, web content card, AI panel, and launcher overlay.
 /// </summary>
 public sealed partial class MainWindow : Window
@@ -48,7 +48,7 @@ public sealed partial class MainWindow : Window
         var appWindow = AppWindow;
         appWindow.SetIcon("Assets/AppIcon.ico");
         appWindow.Resize(new Windows.Graphics.SizeInt32(1400, 900));
-        appWindow.Title = "Mori";
+        appWindow.Title = "Skew";
 
         WatchDownloads();
 
@@ -89,7 +89,7 @@ public sealed partial class MainWindow : Window
                 Store.SidebarOnLeft = BrowserSettings.Shared.SidebarPosition == SidebarPosition.Left;
         };
 
-        // Set initial sidebar data context. There are two MoriSidebar instances
+        // Set initial sidebar data context. There are two SkewSidebar instances
         // bound to the same store: the docked one (visible state) and the one
         // inside the floating peek popup (hidden state) — mirroring mac, which
         // instantiates a separate Sidebar inside its peek overlay.
@@ -146,28 +146,28 @@ public sealed partial class MainWindow : Window
         Content.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Content_PointerWheelChanged), true);
 
         // Wire CEF callbacks
-        Mori.Cef.MoriBrowserHostChannel.ShortcutHandler = HandleCefShortcut;
-        Mori.Cef.MoriBrowserHostChannel.DownloadUpdateHandler = (id, url, path, received, total, percent, speed, complete, canceled) =>
+        Skew.Cef.SkewBrowserHostChannel.ShortcutHandler = HandleCefShortcut;
+        Skew.Cef.SkewBrowserHostChannel.DownloadUpdateHandler = (id, url, path, received, total, percent, speed, complete, canceled) =>
         {
             DispatcherQueue.TryEnqueue(() => 
             {
                 var filename = System.IO.Path.GetFileName(path);
-                Mori.Models.DownloadStore.Shared.Ingest(id, url, filename, path, received, total, percent, speed, complete, canceled, !complete && !canceled);
+                Skew.Models.DownloadStore.Shared.Ingest(id, url, filename, path, received, total, percent, speed, complete, canceled, !complete && !canceled);
             });
         };
 
-        // Media markers (__MORI_MEDIA__) from each page's injected agent feed the
+        // Media markers (__SKEW_MEDIA__) from each page's injected agent feed the
         // sidebar media player. The browser id maps back to its owning tab inside
         // MediaController when issuing transport commands.
-        Mori.Cef.MoriBrowserHostChannel.ConsoleMarkerHandler = (browser, message) =>
+        Skew.Cef.SkewBrowserHostChannel.ConsoleMarkerHandler = (browser, message) =>
         {
             if (message is null) return;
-            const string mediaPrefix = "__MORI_MEDIA__";
+            const string mediaPrefix = "__SKEW_MEDIA__";
             if (message.StartsWith(mediaPrefix, StringComparison.Ordinal))
             {
                 int bid = browser.Identifier;
                 string json = message.Substring(mediaPrefix.Length);
-                DispatcherQueue.TryEnqueue(() => Mori.Models.MediaController.Shared.Ingest(bid, json));
+                DispatcherQueue.TryEnqueue(() => Skew.Models.MediaController.Shared.Ingest(bid, json));
             }
         };
 
@@ -277,7 +277,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// Swap the web-content host to display the currently selected tab's CEF
-    /// browser view (mac shows the selected tab's MoriBrowserView). Other tabs'
+    /// browser view (mac shows the selected tab's SkewBrowserView). Other tabs'
     /// views are detached so only the active engine surface composites.
     /// </summary>
     private void ShowSelectedBrowserView()
@@ -298,11 +298,11 @@ public sealed partial class MainWindow : Window
 
         foreach (var child in WebContentHost.Children)
         {
-            if (child is Controls.MoriBrowserView browser)
+            if (child is Controls.SkewBrowserView browser)
                 browser.SetWebWindowVisible(ReferenceEquals(browser, view) && !tab.DidFail);
         }
 
-        // Route popup/target=_blank requests into new Mori tabs (mac OnOpenURLFromTab).
+        // Route popup/target=_blank requests into new Skew tabs (mac OnOpenURLFromTab).
         view.RequestsNewTab -= OnViewRequestsNewTab;
         view.RequestsNewTab += OnViewRequestsNewTab;
     }
@@ -313,7 +313,7 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Maps a CEF key event (Windows virtual-key + modifiers) to Mori's shortcut
+    /// Maps a CEF key event (Windows virtual-key + modifiers) to Skew's shortcut
     /// actions. Returns true when consumed so the page never sees it. Mirrors the
     /// Ctrl-shortcut set in <see cref="Content_KeyDown"/>.
     /// </summary>
@@ -616,7 +616,7 @@ public sealed partial class MainWindow : Window
             ? Visibility.Visible : Visibility.Collapsed;
 
         // Only one of the two sidebars is on screen at a time, and only that one
-        // should take keyboard focus — see MoriSidebar.IsLive.
+        // should take keyboard focus — see SkewSidebar.IsLive.
         Sidebar.IsLive = Store.SidebarVisible;
         PeekSidebar.IsLive = !Store.SidebarVisible && _isPeeking;
 
@@ -952,7 +952,7 @@ public sealed partial class MainWindow : Window
         TitleBarBack.IsEnabled = tab?.CanGoBack ?? false;
         TitleBarForward.IsEnabled = tab?.CanGoForward ?? false;
 
-        // DisplayUrl is empty on the new tab page and on mori:// pages, which is
+        // DisplayUrl is empty on the new tab page and on skew:// pages, which is
         // where the placeholder belongs — there is no address to show yet.
         string host = tab?.DisplayUrl ?? "";
         bool hasAddress = !string.IsNullOrEmpty(host);
@@ -960,7 +960,7 @@ public sealed partial class MainWindow : Window
         TitleBarUrl.Text = hasAddress ? host : "Search or enter address";
         TitleBarUrl.Opacity = hasAddress ? 0.9 : 0.5;
 
-        // Nothing to copy, reload or adjust on the new tab page: it is Mori's
+        // Nothing to copy, reload or adjust on the new tab page: it is Skew's
         // own blank page, not a site. The ghost style dims a disabled button's
         // content, so these read as unavailable rather than merely inert.
         bool onPage = !IsHomepageTab;
@@ -1133,7 +1133,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// The connection chip, on the omnibox's three states: https is secure,
-    /// plain http is not, and anything else (mori: pages, files) is neither —
+    /// plain http is not, and anything else (skew: pages, files) is neither —
     /// there is no connection to speak for.
     /// </summary>
     private void UpdatePageOptionsSecurity()
@@ -1196,7 +1196,7 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// Where extensions come from: the store, in a tab. The omnibox already
-    /// grows an "Add to Mori" button once a detail page is open, so this only
+    /// grows an "Add to Skew" button once a detail page is open, so this only
     /// has to get the user there.
     /// </summary>
     private void PageOptionsWebStore_Click(object sender, RoutedEventArgs e)
@@ -1443,9 +1443,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>The selected tab is Mori's own new tab page.</summary>
+    /// <summary>The selected tab is Skew's own new tab page.</summary>
     private bool IsHomepageTab =>
-        Store.SelectedTab?.UrlString?.StartsWith("mori://newtab", StringComparison.OrdinalIgnoreCase) == true;
+        Store.SelectedTab?.UrlString?.StartsWith("skew://newtab", StringComparison.OrdinalIgnoreCase) == true;
 
     /// <summary>
     /// Hold the peek sidebar out on the new tab page, the way Arc does, and let

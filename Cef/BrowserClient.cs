@@ -4,7 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// CefClient implementation for a single browser (tab). Direct port of the mac
@@ -12,7 +12,7 @@ namespace Mori.Cef;
 ///
 /// <para>
 /// All navigation/display state is forwarded to an <see cref="IBrowserViewDelegate"/>,
-/// which the view layer (<see cref="Controls.MoriBrowserView"/>) implements to
+/// which the view layer (<see cref="Controls.SkewBrowserView"/>) implements to
 /// drive the WinUI chrome. CefGlue invokes these handlers on the CEF UI thread;
 /// the delegate implementation is responsible for marshalling to the WinUI
 /// dispatcher before touching UI (see <see cref="IBrowserViewDelegate"/>).
@@ -21,13 +21,13 @@ namespace Mori.Cef;
 public sealed class BrowserClient : CefClient
 {
     // Process-wide auto-PiP preference, read when injecting the media agent into
-    // newly loaded frames (mac MoriSetAutoPiPEnabled / MoriAutoPiPEnabled).
+    // newly loaded frames (mac SkewSetAutoPiPEnabled / SkewAutoPiPEnabled).
     private static volatile bool s_autoPiPEnabled;
     public static void SetAutoPiPEnabled(bool enabled) => s_autoPiPEnabled = enabled;
     public static bool AutoPiPEnabled => s_autoPiPEnabled;
 
     // Live download callbacks keyed by CEF download id, so a tab-less request can
-    // be canceled later (mac MoriCancelDownload).
+    // be canceled later (mac SkewCancelDownload).
     private static readonly ConcurrentDictionary<uint, CefDownloadItemCallback> s_downloads = new();
 
     public static bool CancelDownload(uint downloadId)
@@ -43,16 +43,16 @@ public sealed class BrowserClient : CefClient
     private IBrowserViewDelegate? _delegate; // not owned; cleared via Detach.
     private int _extensionTabId = -1;
 
-    private readonly MoriLifeSpanHandler _lifeSpan;
-    private readonly MoriLoadHandler _load;
-    private readonly MoriDisplayHandler _display;
-    private readonly MoriDownloadHandler _download;
-    private readonly MoriJSDialogHandler _jsDialog;
-    private readonly MoriFindHandler _find;
-    private readonly MoriKeyboardHandler _keyboard;
-    private readonly MoriRequestHandler _request;
-    private readonly MoriContextMenuHandler _contextMenu;
-    private readonly MoriFocusHandler _focus;
+    private readonly SkewLifeSpanHandler _lifeSpan;
+    private readonly SkewLoadHandler _load;
+    private readonly SkewDisplayHandler _display;
+    private readonly SkewDownloadHandler _download;
+    private readonly SkewJSDialogHandler _jsDialog;
+    private readonly SkewFindHandler _find;
+    private readonly SkewKeyboardHandler _keyboard;
+    private readonly SkewRequestHandler _request;
+    private readonly SkewContextMenuHandler _contextMenu;
+    private readonly SkewFocusHandler _focus;
 
     // Only set for windowless browsers. CEF decides windowed vs windowless by
     // whether this returns null, so it must stay null for the DevTools client.
@@ -68,16 +68,16 @@ public sealed class BrowserClient : CefClient
     public BrowserClient(IBrowserViewDelegate viewDelegate)
     {
         _delegate = viewDelegate;
-        _lifeSpan = new MoriLifeSpanHandler(this);
-        _load = new MoriLoadHandler(this);
-        _display = new MoriDisplayHandler(this);
-        _download = new MoriDownloadHandler(this);
-        _jsDialog = new MoriJSDialogHandler(this);
-        _find = new MoriFindHandler(this);
-        _keyboard = new MoriKeyboardHandler(this);
-        _request = new MoriRequestHandler(this);
-        _contextMenu = new MoriContextMenuHandler(this);
-        _focus = new MoriFocusHandler(this);
+        _lifeSpan = new SkewLifeSpanHandler(this);
+        _load = new SkewLoadHandler(this);
+        _display = new SkewDisplayHandler(this);
+        _download = new SkewDownloadHandler(this);
+        _jsDialog = new SkewJSDialogHandler(this);
+        _find = new SkewFindHandler(this);
+        _keyboard = new SkewKeyboardHandler(this);
+        _request = new SkewRequestHandler(this);
+        _contextMenu = new SkewContextMenuHandler(this);
+        _focus = new SkewFocusHandler(this);
     }
 
     /// <summary>Detach when the hosting view goes away to avoid dangling callbacks.</summary>
@@ -114,7 +114,7 @@ public sealed class BrowserClient : CefClient
     {
         // Injected as early as possible — before page scripts can capture the
         // original navigator.credentials methods (mac OnLoadStart).
-        string js = MoriAgentScripts.PasskeyAgent;
+        string js = SkewAgentScripts.PasskeyAgent;
         frame.ExecuteJavaScript(js, frame.Url, 0);
     }
 
@@ -130,7 +130,7 @@ public sealed class BrowserClient : CefClient
         // Track which extensions have had their shim injected this frame
         var shimInjected = new HashSet<string>();
 
-        var extensions = Mori.Models.ExtensionStore.Shared.GetSnapshot();
+        var extensions = Skew.Models.ExtensionStore.Shared.GetSnapshot();
 
         foreach (var ext in extensions)
         {
@@ -217,7 +217,7 @@ public sealed class BrowserClient : CefClient
         }
     }
 
-    private static bool ScriptMatchesURL(Mori.Models.ContentScriptMeta script, Uri url)
+    private static bool ScriptMatchesURL(Skew.Models.ContentScriptMeta script, Uri url)
     {
         if (script.Matches == null || script.Matches.Count == 0) return false;
 
@@ -293,28 +293,28 @@ public sealed class BrowserClient : CefClient
     {
         // Injected once a frame finishes loading (mac OnLoadEnd). The auto-PiP
         // attribute is only set when the process-wide preference is enabled.
-        string js = MoriAgentScripts.MediaAgent(s_autoPiPEnabled);
+        string js = SkewAgentScripts.MediaAgent(s_autoPiPEnabled);
         frame.ExecuteJavaScript(js, frame.Url, 0);
     }
 
     /// <summary>
-    /// For mori-extension:// pages (background pages, popups, options), inject
+    /// For skew-extension:// pages (background pages, popups, options), inject
     /// the runtime shim so chrome.contextMenus, chrome.storage, etc. work.
     /// Also runs background scripts declared in manifest.json.
     /// </summary>
     internal static void InjectExtensionPageShim(CefFrame frame)
     {
         string urlString = frame.Url;
-        if (string.IsNullOrEmpty(urlString) || !urlString.StartsWith("mori-extension://"))
+        if (string.IsNullOrEmpty(urlString) || !urlString.StartsWith("skew-extension://"))
             return;
 
-        // Extract extension ID from URL: mori-extension://<extensionId>/...
+        // Extract extension ID from URL: skew-extension://<extensionId>/...
         if (!Uri.TryCreate(urlString, UriKind.Absolute, out Uri? uri) || uri == null)
             return;
 
         string extensionId = uri.Host;
 
-        var extensions = Mori.Models.ExtensionStore.Shared.GetSnapshot();
+        var extensions = Skew.Models.ExtensionStore.Shared.GetSnapshot();
         var ext = extensions.FirstOrDefault(e => e.Id.Equals(extensionId, StringComparison.OrdinalIgnoreCase) && e.Enabled);
 
         if (ext?.Manifest == null) return;

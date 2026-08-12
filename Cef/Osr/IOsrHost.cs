@@ -1,6 +1,6 @@
 using Xilium.CefGlue;
 
-namespace Mori.Cef.Osr;
+namespace Skew.Cef.Osr;
 
 /// <summary>
 /// What <see cref="OsrRenderHandler"/> needs from the hosting XAML control.

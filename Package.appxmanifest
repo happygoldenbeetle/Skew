@@ -10,14 +10,14 @@
 
   <Identity
     Name="CC639501-ECDB-4411-AF6D-B412DE48267C"
-    Publisher="CN=MoriBrowser"
+    Publisher="CN=SkewBrowser"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="CC639501-ECDB-4411-AF6D-B412DE48267C" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Mori</DisplayName>
-    <PublisherDisplayName>Mori</PublisherDisplayName>
+    <DisplayName>Skew</DisplayName>
+    <PublisherDisplayName>Skew</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -35,8 +35,8 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="Mori"
-        Description="Mori"
+        DisplayName="Skew"
+        Description="Skew"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

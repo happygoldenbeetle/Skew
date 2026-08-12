@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Mori.Models;
-using Mori.Theme;
+using Skew.Models;
+using Skew.Theme;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// The vertical sidebar — Arc/SigmaOS-inspired. Top-to-bottom:
@@ -11,7 +11,7 @@ namespace Mori.Controls;
 /// loose tabs, and a bottom action bar.
 /// Port of Sidebar.swift from the Mac app.
 /// </summary>
-public sealed partial class MoriSidebar : UserControl
+public sealed partial class SkewSidebar : UserControl
 {
     private BrowserStore? _store;
     public BrowserStore? Store
@@ -63,7 +63,7 @@ public sealed partial class MoriSidebar : UserControl
     /// </para>
     /// </summary>
     public static readonly DependencyProperty TopInsetProperty =
-        DependencyProperty.Register(nameof(TopInset), typeof(double), typeof(MoriSidebar),
+        DependencyProperty.Register(nameof(TopInset), typeof(double), typeof(SkewSidebar),
             new PropertyMetadata(0d, OnTopInsetChanged));
 
     public double TopInset
@@ -74,7 +74,7 @@ public sealed partial class MoriSidebar : UserControl
 
     private static void OnTopInsetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is MoriSidebar sidebar && sidebar.ListStack is not null)
+        if (d is SkewSidebar sidebar && sidebar.ListStack is not null)
         {
             var padding = sidebar.ListStack.Padding;
             sidebar.ListStack.Padding = new Thickness(
@@ -113,18 +113,18 @@ public sealed partial class MoriSidebar : UserControl
     // Downloads — the button, its pulse and its flyout — moved to the title
     // bar; MainWindow owns that state now.
 
-    public MoriSidebar()
+    public SkewSidebar()
     {
         InitializeComponent();
-        Loaded += MoriSidebar_Loaded;
+        Loaded += SkewSidebar_Loaded;
     }
 
-    private void MoriSidebar_Loaded(object sender, RoutedEventArgs e)
+    private void SkewSidebar_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshUI();
 
-        MoriTabRow.TabDragActiveChanged += OnTabDragActiveChanged;
-        Unloaded += (_, _) => MoriTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
+        SkewTabRow.TabDragActiveChanged += OnTabDragActiveChanged;
+        Unloaded += (_, _) => SkewTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
     }
 
     private void OnTabDragActiveChanged(bool active)
@@ -159,7 +159,7 @@ public sealed partial class MoriSidebar : UserControl
     private void RootGrid_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
     {
         var flyout = new Microsoft.UI.Xaml.Controls.MenuFlyout();
-        Mori.Helpers.MenuBuilder.BuildSidebarMenu(flyout);
+        Skew.Helpers.MenuBuilder.BuildSidebarMenu(flyout);
         flyout.ShowAt((Microsoft.UI.Xaml.FrameworkElement)sender, e.GetPosition((Microsoft.UI.Xaml.FrameworkElement)sender));
         e.Handled = true;
     }

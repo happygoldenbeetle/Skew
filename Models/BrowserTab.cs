@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Mori.Models;
+namespace Skew.Models;
 
 /// <summary>
 /// One browser tab. Port of BrowserTab.swift — UI state only for now.
@@ -52,7 +52,7 @@ public partial class BrowserTab : ObservableObject
         get
         {
             if (UrlString == "about:blank") return "";
-            if (UrlString.StartsWith("mori://")) return "";
+            if (UrlString.StartsWith("skew://")) return "";
             if (System.Uri.TryCreate(UrlString, System.UriKind.Absolute, out var uri))
             {
                 var host = uri.Host;
@@ -63,7 +63,7 @@ public partial class BrowserTab : ObservableObject
         }
     }
 
-    public bool IsInternal => UrlString?.StartsWith("mori://") == true;
+    public bool IsInternal => UrlString?.StartsWith("skew://") == true;
 
     public BrowserTab(string url = "about:blank", string title = "New Tab")
         : this(Guid.NewGuid(), url, title)
@@ -88,7 +88,7 @@ public partial class BrowserTab : ObservableObject
         _title = title;
         _urlString = url;
         _faviconUrl = string.IsNullOrWhiteSpace(faviconUrl) ? DeriveFaviconUrl(url) : faviconUrl;
-        _accentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
+        _accentColorBrush = Skew.Helpers.ColorUtils.GetColorFromUrl(url);
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public partial class BrowserTab : ObservableObject
     /// </summary>
     internal static string? DeriveFaviconUrl(string? url)
     {
-        if (string.IsNullOrWhiteSpace(url) || url.StartsWith("mori://", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(url) || url.StartsWith("skew://", StringComparison.Ordinal))
             return null;
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             return null;
@@ -110,20 +110,20 @@ public partial class BrowserTab : ObservableObject
 
     // ── CEF-backed browser view ──
 
-    private Mori.Controls.MoriBrowserView? _browserView;
+    private Skew.Controls.SkewBrowserView? _browserView;
 
     /// <summary>
     /// The per-tab CEF browser view, created on first access. The host inserts
     /// this into the web-content card; the underlying browser is created lazily
-    /// once the view is loaded and sized (mac MoriBrowserView lifecycle).
+    /// once the view is loaded and sized (mac SkewBrowserView lifecycle).
     /// </summary>
-    public Mori.Controls.MoriBrowserView BrowserView
+    public Skew.Controls.SkewBrowserView BrowserView
     {
         get
         {
             if (_browserView is null)
             {
-                _browserView = new Mori.Controls.MoriBrowserView(UrlString);
+                _browserView = new Skew.Controls.SkewBrowserView(UrlString);
                 WireBrowserEvents(_browserView);
                 OnPropertyChanged(nameof(HasBrowserView));
             }
@@ -134,13 +134,13 @@ public partial class BrowserTab : ObservableObject
     /// <summary>True once the browser view has been materialized for this tab.</summary>
     public bool HasBrowserView => _browserView is not null;
 
-    private void WireBrowserEvents(Mori.Controls.MoriBrowserView view)
+    private void WireBrowserEvents(Skew.Controls.SkewBrowserView view)
     {
         view.TitleChanged += t => Title = string.IsNullOrEmpty(t) ? "Untitled" : t;
         view.UrlChanged += u =>
         {
             UrlString = u;
-            _accentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(u);
+            _accentColorBrush = Skew.Helpers.ColorUtils.GetColorFromUrl(u);
             OnPropertyChanged(nameof(DisplayUrl));
             OnPropertyChanged(nameof(IsInternal));
             OnPropertyChanged(nameof(AccentColorBrush));
@@ -169,7 +169,7 @@ public partial class BrowserTab : ObservableObject
         };
         view.LoadFailed += (_, _) => { DidFail = true; IsLoading = false; };
         view.NavigationFinished += (_, _) => DidFail = false;
-        view.RequestsNewTab += url => Mori.Models.BrowserStore.Shared.NewTab(url);
+        view.RequestsNewTab += url => Skew.Models.BrowserStore.Shared.NewTab(url);
         view.FindMatchUpdated += (count, ordinal) =>
         {
             Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().TryEnqueue(() =>
@@ -188,7 +188,7 @@ public partial class BrowserTab : ObservableObject
     public void Load(string url)
     {
         UrlString = url;
-        AccentColorBrush = Mori.Helpers.ColorUtils.GetColorFromUrl(url);
+        AccentColorBrush = Skew.Helpers.ColorUtils.GetColorFromUrl(url);
         DidFail = false;
         BrowserView.LoadUrl(url);
 

@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 
-namespace Mori.Theme;
+namespace Skew.Theme;
 
 /// <summary>
 /// Singleton service providing the active theme palette to the entire UI.
@@ -35,7 +35,7 @@ public partial class ThemeService : ObservableObject
         ApplyThemeColor(palette);
         Palette = palette;
 
-        Controls.MoriBrowserView.BroadcastThemeChange(IsDark);
+        Controls.SkewBrowserView.BroadcastThemeChange(IsDark);
     }
 
     /// <summary>

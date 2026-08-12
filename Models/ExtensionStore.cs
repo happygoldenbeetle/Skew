@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace Mori.Models
+namespace Skew.Models
 {
     public class ExtensionStore
     {
@@ -48,7 +48,7 @@ namespace Mori.Models
         private static string GetStoreFolder()
         {
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(localAppData, "Mori", "Extensions");
+            return Path.Combine(localAppData, "Skew", "Extensions");
         }
 
         private async Task LoadExtensionsAsync()

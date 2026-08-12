@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Foundation;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// The items panel behind the sidebar's pinned tiles: uniform cells, as many

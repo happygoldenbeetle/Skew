@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Mori.Models
+namespace Skew.Models
 {
     public class BrowserExtension
     {

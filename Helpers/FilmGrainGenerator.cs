@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml.Media.Imaging;
 
-namespace Mori.Helpers
+namespace Skew.Helpers
 {
     public static class FilmGrainGenerator
     {

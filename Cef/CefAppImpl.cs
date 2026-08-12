@@ -1,6 +1,6 @@
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// CefApp for the browser process. Configures command-line switches and
@@ -77,8 +77,8 @@ public sealed class CefAppImpl : CefApp
             | CefSchemeOptions.CorsEnabled
             | CefSchemeOptions.FetchEnabled;
 
-        registrar.AddCustomScheme(MoriSchemes.InternalScheme, options);
-        registrar.AddCustomScheme(MoriSchemes.ExtensionScheme, options);
+        registrar.AddCustomScheme(SkewSchemes.InternalScheme, options);
+        registrar.AddCustomScheme(SkewSchemes.ExtensionScheme, options);
     }
 
     /// <summary>
@@ -90,12 +90,12 @@ public sealed class CefAppImpl : CefApp
         protected override void OnContextInitialized()
         {
             CefRuntime.RegisterSchemeHandlerFactory(
-                MoriSchemes.ExtensionScheme, null,
-                new MoriExtensionSchemeHandlerFactory());
+                SkewSchemes.ExtensionScheme, null,
+                new SkewExtensionSchemeHandlerFactory());
 
             CefRuntime.RegisterSchemeHandlerFactory(
-                MoriSchemes.InternalScheme, null,
-                new MoriInternalSchemeHandlerFactory());
+                SkewSchemes.InternalScheme, null,
+                new SkewInternalSchemeHandlerFactory());
 
             // The UI layer creates browsers on demand once the window is up.
         }

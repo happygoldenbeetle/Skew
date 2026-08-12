@@ -1,20 +1,20 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Mori.Models;
+using Skew.Models;
 using System;
 using System.ComponentModel;
 using System.Linq;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
-public sealed partial class MoriSettings : UserControl
+public sealed partial class SkewSettings : UserControl
 {
     public BrowserStore Store => BrowserStore.Shared;
     public BrowserSettings Settings => BrowserSettings.Shared;
     public ExtensionStore ExtensionsStore => ExtensionStore.Shared;
 
-    public MoriSettings()
+    public SkewSettings()
     {
         this.InitializeComponent();
         Settings.PropertyChanged += Settings_PropertyChanged;

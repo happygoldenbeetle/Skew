@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 public sealed partial class SwipeIndicatorOverlay : UserControl
 {

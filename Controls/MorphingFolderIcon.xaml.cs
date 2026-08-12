@@ -2,9 +2,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Mori.Theme;
+using Skew.Theme;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// A folder icon that morphs between a closed folder and an open "pocket folder"

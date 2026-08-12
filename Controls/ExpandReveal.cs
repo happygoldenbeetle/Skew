@@ -3,10 +3,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
-using Mori.Theme;
+using Skew.Theme;
 using Windows.Foundation;
 
-namespace Mori.Controls;
+namespace Skew.Controls;
 
 /// <summary>
 /// A container that reveals its content downward instead of snapping it into
@@ -149,7 +149,7 @@ public sealed class ExpandReveal : Grid
         {
             From = from,
             To = to,
-            Duration = new Duration(MoriMotion.Reveal),
+            Duration = new Duration(SkewMotion.Reveal),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
             EnableDependentAnimation = dependent,
         };

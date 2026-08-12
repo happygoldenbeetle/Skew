@@ -1,6 +1,6 @@
 using Windows.UI;
 
-namespace Mori.Theme;
+namespace Skew.Theme;
 
 /// <summary>
 /// Color-space helpers ported from the Mac app's OKLCH.swift.

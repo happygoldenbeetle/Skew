@@ -1,7 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Xilium.CefGlue;
 
-namespace Mori.Cef;
+namespace Skew.Cef;
 
 /// <summary>
 /// Browser-process bootstrap for CEF. Port of the mac entry point (App/main.mm)
@@ -42,7 +42,7 @@ public static class CefRuntimeHost
     {
         string baseDir = Environment.GetFolderPath(
             Environment.SpecialFolder.LocalApplicationData);
-        string path = Path.Combine(baseDir, "MoriBrowser", "Default");
+        string path = Path.Combine(baseDir, "SkewBrowser", "Default");
         Directory.CreateDirectory(path);
         return path;
     }
@@ -92,7 +92,7 @@ public static class CefRuntimeHost
             NoSandbox = true,
             // Windowless rendering is the whole reason the Windows chrome can
             // look like the Mac one: a hosted browser window would composite
-            // above every XAML layer. See MoriBrowserView.
+            // above every XAML layer. See SkewBrowserView.
             WindowlessRenderingEnabled = true,
             LogSeverity = CefLogSeverity.Warning,
             // Persist *session* cookies too, so logins survive a relaunch the way
@@ -103,7 +103,7 @@ public static class CefRuntimeHost
             // WinUI drives the thread loop; CEF must not own it.
             MultiThreadedMessageLoop = false,
             ExternalMessagePump = false,
-            BrowserSubprocessPath = Path.Combine(AppContext.BaseDirectory, "Mori.exe"),
+            BrowserSubprocessPath = Path.Combine(AppContext.BaseDirectory, "Skew.exe"),
             Locale = "en-US",
             LocalesDirPath = Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native", "locales"),
             ResourcesDirPath = AppContext.BaseDirectory
