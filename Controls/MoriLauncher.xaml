@@ -120,7 +120,7 @@
                 -->
                 <ListView
                     x:Name="ResultsList"
-                    Padding="6"
+                    Padding="4,2"
                     SelectionMode="Single"
                     ItemClick="Result_Click"
                     IsItemClickEnabled="True"
@@ -150,7 +150,13 @@
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="Margin" Value="0,1" />
+                            <!--
+                                2 above and 2 below, so the gap between two rows
+                                is 4 — 5px at 125%. The list's own 4,2 padding
+                                completes it: 4 to the card's sides, and 2+2 at
+                                the ends so the outer gaps match the inner ones.
+                            -->
+                            <Setter Property="Margin" Value="0,2" />
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="MinHeight" Value="48" />
                             <Setter Property="CornerRadius" Value="8" />
@@ -253,16 +259,12 @@
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="Switch to Tab"
                                         VerticalAlignment="Center" />
-                                    <Border
-                                        Width="20"
-                                        Height="20"
-                                        CornerRadius="6"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
-                                        <FontIcon
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Glyph="&#xE72A;" />
-                                    </Border>
+                                    <!-- The arrow alone: the chip behind it made a button of a label. -->
+                                    <FontIcon
+                                        FontSize="11"
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Glyph="&#xE72A;" />
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>
