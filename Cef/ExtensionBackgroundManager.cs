@@ -67,8 +67,23 @@ internal static class ExtensionBackgroundManager
         return ExecuteInBackground(extensionId,
             $"if(chrome.action&&chrome.action.onClicked&&chrome.action.onClicked._fire)" +
             $"chrome.action.onClicked._fire({tabJson});" +
-            $"if(chrome.browserAction&&chrome.browserAction.onClicked&&chrome.browserAction.onClicked._fire)" +
+            $"else if(chrome.browserAction&&chrome.browserAction.onClicked&&chrome.browserAction.onClicked._fire)" +
             $"chrome.browserAction.onClicked._fire({tabJson});");
+    }
+
+    public static string? ActionPopupUrl(string extensionId)
+    {
+        BrowserExtension? extension = ExtensionStore.Shared.GetSnapshot().FirstOrDefault(item =>
+            item.Enabled && string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        if (extension?.Manifest is null) return null;
+
+        string? popup = extension.Manifest.EffectiveAction?.DefaultPopup;
+        if (string.IsNullOrWhiteSpace(popup) ||
+            SkewExtensionCatalog.SafeExtensionFilePath(extension.Path, popup) is null)
+            return null;
+
+        return $"{SkewSchemes.ExtensionScheme}://{extension.Id}/" +
+            string.Join('/', popup.Replace('\\', '/').Split('/').Select(Uri.EscapeDataString));
     }
 
     public static bool DispatchRuntimeMessage(
@@ -188,15 +203,36 @@ internal static class ExtensionBackgroundManager
         BrowserTab? selected = BrowserStore.Shared.SelectedTab;
         if (extension?.Manifest is null || selected is null || !selected.HasBrowserView) return false;
 
-        var source = new System.Text.StringBuilder();
-        source.Append(BrowserClient.ExtensionRuntimeJavaScript(extension));
+        var scriptSource = new System.Text.StringBuilder();
         foreach (string file in files)
         {
             string? path = SkewExtensionCatalog.SafeExtensionFilePath(extension.Path, file);
             if (path is null) return false;
-            source.Append("\n").Append(File.ReadAllText(path)).Append("\n");
+            string sourceUrl = $"{SkewSchemes.ExtensionScheme}://{extension.Id}/" +
+                file.Replace('\\', '/').TrimStart('/');
+            scriptSource.AppendLine(File.ReadAllText(path));
+            scriptSource.AppendLine($"//# sourceURL={sourceUrl}");
         }
+
+        string idJson = System.Text.Json.JsonSerializer.Serialize(extension.Id);
+        var source = new System.Text.StringBuilder();
+        source.Append(BrowserClient.ExtensionRuntimeJavaScript(extension));
+        source.Append("\n(function(chrome,browser,document){")
+            .Append("var priorChrome=globalThis.chrome,priorBrowser=globalThis.browser;")
+            .Append("try{globalThis.chrome=chrome;globalThis.browser=browser;\n")
+            .Append(scriptSource)
+            .Append("\n}catch(error){console.info('__SKEW_EXTENSION_DIAGNOSTIC__'+JSON.stringify({extensionId:")
+            .Append(idJson)
+            .Append(",category:'execute-script',message:String(error&&error.message||error).slice(0,1000)}));}")
+            .Append("finally{if(priorChrome===undefined)delete globalThis.chrome;else globalThis.chrome=priorChrome;")
+            .Append("if(priorBrowser===undefined)delete globalThis.browser;else globalThis.browser=priorBrowser;}})")
+            .Append("(window.__skewChromeById&&window.__skewChromeById[").Append(idJson).Append("],")
+            .Append("window.__skewChromeById&&window.__skewChromeById[").Append(idJson).Append("],")
+            .Append("window.__skewChromeById&&window.__skewChromeById[").Append(idJson).Append("].__skewDocument);");
+
         selected.BrowserView.ExecuteExtensionJavaScript(source.ToString(), allFrames);
+        ExtensionDiagnostics.Write("scripting", extensionId,
+            $"Injected {files.Count} action script file(s) into {HostOnly(selected.UrlString)}.");
         return true;
     }
 

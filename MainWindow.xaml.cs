@@ -22,6 +22,8 @@ public sealed partial class MainWindow : Window
     private bool _isPeeking = false;
     private DispatcherTimer _peekCloseTimer;
     private Microsoft.UI.Xaml.Media.Animation.Storyboard _sidebarAnimStoryboard;
+    private Controls.SkewBrowserView? _extensionActionPopupView;
+    private Flyout? _extensionActionPopupFlyout;
 
     public MainWindow()
     {
@@ -1292,11 +1294,64 @@ public sealed partial class MainWindow : Window
 
     private void PageOptionsExtension_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement element && element.Tag is string extensionId)
+        if (sender is Button button && button.Tag is string extensionId)
         {
             PageOptionsFlyout.Hide();
-            ExtensionBackgroundManager.Activate(extensionId);
+            string? popupUrl = ExtensionBackgroundManager.ActionPopupUrl(extensionId);
+            if (popupUrl is null)
+            {
+                ExtensionBackgroundManager.Activate(extensionId);
+                return;
+            }
+
+            ShowExtensionActionPopup(TitleBarPageOptions, extensionId, popupUrl);
         }
+    }
+
+    private void ShowExtensionActionPopup(Button anchor, string extensionId, string popupUrl)
+    {
+        CloseExtensionActionPopup();
+
+        var browserView = new Controls.SkewBrowserView(popupUrl)
+        {
+            Width = 360,
+            Height = 480,
+            ExtensionTabId = ExtensionBackgroundManager.SelectedTabId
+        };
+        var flyout = new Flyout
+        {
+            Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight,
+            ShouldConstrainToRootBounds = false,
+            Content = browserView,
+            FlyoutPresenterStyle = new Style(typeof(FlyoutPresenter))
+            {
+                Setters =
+                {
+                    new Setter(Control.PaddingProperty, new Thickness(0)),
+                    new Setter(Control.MinWidthProperty, 0d),
+                    new Setter(Control.MaxWidthProperty, 1000d),
+                    new Setter(Control.MinHeightProperty, 0d),
+                    new Setter(Control.MaxHeightProperty, 1000d),
+                    new Setter(Control.CornerRadiusProperty, new CornerRadius(10))
+                }
+            }
+        };
+
+        flyout.Closed += (_, _) => CloseExtensionActionPopup();
+        _extensionActionPopupView = browserView;
+        _extensionActionPopupFlyout = flyout;
+        flyout.ShowAt(anchor);
+        ExtensionDiagnostics.Write("action", extensionId, "Opened toolbar action popup.");
+    }
+
+    private void CloseExtensionActionPopup()
+    {
+        Flyout? flyout = _extensionActionPopupFlyout;
+        Controls.SkewBrowserView? browserView = _extensionActionPopupView;
+        _extensionActionPopupFlyout = null;
+        _extensionActionPopupView = null;
+        if (flyout?.IsOpen == true) flyout.Hide();
+        browserView?.CloseBrowser();
     }
 
     /// <summary>
