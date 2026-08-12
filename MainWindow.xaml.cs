@@ -50,6 +50,8 @@ public sealed partial class MainWindow : Window
         appWindow.Resize(new Windows.Graphics.SizeInt32(1400, 900));
         appWindow.Title = "Mori";
 
+        WatchDownloads();
+
         // 100ms timer to detect trackpad release
         _swipeResetTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _swipeResetTimer.Tick += (s, e) => EvaluateAndResetSwipe();
@@ -1018,6 +1020,55 @@ public sealed partial class MainWindow : Window
         CaptionButtonSpacer.Width = new GridLength(AppWindow.TitleBar.RightInset / scale);
     }
 
+    // ── Downloads (up from the sidebar's bottom bar) ──────────────────────
+
+    /// <summary>Cleared when a download starts, set once the panel is opened.</summary>
+    private bool _downloadsAcknowledged;
+
+    /// <summary>
+    /// Pulse the button while something is downloading that has not been looked
+    /// at. Subscribed from the constructor so it is running before the first
+    /// download can start.
+    /// </summary>
+    private void WatchDownloads()
+    {
+        DownloadStore.Shared.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(DownloadStore.ActivityToken))
+            {
+                _downloadsAcknowledged = false;
+                UpdateDownloadPulse();
+            }
+            else if (e.PropertyName == nameof(DownloadStore.HasActiveDownloads))
+            {
+                UpdateDownloadPulse();
+            }
+        };
+    }
+
+    private void UpdateDownloadPulse()
+    {
+        RootGrid.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (DownloadStore.Shared.HasActiveDownloads && !_downloadsAcknowledged)
+            {
+                DownloadPulseAnim.Begin();
+            }
+            else
+            {
+                DownloadPulseAnim.Stop();
+                TitleBarDownloads.ClearValue(UIElement.OpacityProperty);
+                TitleBarDownloads.Opacity = 1.0;
+            }
+        });
+    }
+
+    private void TitleBarDownloadsFlyout_Opened(object sender, object e)
+    {
+        _downloadsAcknowledged = true;
+        UpdateDownloadPulse();
+    }
+
     private void TitleBarBack_Click(object sender, RoutedEventArgs e) => Store.GoBack();
 
     private void TitleBarForward_Click(object sender, RoutedEventArgs e) => Store.GoForward();
@@ -1030,12 +1081,54 @@ public sealed partial class MainWindow : Window
 
     private void TitleBarCopyLink_Click(object sender, RoutedEventArgs e)
     {
+        if (!CopyLinkToClipboard()) return;
+
+        // Say it landed. The button's whole job is a state change with nothing
+        // on screen to show for it, so the glyph becomes a tick for a moment.
+        TitleBarCopyLinkIcon.Glyph = "";   // Accept
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+        timer.Tick += (s, args) =>
+        {
+            timer.Stop();
+            TitleBarCopyLinkIcon.Glyph = "";   // Link
+        };
+        timer.Start();
+    }
+
+    /// <summary>
+    /// Put the current tab's URL on the clipboard.
+    ///
+    /// <para>
+    /// SetContent alone was not enough: the package stays owned by this process
+    /// and the copy is lost the moment the window closes, and the call throws
+    /// outright (CLIPBRD_E_CANT_OPEN) when another app is holding the clipboard
+    /// open — which is why the button appeared to do nothing at all. Flush hands
+    /// the data to the system so it outlives us, and a failed open is worth one
+    /// retry rather than a silent no-op.
+    /// </para>
+    /// </summary>
+    private bool CopyLinkToClipboard()
+    {
         string? url = Store.SelectedTab?.UrlString;
-        if (string.IsNullOrEmpty(url)) return;
+        if (string.IsNullOrEmpty(url)) return false;
 
         var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
         package.SetText(url);
-        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+                Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+                return true;
+            }
+            catch (Exception)
+            {
+                // Whoever had it open is usually done by the next pass.
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -1105,13 +1198,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void PageOptionsShare_Click(object sender, RoutedEventArgs e)
     {
-        string? url = Store.SelectedTab?.UrlString;
-        if (string.IsNullOrEmpty(url)) return;
-
-        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
-        package.SetText(url);
-        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-        FlashShareLabel("Link copied");
+        if (CopyLinkToClipboard()) FlashShareLabel("Link copied");
     }
 
     /// <summary>Say what happened, then go back to naming the action.</summary>
@@ -1297,7 +1384,8 @@ public sealed partial class MainWindow : Window
         ChromeTint.Fill = p.Sidebar.WithOpacity(0.55).ToBrush();
 
         WebContentBorder.Background = p.Card.ToBrush();
-        WebContentBorder.BorderBrush = p.Border.WithOpacity(0.7).ToBrush();
+        // No BorderBrush: the card's hairline is off (BorderThickness 0), since
+        // against the live page it read as a seam. The peek card keeps its own.
         // Depth so the ThemeShadow reads as the Mac's soft drop shadow hugging the
         // rounded corners, rather than the flat default.
         WebContentBorder.Translation = new System.Numerics.Vector3(0, 0, 16);

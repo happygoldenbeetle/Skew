@@ -24,6 +24,22 @@
          chrome areas must still hit-test so window drag and hover work. -->
     <Grid x:Name="RootGrid" Background="Transparent"
           SizeChanged="RootGrid_SizeChanged" KeyboardAcceleratorPlacementMode="Hidden">
+        <Grid.Resources>
+            <!--
+                The downloads button breathes while something is downloading and
+                has not been looked at, as it did in the sidebar's bottom bar.
+            -->
+            <Storyboard x:Name="DownloadPulseAnim" RepeatBehavior="Forever" AutoReverse="True">
+                <DoubleAnimation Storyboard.TargetName="TitleBarDownloads"
+                                 Storyboard.TargetProperty="Opacity"
+                                 From="1.0" To="0.4" Duration="0:0:0.7">
+                    <DoubleAnimation.EasingFunction>
+                        <SineEase EasingMode="EaseInOut" />
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+        </Grid.Resources>
+
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="Accelerator_GoBack" />
             <KeyboardAccelerator Key="Right" Modifiers="Menu" Invoked="Accelerator_GoForward" />
@@ -126,6 +142,37 @@
                               Glyph="&#xE90C;"
                               FontSize="13.2" />
                 </Button>
+
+                <!--
+                    Downloads, up from the sidebar's bottom bar. It belongs with
+                    the window's own controls rather than the tab list: it says
+                    nothing about the tabs, and down there it was the one button
+                    in an otherwise empty strip.
+                -->
+                <Button x:Name="TitleBarDownloads"
+                        Width="30" Height="26"
+                        Padding="0"
+                        CornerRadius="6"
+                        Style="{StaticResource MoriGhostButtonStyle}"
+                        ToolTipService.ToolTip="Downloads">
+                    <Grid>
+                        <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"
+                                      Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}"
+                                      IsIndeterminate="False"
+                                      Width="17" Height="17"
+                                      Foreground="{ThemeResource SystemControlForegroundAccentBrush}"
+                                      Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" />
+                        <FontIcon Glyph="&#xE896;" FontSize="13.2" />
+                    </Grid>
+                    <Button.Flyout>
+                        <!-- Downward now that the button sits at the top edge. -->
+                        <Flyout Placement="BottomEdgeAlignedLeft"
+                                ShouldConstrainToRootBounds="False"
+                                Opened="TitleBarDownloadsFlyout_Opened">
+                            <controls:DownloadsPanel />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
             </StackPanel>
 
             <!--
@@ -183,7 +230,7 @@
                         Style="{StaticResource MoriGhostButtonStyle}"
                         Click="TitleBarCopyLink_Click"
                         ToolTipService.ToolTip="Copy link">
-                    <FontIcon Glyph="&#xE71B;" FontSize="12.2" />
+                    <FontIcon x:Name="TitleBarCopyLinkIcon" Glyph="&#xE71B;" FontSize="12.2" />
                 </Button>
 
                 <Button x:Name="TitleBarAddress"
@@ -506,11 +553,17 @@
                         stacking into a gap half again as wide as the one at the
                         window edge.
                     -->
+                    <!--
+                        No hairline. The Mac card carries one, but here it drew a
+                        light 1px line right where Chromium's output meets the
+                        chrome, which reads as a seam between the two rather than
+                        as an edge on the card. The shadow already separates them.
+                    -->
                     <Border
                         x:Name="WebContentBorder"
                         Margin="8,0,8,8"
                         SizeChanged="WebContentBorder_SizeChanged"
-                        BorderThickness="1"
+                        BorderThickness="0"
                         CornerRadius="4"
                         Shadow="{ThemeResource SharedShadow}">
                         <!--

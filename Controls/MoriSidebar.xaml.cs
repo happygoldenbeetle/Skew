@@ -110,49 +110,18 @@ public sealed partial class MoriSidebar : UserControl
     public Visibility MediaVisibility(bool hasMedia)
         => hasMedia ? Visibility.Visible : Visibility.Collapsed;
 
-    private bool _downloadsAcknowledged = false;
+    // Downloads — the button, its pulse and its flyout — moved to the title
+    // bar; MainWindow owns that state now.
 
     public MoriSidebar()
     {
         InitializeComponent();
         Loaded += MoriSidebar_Loaded;
-
-        DownloadStore.Shared.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(DownloadStore.ActivityToken))
-            {
-                _downloadsAcknowledged = false;
-                UpdateDownloadPulse();
-            }
-            else if (e.PropertyName == nameof(DownloadStore.HasActiveDownloads))
-            {
-                UpdateDownloadPulse();
-            }
-        };
-    }
-
-    private void UpdateDownloadPulse()
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (DownloadStore.Shared.HasActiveDownloads && !_downloadsAcknowledged)
-            {
-                DownloadPulseAnim.Begin();
-            }
-            else
-            {
-                DownloadPulseAnim.Stop();
-                DownloadsButton.ClearValue(UIElement.OpacityProperty);
-                DownloadsButton.Opacity = 1.0;
-            }
-        });
     }
 
     private void MoriSidebar_Loaded(object sender, RoutedEventArgs e)
     {
         RefreshUI();
-        DownloadsButton.Visibility = Visibility.Visible;
-        UpdateDownloadPulse();
 
         MoriTabRow.TabDragActiveChanged += OnTabDragActiveChanged;
         Unloaded += (_, _) => MoriTabRow.TabDragActiveChanged -= OnTabDragActiveChanged;
@@ -205,14 +174,18 @@ public sealed partial class MoriSidebar : UserControl
     // enabled and swapped the reload glyph for stop. Store.GoBack/GoForward/
     // Reload/Stop are untouched, so a title-bar chrome can call them directly.
 
-    private void DownloadsFlyout_Opened(object sender, object e)
-    {
-        _downloadsAcknowledged = true;
-        UpdateDownloadPulse();
-    }
-
     private void NewTab_Click(object sender, RoutedEventArgs e)
         => Store?.PresentLauncher();
+
+    // ── Bottom-bar add menu ───────────────────────────────────────────────
+
+    /// <summary>The launcher, which is also what Ctrl+T opens.</summary>
+    private void NewTabMenu_Click(object sender, RoutedEventArgs e)
+        => Store?.PresentLauncher();
+
+    /// <summary>A folder with its name field already live, as the menu does.</summary>
+    private void NewFolderMenu_Click(object sender, RoutedEventArgs e)
+        => Store?.AddFolderForEditing();
 
     private void PinnedTile_Click(object sender, RoutedEventArgs e)
     {

@@ -12,17 +12,7 @@
     IsTabStop="True"
     UseSystemFocusVisuals="False">
     
-    <UserControl.Resources>
-        <Storyboard x:Name="DownloadPulseAnim" RepeatBehavior="Forever" AutoReverse="True">
-            <DoubleAnimation Storyboard.TargetName="DownloadsButton"
-                             Storyboard.TargetProperty="Opacity"
-                             From="1.0" To="0.4" Duration="0:0:0.7">
-                <DoubleAnimation.EasingFunction>
-                    <SineEase EasingMode="EaseInOut" />
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-    </UserControl.Resources>
+    <!-- The download pulse storyboard went to MainWindow with the button. -->
 
     <Grid Background="Transparent"
           RightTapped="RootGrid_RightTapped"
@@ -555,35 +545,63 @@
 
         <!--
             ═══ Bottom Bar ═══
-            Downloads only. The AI, appearance and settings buttons were removed
-            at the user's request and downloads was moved down here from the
-            header nav row, so this intentionally diverges from
-            SidebarBottomBar in Sidebar.swift.
-
-            Both removed actions are still reachable: Settings from the sidebar
-            context menu, light/dark from Settings.
+            The add control, where downloads used to sit before it moved to the
+            title bar. One button for the three things you can start from the
+            sidebar, rather than a row of them — this is Arc's corner plus.
         -->
         <Grid Grid.Row="2" Padding="10,0,10,0" Height="46">
             <Button
-                x:Name="DownloadsButton"
+                x:Name="AddButton"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 Width="30" Height="30"
                 Padding="0"
                 Style="{StaticResource MoriGhostButtonStyle}"
                 CornerRadius="10"
-                ToolTipService.ToolTip="Downloads">
-                <Button.Content>
-                    <Grid>
-                        <ProgressRing IsActive="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}" Value="{x:Bind Store.Downloads.TotalPercent, Mode=OneWay}" IsIndeterminate="False" Width="18" Height="18" Foreground="{ThemeResource SystemControlForegroundAccentBrush}" Visibility="{x:Bind Store.Downloads.HasActiveDownloads, Mode=OneWay}"/>
-                        <FontIcon x:Name="DownloadsIcon" Glyph="&#xE896;" FontSize="16" />
-                    </Grid>
-                </Button.Content>
+                ToolTipService.ToolTip="New">
+                <FontIcon Glyph="&#xE710;" FontSize="16" />
                 <Button.Flyout>
-                    <!-- Opens upward now that the button sits at the bottom edge. -->
-                    <Flyout Placement="TopEdgeAlignedRight" ShouldConstrainToRootBounds="False" Opened="DownloadsFlyout_Opened">
-                        <controls:DownloadsPanel />
-                    </Flyout>
+                    <!-- Upward and left-aligned: the button is in the bottom corner. -->
+                    <MenuFlyout Placement="TopEdgeAlignedLeft">
+                        <MenuFlyout.MenuFlyoutPresenterStyle>
+                            <Style TargetType="MenuFlyoutPresenter">
+                                <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" />
+                                <Setter Property="BackgroundSizing" Value="OuterBorderEdge" />
+                            </Style>
+                        </MenuFlyout.MenuFlyoutPresenterStyle>
+
+                        <!--
+                            Spaces do not exist yet: the store has folders and
+                            tabs and nothing above them. The item is here because
+                            the menu is being built now and the shape is known —
+                            it says so rather than doing something else.
+                        -->
+                        <MenuFlyoutItem x:Name="NewSpaceItem"
+                                        Text="New Space"
+                                        IsEnabled="False"
+                                        ToolTipService.ToolTip="Spaces are not implemented yet">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE7C4;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <MenuFlyoutItem Text="New Folder" Click="NewFolderMenu_Click">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8F4;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <MenuFlyoutSeparator />
+
+                        <!-- The launcher, which is what Ctrl+T opens. -->
+                        <MenuFlyoutItem Text="New Tab"
+                                        Click="NewTabMenu_Click"
+                                        KeyboardAcceleratorTextOverride="Ctrl+T">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE710;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
                 </Button.Flyout>
             </Button>
         </Grid>
