@@ -383,10 +383,6 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
             model.AddSeparator();
             model.AddItem((int)CefMenuId.CustomFirst + 10, "Save as...");
             model.AddItem((int)CefMenuId.Print, "Print...");
-            // Casting needs a receiver stack CEF does not ship. The row is here
-            // because the menu is, and it says plainly that it cannot be used.
-            model.AddItem((int)CefMenuId.CustomFirst + 11, "Cast...");
-            model.SetEnabled((int)CefMenuId.CustomFirst + 11, false);
             model.AddItem((int)CefMenuId.CustomFirst + 12, "Translate to English");
 
             model.AddSeparator();

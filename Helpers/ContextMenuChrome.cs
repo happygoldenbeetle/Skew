@@ -27,7 +27,6 @@ internal static class ContextMenuChrome
         ["reload"] = "",
         ["save as"] = "",
         ["print"] = "",
-        ["cast"] = "",
         ["translate to english"] = "",
         ["view page source"] = "",
         ["inspect"] = "",
@@ -42,7 +41,7 @@ internal static class ContextMenuChrome
         // Link
         ["open link in new tab"] = "",
         ["open link in new window"] = "",
-        ["open link in incognito window"] = "",
+        ["open link in incognito window"] = "",   // RedEye, the eye Arc shows
         ["save link as"] = "",
         ["copy link address"] = "",
 
@@ -64,7 +63,6 @@ internal static class ContextMenuChrome
         ["reload"] = "Ctrl+R",
         ["save as"] = "Ctrl+S",
         ["print"] = "Ctrl+P",
-        ["cast"] = "C",
         ["translate to english"] = "T",
         ["view page source"] = "Ctrl+U",
         ["inspect"] = "N",
