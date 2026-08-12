@@ -49,6 +49,18 @@ public class LauncherItem
 /// </summary>
 public sealed partial class MoriLauncher : UserControl
 {
+    /// <summary>
+    /// Rows the card will show, and the reason the list neither scrolls nor
+    /// carries a height: it is always short enough to draw whole.
+    /// </summary>
+    private const int MaxResults = 5;
+
+    /// <summary>
+    /// How many of those five open tabs may claim, leaving room for what you
+    /// typed and the completions of it.
+    /// </summary>
+    private const int TabResults = 3;
+
     private readonly System.Collections.ObjectModel.ObservableCollection<LauncherItem> _launcherItems = new();
 
     public MoriLauncher()
@@ -121,12 +133,15 @@ public sealed partial class MoriLauncher : UserControl
 
         if (string.IsNullOrEmpty(text))
         {
-            foreach (var t in store.Tabs.Where(t => t.HasBrowserView).Take(7))
+            foreach (var t in store.Tabs.Where(t => t.HasBrowserView).Take(MaxResults))
                 _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "" });
         }
         else
         {
-            foreach (var t in store.Tabs.Where(t => (t.Title?.ToLowerInvariant().Contains(text) ?? false) || (t.UrlString?.ToLowerInvariant().Contains(text) ?? false)).Take(5))
+            // Open tabs first, but not the whole list: the row naming what you
+            // typed and the completions under it are why the palette is open,
+            // and five rows is all there is.
+            foreach (var t in store.Tabs.Where(t => (t.Title?.ToLowerInvariant().Contains(text) ?? false) || (t.UrlString?.ToLowerInvariant().Contains(text) ?? false)).Take(TabResults))
                 _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "" });
 
             // Fallback action
@@ -202,7 +217,7 @@ public sealed partial class MoriLauncher : UserControl
                 // The first suggestion is usually what was typed.
                 if (string.Equals(s, query, StringComparison.OrdinalIgnoreCase)) continue;
                 suggestions.Add(s);
-                if (suggestions.Count == 5) break;
+                if (suggestions.Count == MaxResults) break;
             }
 
             if (suggestions.Count == 0 || token.IsCancellationRequested) return;
@@ -215,7 +230,11 @@ public sealed partial class MoriLauncher : UserControl
 
                 int selected = ResultsList.SelectedIndex;
                 foreach (string s in suggestions)
+                {
+                    // Only into the room the local rows left.
+                    if (_launcherItems.Count >= MaxResults) break;
                     _launcherItems.Add(new LauncherItem { Title = s, Subtitle = "Google Search", Query = s });
+                }
                 if (selected >= 0) ResultsList.SelectedIndex = selected;
             });
         }

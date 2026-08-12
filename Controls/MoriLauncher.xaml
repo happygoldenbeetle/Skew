@@ -111,13 +111,23 @@
                     Opacity="0.45" />
 
                 <!-- Results list -->
+                <!--
+                    No height of its own and no scrolling: the list is capped at
+                    five rows in code, so it can size to its content and the
+                    card grows and shrinks with it. A MaxHeight instead left a
+                    scrollbar to appear the moment the rows and the padding
+                    added up to more than the cap.
+                -->
                 <ListView
                     x:Name="ResultsList"
-                    MaxHeight="250"
                     Padding="6"
                     SelectionMode="Single"
                     ItemClick="Result_Click"
-                    IsItemClickEnabled="True">
+                    IsItemClickEnabled="True"
+                    ScrollViewer.VerticalScrollMode="Disabled"
+                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                    ScrollViewer.HorizontalScrollMode="Disabled"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListView.ItemContainerTransitions>
                         <TransitionCollection />
                     </ListView.ItemContainerTransitions>
