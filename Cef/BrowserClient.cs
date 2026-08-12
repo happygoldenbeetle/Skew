@@ -349,33 +349,18 @@ public sealed class BrowserClient : CefClient
             if (!declaredBackground)
             {
                 if (!string.IsNullOrEmpty(ext.Manifest.Background.ServiceWorker))
+                {
+                    scripts.AddRange(GetServiceWorkerCompanionScripts(
+                        ext.Path, ext.Manifest.Background.ServiceWorker));
                     scripts.Add(ext.Manifest.Background.ServiceWorker);
+                }
                 if (ext.Manifest.Background.Scripts != null)
                     scripts.AddRange(ext.Manifest.Background.Scripts);
             }
 
             var backgroundSource = new System.Text.StringBuilder();
             backgroundSource.Append("if(!window.__skewBackgroundScriptsLoaded){window.__skewBackgroundScriptsLoaded=true;");
-            var orderedScripts = new List<string>();
-            foreach (string scriptPath in scripts.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                string? fullPath = SkewExtensionCatalog.SafeExtensionFilePath(ext.Path, scriptPath);
-                if (fullPath is null) continue;
-                string source = File.ReadAllText(fullPath);
-                foreach (System.Text.RegularExpressions.Match match in
-                    System.Text.RegularExpressions.Regex.Matches(
-                        source, "[\\\"']([^\\\"']+\\.js)[\\\"']",
-                        System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-                {
-                    string dependency = match.Groups[1].Value;
-                    if (!string.Equals(dependency, scriptPath, StringComparison.OrdinalIgnoreCase) &&
-                        SkewExtensionCatalog.SafeExtensionFilePath(ext.Path, dependency) is not null &&
-                        !orderedScripts.Contains(dependency, StringComparer.OrdinalIgnoreCase))
-                        orderedScripts.Add(dependency);
-                }
-                if (!orderedScripts.Contains(scriptPath, StringComparer.OrdinalIgnoreCase))
-                    orderedScripts.Add(scriptPath);
-            }
+            var orderedScripts = scripts.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             backgroundSource.Append("globalThis.importScripts=globalThis.importScripts||function(){};");
             foreach (string scriptPath in orderedScripts)
             {
@@ -386,7 +371,12 @@ public sealed class BrowserClient : CefClient
                         .Append(SkewSchemes.ExtensionScheme).Append("://")
                         .Append(ext.Id).Append('/').Append(scriptPath.Replace('\\', '/'))
                         .Append("\n");
-                    backgroundSource.Append("\n").Append(File.ReadAllText(fullPath)).Append("\n");
+                    string source = File.ReadAllText(fullPath);
+                    if (string.Equals(scriptPath, ext.Manifest.Background.ServiceWorker,
+                        StringComparison.OrdinalIgnoreCase))
+                        source = ExpandServiceWorkerImports(ext.Path, source,
+                            new HashSet<string>(StringComparer.OrdinalIgnoreCase), 0);
+                    backgroundSource.Append("\n").Append(source).Append("\n");
                 }
             }
             string reason = GetQueryParameter(uri.Query, "__skew_background_reason") ?? "startup";
@@ -418,6 +408,67 @@ setTimeout(function(){{
                 return Uri.UnescapeDataString(equals < 0 ? string.Empty : pair[(equals + 1)..]);
         }
         return null;
+    }
+
+    private static IEnumerable<string> GetServiceWorkerCompanionScripts(
+        string extensionRoot, string serviceWorker)
+    {
+        // Some Chrome Store packages retain their MV2 background document while
+        // declaring its final script as an MV3 worker. When that worker still
+        // references globals from earlier script tags, preserve the documented
+        // dependency order instead of guessing from arbitrary JavaScript text.
+        string pagePath = Path.Combine(extensionRoot, "background.html");
+        if (!File.Exists(pagePath)) yield break;
+
+        string html;
+        try { html = File.ReadAllText(pagePath); }
+        catch { yield break; }
+
+        var sources = Regex.Matches(html,
+                "<script\\b[^>]*\\bsrc\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"][^>]*>",
+                RegexOptions.IgnoreCase)
+            .Select(match => match.Groups[1].Value.Replace('\\', '/').TrimStart('/'))
+            .ToList();
+        int workerIndex = sources.FindIndex(source =>
+            string.Equals(source, serviceWorker.Replace('\\', '/').TrimStart('/'),
+                StringComparison.OrdinalIgnoreCase));
+        if (workerIndex < 0) yield break;
+
+        for (int index = 0; index < workerIndex; index++)
+        {
+            string source = sources[index];
+            if (SkewExtensionCatalog.SafeExtensionFilePath(extensionRoot, source) is not null)
+                yield return source;
+        }
+    }
+
+    private static string ExpandServiceWorkerImports(
+        string extensionRoot, string source, HashSet<string> activeImports, int depth)
+    {
+        if (depth > 16) throw new InvalidDataException("Extension importScripts nesting is too deep.");
+        return System.Text.RegularExpressions.Regex.Replace(source,
+            @"\bimportScripts\s*\(([^;]*)\)\s*;",
+            match =>
+            {
+                var expanded = new System.Text.StringBuilder();
+                foreach (System.Text.RegularExpressions.Match pathMatch in
+                    System.Text.RegularExpressions.Regex.Matches(match.Groups[1].Value,
+                        "[\\\"']([^\\\"']+)[\\\"']"))
+                {
+                    string relative = pathMatch.Groups[1].Value.Replace('\\', '/').TrimStart('/');
+                    if (Uri.TryCreate(relative, UriKind.Absolute, out _))
+                        throw new InvalidDataException("Remote importScripts URLs are not supported.");
+                    string? path = SkewExtensionCatalog.SafeExtensionFilePath(extensionRoot, relative);
+                    if (path is null || !activeImports.Add(relative))
+                        continue;
+                    string imported = ExpandServiceWorkerImports(extensionRoot, File.ReadAllText(path),
+                        activeImports, depth + 1);
+                    expanded.Append("\n//# sourceURL=").Append(SkewSchemes.ExtensionScheme).Append("://worker/")
+                        .Append(relative).Append('\n').Append(imported).Append('\n');
+                    activeImports.Remove(relative);
+                }
+                return expanded.ToString();
+            });
     }
 
     /// <summary>

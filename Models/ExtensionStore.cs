@@ -227,6 +227,7 @@ public sealed class ExtensionStore
             if (manifest is null) return null;
 
             manifest.Name = ResolveLocalizedString(manifest.Name, manifest.DefaultLocale, folderPath);
+            manifest.ShortName = ResolveLocalizedString(manifest.ShortName, manifest.DefaultLocale, folderPath);
             manifest.Description = ResolveLocalizedString(manifest.Description, manifest.DefaultLocale, folderPath);
             return manifest;
         }
@@ -265,6 +266,7 @@ public sealed class ExtensionStore
             extension.Version = extension.Manifest.Version;
             extension.IconPath = GetBestIconPath(extension.Manifest, extension.Path);
             Extensions.Add(extension);
+            _ = Task.Run(() => Skew.Cef.ExtensionCompatibilityAnalyzer.AnalyzeAndWrite(extension));
             ExtensionChanged?.Invoke(extension, ExtensionChangeKind.Loaded);
         }
         UpdateSnapshot();
@@ -328,6 +330,7 @@ public sealed class ExtensionStore
             collectionChanged = true;
 
             await SaveExtensionsCoreAsync();
+            _ = Task.Run(() => Skew.Cef.ExtensionCompatibilityAnalyzer.AnalyzeAndWrite(replacement));
             ExtensionChanged?.Invoke(replacement, previous is null
                 ? ExtensionChangeKind.Installed : ExtensionChangeKind.Updated);
         }

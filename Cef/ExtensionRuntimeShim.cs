@@ -18,13 +18,37 @@ internal static class ExtensionRuntimeShim
         string extensionId, Models.ManifestMeta? manifest, string? extensionRoot = null)
     {
         var manifestJson = "{}";
-        if (manifest != null)
+        string? manifestPath = string.IsNullOrWhiteSpace(extensionRoot)
+            ? null
+            : Path.Combine(extensionRoot, "manifest.json");
+        if (manifestPath is not null && File.Exists(manifestPath))
+        {
+            try
+            {
+                var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(manifestPath))
+                    as System.Text.Json.Nodes.JsonObject;
+                if (root is not null)
+                {
+                    string? defaultLocale = root["default_locale"]?.GetValue<string>();
+                    foreach (string field in new[] { "name", "short_name", "description" })
+                    {
+                        string? value = root[field]?.GetValue<string>();
+                        if (!string.IsNullOrWhiteSpace(value))
+                            root[field] = ResolveManifestMessage(value, defaultLocale, extensionRoot!);
+                    }
+                    manifestJson = root.ToJsonString();
+                }
+            }
+            catch { manifestJson = "{}"; }
+        }
+        else if (manifest != null)
         {
             try
             {
                 manifestJson = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     name = manifest.Name ?? "",
+                    short_name = manifest.ShortName ?? manifest.Name ?? "",
                     version = manifest.Version ?? "",
                     description = manifest.Description ?? "",
                     manifest_version = manifest.ManifestVersion
@@ -151,6 +175,9 @@ runtime.onMessage=runtime.onMessage||__skewEvent();
 runtime.onMessageExternal=runtime.onMessageExternal||__skewEvent();
 runtime.onInstalled=runtime.onInstalled||__skewEvent();
 runtime.onStartup=runtime.onStartup||__skewEvent();
+runtime.onConnect=runtime.onConnect||__skewEvent();
+runtime.OnInstalledReason=runtime.OnInstalledReason||{{INSTALL:'install',UPDATE:'update',CHROME_UPDATE:'chrome_update',SHARED_MODULE_UPDATE:'shared_module_update'}};
+if(!Object.prototype.hasOwnProperty.call(runtime,'lastError'))Object.defineProperty(runtime,'lastError',{{configurable:true,get:function(){{return undefined;}}}});
 runtime.getURL=function(path){{
   var clean=String(path||'').replace(/^\/+/,'');
   var embedded=embeddedResources[clean];
@@ -177,6 +204,19 @@ runtime.sendMessage=runtime.sendMessage||function(message,options,cb){{
 }};
 runtime.setUninstallURL=runtime.setUninstallURL||function(url,cb){{
   var p=Promise.resolve(); if(typeof cb==='function')p.then(cb); return p;
+}};
+runtime.getPlatformInfo=runtime.getPlatformInfo||function(cb){{
+  var result={{os:'win',arch:'x86-64',nacl_arch:'x86-64'}};
+  var p=Promise.resolve(result); if(typeof cb==='function')p.then(cb); return p;
+}};
+runtime.openOptionsPage=runtime.openOptionsPage||function(cb){{
+  var p=Promise.resolve(); if(typeof cb==='function')p.then(cb); return p;
+}};
+runtime.reload=runtime.reload||function(){{}};
+runtime.connect=runtime.connect||function(){{
+  var onMessage=__skewEvent(),onDisconnect=__skewEvent();
+  return {{name:'',sender:undefined,onMessage:onMessage,onDisconnect:onDisconnect,
+    postMessage:function(){{}},disconnect:function(){{onDisconnect._fire();}}}};
 }};
 if(isExtensionPage&&!chrome.__skewNativeFetchInstalled&&typeof globalThis.fetch==='function'){{
   chrome.__skewNativeFetchInstalled=true;
@@ -277,11 +317,23 @@ chrome.storage.local.clear=chrome.storage.local.clear||function(cb){{
   if(typeof cb==='function')p.then(function(){{cb();}});
   return p;
 }};
+chrome.storage.local.getBytesInUse=chrome.storage.local.getBytesInUse||function(keys,cb){{
+  var p=__skewExtCall('storage.local.getBytesInUse',{{keys:keys}});if(typeof cb==='function')p.then(cb);return p;
+}};
 chrome.storage.sync=chrome.storage.sync||chrome.storage.local;
 chrome.storage.session=chrome.storage.session||chrome.storage.local;
+chrome.storage.managed=chrome.storage.managed||{{}};
+chrome.storage.managed.get=chrome.storage.managed.get||function(keys,cb){{var p=Promise.resolve({{}});if(typeof cb==='function')p.then(cb);return p;}};
+chrome.storage.managed.getBytesInUse=chrome.storage.managed.getBytesInUse||function(keys,cb){{var p=Promise.resolve(0);if(typeof cb==='function')p.then(cb);return p;}};
 
 // --- chrome.tabs (minimal stubs) ---
 chrome.tabs=chrome.tabs||{{}};
+chrome.tabs.TAB_ID_NONE=-1;
+chrome.tabs.onActivated=chrome.tabs.onActivated||__skewEvent();
+chrome.tabs.onCreated=chrome.tabs.onCreated||__skewEvent();
+chrome.tabs.onRemoved=chrome.tabs.onRemoved||__skewEvent();
+chrome.tabs.onReplaced=chrome.tabs.onReplaced||__skewEvent();
+chrome.tabs.onUpdated=chrome.tabs.onUpdated||__skewEvent();
 chrome.tabs.query=chrome.tabs.query||function(queryInfo,cb){{
   var p=__skewExtCall('tabs.query',{{queryInfo:queryInfo||{{}}}});
   if(typeof cb==='function')p.then(cb);
@@ -308,22 +360,178 @@ chrome.tabs.detectLanguage=chrome.tabs.detectLanguage||function(tabId,cb){{
   var p=__skewExtCall('tabs.detectLanguage',{{tabId:tabId}});
   if(typeof cb==='function')p.then(cb); return p;
 }};
+chrome.tabs.get=chrome.tabs.get||function(tabId,cb){{
+  var p=chrome.tabs.query({{active:true,currentWindow:true}}).then(function(tabs){{return tabs[0]||null;}});
+  if(typeof cb==='function')p.then(cb); return p;
+}};
+chrome.tabs.getCurrent=chrome.tabs.getCurrent||function(cb){{
+  var p=chrome.tabs.query({{active:true,currentWindow:true}}).then(function(tabs){{return tabs[0]||null;}});
+  if(typeof cb==='function')p.then(cb); return p;
+}};
+chrome.tabs.update=chrome.tabs.update||function(tabId,updateProperties,cb){{
+  if(typeof tabId==='object'){{cb=updateProperties;updateProperties=tabId;tabId=null;}}
+  var p=Promise.resolve({{id:tabId||0,active:true,url:updateProperties&&updateProperties.url||''}});
+  if(typeof cb==='function')p.then(cb); return p;
+}};
+chrome.tabs.executeScript=chrome.tabs.executeScript||function(tabId,details,cb){{
+  if(typeof tabId==='object'){{cb=details;details=tabId;tabId=null;}}
+  var injection={{target:{{tabId:tabId||0,allFrames:!!(details&&details.allFrames)}},
+    files:details&&details.file?[details.file]:[]}};
+  var p=chrome.scripting&&chrome.scripting.executeScript
+    ?chrome.scripting.executeScript(injection):Promise.resolve([]);
+  if(typeof cb==='function')p.then(cb); return p;
+}};
+chrome.tabs.insertCSS=chrome.tabs.insertCSS||function(tabId,details,cb){{
+  if(typeof tabId==='object'){{cb=details;details=tabId;tabId=null;}}
+  var injection={{target:{{tabId:tabId||0,allFrames:!!(details&&details.allFrames)}},files:details&&details.file?[details.file]:[],css:details&&details.code||''}};
+  var p=chrome.scripting.insertCSS(injection);if(typeof cb==='function')p.then(function(){{cb();}});return p;
+}};
+chrome.tabs.removeCSS=chrome.tabs.removeCSS||function(tabId,details,cb){{
+  if(typeof tabId==='object'){{cb=details;details=tabId;tabId=null;}}
+  var injection={{target:{{tabId:tabId||0,allFrames:!!(details&&details.allFrames)}},files:details&&details.file?[details.file]:[],css:details&&details.code||''}};
+  var p=chrome.scripting.removeCSS(injection);if(typeof cb==='function')p.then(function(){{cb();}});return p;
+}};
+chrome.tabs.remove=chrome.tabs.remove||function(tabIds,cb){{var p=__skewExtCall('tabs.remove',{{tabIds:tabIds}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
+
+// --- Common lifecycle APIs used while modern extensions initialise ---
+chrome.alarms=chrome.alarms||{{}};
+chrome.alarms.onAlarm=chrome.alarms.onAlarm||__skewEvent();
+var __skewAlarms=chrome.alarms.__skewAlarms=chrome.alarms.__skewAlarms||{{}};
+chrome.alarms.create=chrome.alarms.create||function(name,info){{
+  if(typeof name==='object'){{info=name;name='';}}info=info||{{}};name=String(name||'');
+  if(__skewAlarms[name]&&__skewAlarms[name].timer)clearTimeout(__skewAlarms[name].timer);
+  var delay=Math.max(0,info.when?info.when-Date.now():(info.delayInMinutes||0)*60000);
+  var alarm={{name:name,scheduledTime:Date.now()+delay,periodInMinutes:info.periodInMinutes}};
+  function fire(){{alarm.scheduledTime=Date.now();chrome.alarms.onAlarm._fire(alarm);if(info.periodInMinutes)alarm.timer=setTimeout(fire,info.periodInMinutes*60000);else delete __skewAlarms[name];}}
+  alarm.timer=setTimeout(fire,delay);__skewAlarms[name]=alarm;
+}};
+chrome.alarms.clear=chrome.alarms.clear||function(name,cb){{var existed=!!__skewAlarms[name];if(existed){{clearTimeout(__skewAlarms[name].timer);delete __skewAlarms[name];}}var p=Promise.resolve(existed);if(cb)p.then(cb);return p;}};
+chrome.alarms.clearAll=chrome.alarms.clearAll||function(cb){{var names=Object.keys(__skewAlarms),existed=names.length>0;names.forEach(function(name){{clearTimeout(__skewAlarms[name].timer);delete __skewAlarms[name];}});var p=Promise.resolve(existed);if(cb)p.then(cb);return p;}};
+chrome.alarms.get=chrome.alarms.get||function(name,cb){{var alarm=__skewAlarms[name]||null;var p=Promise.resolve(alarm&&{{name:alarm.name,scheduledTime:alarm.scheduledTime,periodInMinutes:alarm.periodInMinutes}});if(cb)p.then(cb);return p;}};
+chrome.alarms.getAll=chrome.alarms.getAll||function(cb){{var result=Object.keys(__skewAlarms).map(function(name){{var a=__skewAlarms[name];return {{name:a.name,scheduledTime:a.scheduledTime,periodInMinutes:a.periodInMinutes}};}});var p=Promise.resolve(result);if(cb)p.then(cb);return p;}};
+
+chrome.idle=chrome.idle||{{}};
+chrome.idle.onStateChanged=chrome.idle.onStateChanged||__skewEvent();
+chrome.idle.queryState=chrome.idle.queryState||function(seconds,cb){{var p=Promise.resolve('active');if(cb)p.then(cb);return p;}};
+
+chrome.windows=chrome.windows||{{}};
+chrome.windows.onRemoved=chrome.windows.onRemoved||__skewEvent();
+chrome.windows.update=chrome.windows.update||function(id,info,cb){{var p=Promise.resolve({{id:id,focused:true}});if(cb)p.then(cb);return p;}};
+
+chrome.webNavigation=chrome.webNavigation||{{}};
+chrome.webNavigation.onBeforeNavigate=chrome.webNavigation.onBeforeNavigate||__skewEvent();
+chrome.webNavigation.onCommitted=chrome.webNavigation.onCommitted||__skewEvent();
+chrome.webNavigation.onCompleted=chrome.webNavigation.onCompleted||__skewEvent();
+chrome.webNavigation.onDOMContentLoaded=chrome.webNavigation.onDOMContentLoaded||__skewEvent();
+chrome.webNavigation.onCreatedNavigationTarget=chrome.webNavigation.onCreatedNavigationTarget||__skewEvent();
+chrome.webNavigation.onErrorOccurred=chrome.webNavigation.onErrorOccurred||__skewEvent();
+chrome.webNavigation.onHistoryStateUpdated=chrome.webNavigation.onHistoryStateUpdated||__skewEvent();
+chrome.webNavigation.onReferenceFragmentUpdated=chrome.webNavigation.onReferenceFragmentUpdated||__skewEvent();
+chrome.webNavigation.onTabReplaced=chrome.webNavigation.onTabReplaced||__skewEvent();
+chrome.webNavigation.patchedForOnHistoryStateUpdated=true;
+chrome.webNavigation.getAllFrames=chrome.webNavigation.getAllFrames||function(details,cb){{
+  var p=chrome.tabs.query({{active:true,currentWindow:true}}).then(function(tabs){{
+    var tab=tabs&&tabs[0];
+    return [{{frameId:0,parentFrameId:-1,url:tab&&tab.url?tab.url:'about:blank'}}];
+  }});if(cb)p.then(cb);return p;
+}};
+
+chrome.webRequest=chrome.webRequest||{{}};
+chrome.webRequest.ResourceType=chrome.webRequest.ResourceType||{{
+  MAIN_FRAME:'main_frame',SUB_FRAME:'sub_frame',STYLESHEET:'stylesheet',SCRIPT:'script',IMAGE:'image',
+  FONT:'font',OBJECT:'object',XMLHTTPREQUEST:'xmlhttprequest',PING:'ping',CSP_REPORT:'csp_report',
+  MEDIA:'media',WEBSOCKET:'websocket',WEBTRANSPORT:'webtransport',WEBBUNDLE:'webbundle',OTHER:'other'
+}};
+chrome.webRequest.OnBeforeRequestOptions=chrome.webRequest.OnBeforeRequestOptions||{{BLOCKING:'blocking',REQUEST_BODY:'requestBody',EXTRA_HEADERS:'extraHeaders'}};
+chrome.webRequest.OnBeforeSendHeadersOptions=chrome.webRequest.OnBeforeSendHeadersOptions||{{REQUEST_HEADERS:'requestHeaders',BLOCKING:'blocking',EXTRA_HEADERS:'extraHeaders'}};
+chrome.webRequest.OnSendHeadersOptions=chrome.webRequest.OnSendHeadersOptions||{{REQUEST_HEADERS:'requestHeaders',EXTRA_HEADERS:'extraHeaders'}};
+chrome.webRequest.OnHeadersReceivedOptions=chrome.webRequest.OnHeadersReceivedOptions||{{RESPONSE_HEADERS:'responseHeaders',BLOCKING:'blocking',EXTRA_HEADERS:'extraHeaders'}};
+chrome.webRequest.OnCompletedOptions=chrome.webRequest.OnCompletedOptions||{{RESPONSE_HEADERS:'responseHeaders',EXTRA_HEADERS:'extraHeaders'}};
+chrome.webRequest.OnAuthRequiredOptions=chrome.webRequest.OnAuthRequiredOptions||{{RESPONSE_HEADERS:'responseHeaders',BLOCKING:'blocking',ASYNC_BLOCKING:'asyncBlocking',EXTRA_HEADERS:'extraHeaders'}};
+chrome.webRequest.onBeforeRequest=chrome.webRequest.onBeforeRequest||__skewEvent();
+chrome.webRequest.onBeforeSendHeaders=chrome.webRequest.onBeforeSendHeaders||__skewEvent();
+chrome.webRequest.onSendHeaders=chrome.webRequest.onSendHeaders||__skewEvent();
+chrome.webRequest.onHeadersReceived=chrome.webRequest.onHeadersReceived||__skewEvent();
+chrome.webRequest.onAuthRequired=chrome.webRequest.onAuthRequired||__skewEvent();
+chrome.webRequest.onBeforeRedirect=chrome.webRequest.onBeforeRedirect||__skewEvent();
+chrome.webRequest.onResponseStarted=chrome.webRequest.onResponseStarted||__skewEvent();
+chrome.webRequest.onCompleted=chrome.webRequest.onCompleted||__skewEvent();
+chrome.webRequest.onErrorOccurred=chrome.webRequest.onErrorOccurred||__skewEvent();
+chrome.webRequest.handlerBehaviorChanged=chrome.webRequest.handlerBehaviorChanged||function(cb){{var p=Promise.resolve();if(cb)p.then(cb);return p;}};
+
+chrome.notifications=chrome.notifications||{{}};
+chrome.notifications.onClicked=chrome.notifications.onClicked||__skewEvent();
+chrome.notifications.onButtonClicked=chrome.notifications.onButtonClicked||__skewEvent();
+chrome.notifications.create=chrome.notifications.create||function(id,options,cb){{
+  if(typeof id==='object'){{cb=options;options=id;id='';}}var p=Promise.resolve(id||'');if(cb)p.then(cb);return p;
+}};
+
+chrome.declarativeNetRequest=chrome.declarativeNetRequest||{{}};
+chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES=chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES||5000;
+chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES=chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES||5000;
+chrome.declarativeNetRequest.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS=chrome.declarativeNetRequest.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS||50;
+chrome.declarativeNetRequest.getDynamicRules=chrome.declarativeNetRequest.getDynamicRules||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
+chrome.declarativeNetRequest.getSessionRules=chrome.declarativeNetRequest.getSessionRules||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
+chrome.declarativeNetRequest.getEnabledRulesets=chrome.declarativeNetRequest.getEnabledRulesets||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
+chrome.declarativeNetRequest.getAvailableStaticRuleCount=chrome.declarativeNetRequest.getAvailableStaticRuleCount||function(cb){{var p=Promise.resolve(30000);if(cb)p.then(cb);return p;}};
+chrome.declarativeNetRequest.getDisabledRuleIds=chrome.declarativeNetRequest.getDisabledRuleIds||function(options,cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
+chrome.declarativeNetRequest.isRegexSupported=chrome.declarativeNetRequest.isRegexSupported||function(options,cb){{var p=Promise.resolve({{isSupported:true}});if(cb)p.then(cb);return p;}};
+['updateDynamicRules','updateEnabledRulesets','updateStaticRules'].forEach(function(name){{
+  chrome.declarativeNetRequest[name]=chrome.declarativeNetRequest[name]||function(options,cb){{var p=Promise.resolve();if(cb)p.then(cb);return p;}};
+}});
 
 // --- chrome.action, browserAction, scripting and commands ---
 chrome.action=chrome.action||{{}};
 chrome.action.onClicked=chrome.action.onClicked||__skewEvent();
+var __skewActionState=chrome.action.__skewState=chrome.action.__skewState||{{
+  popup:(manifest.action&&manifest.action.default_popup)||(manifest.browser_action&&manifest.browser_action.default_popup)||'',
+  title:(manifest.action&&manifest.action.default_title)||(manifest.browser_action&&manifest.browser_action.default_title)||'',
+  badgeText:'',badgeBackgroundColor:null,enabled:true
+}};
+chrome.action.getPopup=chrome.action.getPopup||function(details,cb){{var p=Promise.resolve(__skewActionState.popup);if(typeof cb==='function')p.then(cb);return p;}};
+chrome.action.setPopup=chrome.action.setPopup||function(details,cb){{__skewActionState.popup=details&&details.popup||'';var p=Promise.resolve();if(typeof cb==='function')p.then(cb);return p;}};
+chrome.action.getTitle=chrome.action.getTitle||function(details,cb){{var p=Promise.resolve(__skewActionState.title);if(typeof cb==='function')p.then(cb);return p;}};
+chrome.action.getBadgeText=chrome.action.getBadgeText||function(details,cb){{var p=Promise.resolve(__skewActionState.badgeText);if(typeof cb==='function')p.then(cb);return p;}};
+chrome.action.getBadgeBackgroundColor=chrome.action.getBadgeBackgroundColor||function(details,cb){{var p=Promise.resolve(__skewActionState.badgeBackgroundColor);if(typeof cb==='function')p.then(cb);return p;}};
 ['setTitle','setIcon','setBadgeText','setBadgeBackgroundColor','enable','disable'].forEach(function(name){{
   chrome.action[name]=chrome.action[name]||function(details,cb){{
+    if(name==='setTitle')__skewActionState.title=details&&details.title||'';
+    if(name==='setBadgeText')__skewActionState.badgeText=details&&details.text||'';
+    if(name==='setBadgeBackgroundColor')__skewActionState.badgeBackgroundColor=details&&details.color||null;
+    if(name==='enable')__skewActionState.enabled=true;
+    if(name==='disable')__skewActionState.enabled=false;
     var p=Promise.resolve(); if(typeof cb==='function')p.then(cb); return p;
   }};
 }});
 chrome.browserAction=chrome.browserAction||chrome.action;
 
 chrome.scripting=chrome.scripting||{{}};
+chrome.scripting.ExecutionWorld=chrome.scripting.ExecutionWorld||{{ISOLATED:'ISOLATED',MAIN:'MAIN'}};
 chrome.scripting.executeScript=chrome.scripting.executeScript||function(injection,cb){{
   var p=__skewExtCall('scripting.executeScript',{{injection:injection||{{}}}});
   if(typeof cb==='function')p.then(cb); return p;
 }};
+chrome.scripting.insertCSS=chrome.scripting.insertCSS||function(injection,cb){{var p=__skewExtCall('scripting.insertCSS',{{injection:injection||{{}}}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
+chrome.scripting.removeCSS=chrome.scripting.removeCSS||function(injection,cb){{var p=__skewExtCall('scripting.removeCSS',{{injection:injection||{{}}}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
+
+chrome.permissions=chrome.permissions||{{}};
+chrome.permissions.getAll=chrome.permissions.getAll||function(cb){{var result={{permissions:(manifest.permissions||[]).slice(),origins:(manifest.host_permissions||[]).slice()}};var p=Promise.resolve(result);if(cb)p.then(cb);return p;}};
+chrome.permissions.contains=chrome.permissions.contains||function(request,cb){{request=request||{{}};var declared=(manifest.permissions||[]).concat(manifest.optional_permissions||[]),origins=(manifest.host_permissions||[]).concat(manifest.optional_host_permissions||[]);var value=(request.permissions||[]).every(function(x){{return declared.indexOf(x)>=0;}})&&(request.origins||[]).every(function(x){{return origins.indexOf(x)>=0;}});var p=Promise.resolve(value);if(cb)p.then(cb);return p;}};
+chrome.permissions.request=chrome.permissions.request||function(request,cb){{var p=chrome.permissions.contains(request||{{}});if(cb)p.then(cb);return p;}};
+chrome.permissions.remove=chrome.permissions.remove||function(request,cb){{var p=Promise.resolve(false);if(cb)p.then(cb);return p;}};
+
+chrome.management=chrome.management||{{}};
+function __skewManagementSelf(){{return {{id:extId,name:manifest.name||'',shortName:manifest.short_name||manifest.name||'',description:manifest.description||'',version:manifest.version||'',enabled:true,mayDisable:true,type:'extension',installType:'normal',homepageUrl:manifest.homepage_url||'',optionsUrl:manifest.options_ui&&manifest.options_ui.page?runtime.getURL(manifest.options_ui.page):''}};}}
+chrome.management.getSelf=chrome.management.getSelf||function(cb){{var p=Promise.resolve(__skewManagementSelf());if(cb)p.then(cb);return p;}};
+chrome.management.getAll=chrome.management.getAll||function(cb){{var p=Promise.resolve([__skewManagementSelf()]);if(cb)p.then(cb);return p;}};
+chrome.management.get=chrome.management.get||function(id,cb){{var p=Promise.resolve(__skewManagementSelf());if(cb)p.then(cb);return p;}};
+
+chrome.dom=chrome.dom||{{}};
+chrome.dom.openOrClosedShadowRoot=chrome.dom.openOrClosedShadowRoot||function(element){{return element&&element.shadowRoot||null;}};
+
+chrome.devtools=chrome.devtools||{{}};
+chrome.devtools.inspectedWindow=chrome.devtools.inspectedWindow||{{tabId:0,reload:function(){{}}}};
+chrome.devtools.panels=chrome.devtools.panels||{{themeName:'dark',openResource:function(){{}},create:function(title,icon,page,cb){{var panel={{onShown:__skewEvent(),onHidden:__skewEvent(),onSearch:__skewEvent()}};if(cb)cb(panel);return Promise.resolve(panel);}}}};
 
 chrome.commands=chrome.commands||{{}};
 chrome.commands.onCommand=chrome.commands.onCommand||__skewEvent();
@@ -427,6 +635,33 @@ if(isExtensionPage){{globalThis.browser=chrome;}}
             .Replace("\\*", ".*").Replace("\\?", ".") + "$";
         return System.Text.RegularExpressions.Regex.IsMatch(
             relativePath, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    private static string ResolveManifestMessage(string value, string? defaultLocale, string root)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            value ?? string.Empty, "^__MSG_(.+)__$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success) return value ?? string.Empty;
+
+        string key = match.Groups[1].Value;
+        foreach (string locale in new[] { defaultLocale, "en", "en_US" }
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item!.Replace('-', '_'))
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            string path = Path.Combine(root, "_locales", locale, "messages.json");
+            if (!File.Exists(path)) continue;
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+                if (document.RootElement.TryGetProperty(key, out var entry) &&
+                    entry.TryGetProperty("message", out var message))
+                    return message.GetString() ?? value ?? string.Empty;
+            }
+            catch (System.Text.Json.JsonException) { }
+        }
+        return value ?? string.Empty;
     }
 
     private static string? TextResourceMimeType(string extension) => extension.ToLowerInvariant() switch

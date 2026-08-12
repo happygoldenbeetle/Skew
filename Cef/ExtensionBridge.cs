@@ -116,6 +116,22 @@ internal static class ExtensionBridge
                 App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.Reload());
                 return MakeResponse(requestId, (object?)null);
             }
+            if (method == "tabs.remove")
+            {
+                var requestedIds = new List<int>();
+                if (args.TryGetProperty("tabIds", out JsonElement ids))
+                {
+                    if (ids.ValueKind == JsonValueKind.Number && ids.TryGetInt32(out int singleId))
+                        requestedIds.Add(singleId);
+                    else if (ids.ValueKind == JsonValueKind.Array)
+                        requestedIds.AddRange(ids.EnumerateArray().Where(item => item.TryGetInt32(out _))
+                            .Select(item => item.GetInt32()));
+                }
+                BrowserTab? selected = BrowserStore.Shared.SelectedTab;
+                if (selected is not null && requestedIds.Contains(ExtensionBackgroundManager.SelectedTabId))
+                    App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.CloseTab(selected.Id));
+                return MakeResponse(requestId, (object?)null);
+            }
             if (method == "tabs.detectLanguage")
             {
                 string language = System.Globalization.CultureInfo.CurrentUICulture
@@ -140,6 +156,16 @@ internal static class ExtensionBridge
                 if (files.Length == 0 || !ExtensionBackgroundManager.ExecuteScriptFiles(extensionId, files, allFrames))
                     return MakeError(requestId, "The extension script could not be injected.");
                 return MakeResponse(requestId, Array.Empty<object>());
+            }
+            if (method is "scripting.insertCSS" or "scripting.removeCSS")
+            {
+                if (!HasPermission(extension, "scripting"))
+                    return MakeError(requestId, "The extension has not requested scripting permission.");
+                if (!args.TryGetProperty("injection", out JsonElement injection) ||
+                    !ExtensionBackgroundManager.ApplyStyle(
+                        extensionId, injection, remove: method.EndsWith("removeCSS", StringComparison.Ordinal)))
+                    return MakeError(requestId, "The extension style could not be applied.");
+                return MakeResponse(requestId, (object?)null);
             }
             if (method == "runtime.sendMessage")
             {
@@ -366,6 +392,30 @@ internal static class ExtensionBridge
             if (changes.Count > 0)
                 ExtensionBackgroundManager.DispatchStorageChanged(extensionId, changes, "local");
             return MakeResponse(requestId, (object?)null);
+        }
+
+        if (method == "storage.local.getBytesInUse")
+        {
+            Dictionary<string, JsonElement> selected;
+            lock (store)
+            {
+                if (!args.TryGetProperty("keys", out JsonElement keysElement) ||
+                    keysElement.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+                    selected = store.ToDictionary(pair => pair.Key, pair => pair.Value.Clone());
+                else
+                {
+                    IEnumerable<string> keys = keysElement.ValueKind switch
+                    {
+                        JsonValueKind.String => new[] { keysElement.GetString() ?? string.Empty },
+                        JsonValueKind.Array => keysElement.EnumerateArray()
+                            .Select(item => item.GetString() ?? string.Empty).ToArray(),
+                        _ => Array.Empty<string>()
+                    };
+                    selected = keys.Where(store.ContainsKey)
+                        .ToDictionary(key => key, key => store[key].Clone());
+                }
+            }
+            return MakeResponse(requestId, JsonSerializer.SerializeToUtf8Bytes(selected).Length);
         }
 
         return MakeError(requestId, $"Unsupported storage method: {method}");

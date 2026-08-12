@@ -111,10 +111,10 @@ internal static class ExtensionBackgroundManager
             $"Dispatching runtime message from {HostOnly(sourceUrl)}.");
         bool dispatched = ExecuteInBackground(extensionId,
             $"if(chrome.runtime&&chrome.runtime.onMessage&&chrome.runtime.onMessage._fire)" +
-            $"(function(){{var sent=false;function reply(value){{if(sent)return;sent=true;" +
+            $"(function(){{var sent=false,waiting=false;function reply(value){{if(sent)return;sent=true;" +
             $"console.info('__SKEW_EXTENSION_RESPONSE__'+JSON.stringify({{requestId:{System.Text.Json.JsonSerializer.Serialize(requestId)},extensionId:{System.Text.Json.JsonSerializer.Serialize(extensionId)},result:value}}));}}" +
-            $"var ls=chrome.runtime.onMessage._listeners.slice();for(var i=0;i<ls.length;i++){{try{{var r=ls[i]({messageJson},{senderJson},reply);if(r&&typeof r.then==='function')r.then(reply);}}catch(e){{if(window.__skewExtDiagnostic)window.__skewExtDiagnostic('background-listener',e);}}}}" +
-            $"setTimeout(function(){{reply(null);}},1000);}})();");
+            $"var ls=chrome.runtime.onMessage._listeners.slice();for(var i=0;i<ls.length;i++){{try{{var r=ls[i]({messageJson},{senderJson},reply);if(r===true)waiting=true;else if(r&&typeof r.then==='function'){{waiting=true;r.then(reply,function(e){{if(window.__skewExtDiagnostic)window.__skewExtDiagnostic('background-listener-promise',e);}});}}}}catch(e){{if(window.__skewExtDiagnostic)window.__skewExtDiagnostic('background-listener',e);}}}}" +
+            $"setTimeout(function(){{reply(null);}},waiting?10000:0);}})();");
         if (!dispatched)
         {
             PendingMessages.TryRemove(requestId, out _);
@@ -183,12 +183,12 @@ internal static class ExtensionBackgroundManager
 
     private static async void ScheduleMessageTimeout(string requestId)
     {
-        await Task.Delay(1500);
+        await Task.Delay(11000);
         App.DispatcherQueue.TryEnqueue(() =>
         {
             if (PendingMessages.ContainsKey(requestId))
                 ExtensionDiagnostics.Write("message-timeout", "unknown",
-                    "Runtime message exceeded 1500 ms.");
+                    "Runtime message exceeded 11000 ms.");
             CompleteMessage(requestId, string.Empty, null);
         });
     }
@@ -233,6 +233,42 @@ internal static class ExtensionBackgroundManager
         selected.BrowserView.ExecuteExtensionJavaScript(source.ToString(), allFrames);
         ExtensionDiagnostics.Write("scripting", extensionId,
             $"Injected {files.Count} action script file(s) into {HostOnly(selected.UrlString)}.");
+        return true;
+    }
+
+    public static bool ApplyStyle(string extensionId, System.Text.Json.JsonElement injection, bool remove)
+    {
+        BrowserExtension? extension = ExtensionStore.Shared.GetSnapshot().FirstOrDefault(item =>
+            item.Enabled && string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        BrowserTab? selected = BrowserStore.Shared.SelectedTab;
+        if (extension is null || selected is null || !selected.HasBrowserView) return false;
+
+        var css = new System.Text.StringBuilder();
+        if (injection.TryGetProperty("css", out var cssElement) && cssElement.ValueKind == System.Text.Json.JsonValueKind.String)
+            css.AppendLine(cssElement.GetString());
+        if (injection.TryGetProperty("files", out var files) && files.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            foreach (var file in files.EnumerateArray())
+            {
+                string? relative = file.GetString();
+                string? path = relative is null ? null : SkewExtensionCatalog.SafeExtensionFilePath(extension.Path, relative);
+                if (path is null) return false;
+                css.AppendLine(File.ReadAllText(path));
+            }
+        }
+        if (css.Length == 0) return false;
+
+        string content = css.ToString();
+        string key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(extensionId + "\n" + content)));
+        string keyJson = System.Text.Json.JsonSerializer.Serialize(key);
+        string source = remove
+            ? $"document.querySelectorAll('style[data-skew-extension-style='+{keyJson}+']').forEach(function(node){{node.remove();}});"
+            : $"(function(){{var key={keyJson};if(document.querySelector('style[data-skew-extension-style='+key+']'))return;var style=document.createElement('style');style.dataset.skewExtensionStyle=key;style.textContent={System.Text.Json.JsonSerializer.Serialize(content)};(document.head||document.documentElement).appendChild(style);}})();";
+        bool allFrames = injection.TryGetProperty("target", out var target) &&
+            target.TryGetProperty("allFrames", out var allFramesElement) && allFramesElement.ValueKind == System.Text.Json.JsonValueKind.True;
+        selected.BrowserView.ExecuteExtensionJavaScript(source, allFrames);
+        ExtensionDiagnostics.Write("scripting", extensionId, remove ? "Removed extension CSS." : "Inserted extension CSS.");
         return true;
     }
 

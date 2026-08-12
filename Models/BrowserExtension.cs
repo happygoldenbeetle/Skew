@@ -45,6 +45,9 @@ namespace Skew.Models
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
 
+        [JsonPropertyName("short_name")]
+        public string ShortName { get; set; } = string.Empty;
+
         [JsonPropertyName("version")]
         public string Version { get; set; } = string.Empty;
 
