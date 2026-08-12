@@ -89,7 +89,7 @@
                         VerticalAlignment="Center"
                         Background="Transparent"
                         BorderThickness="0"
-                        FontSize="15"
+                        FontSize="16"
                         PlaceholderText="Search or Enter URL..."
                         KeyDown="SearchBox_KeyDown"
                         PreviewKeyDown="SearchBox_PreviewKeyDown"
@@ -120,7 +120,7 @@
                 -->
                 <ListView
                     x:Name="ResultsList"
-                    Padding="4,2"
+                    Padding="2,1"
                     SelectionMode="Single"
                     ItemClick="Result_Click"
                     IsItemClickEnabled="True"
@@ -151,12 +151,16 @@
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <!--
-                                2 above and 2 below, so the gap between two rows
-                                is 4 — 5px at 125%. The list's own 4,2 padding
-                                completes it: 4 to the card's sides, and 2+2 at
-                                the ends so the outer gaps match the inner ones.
+                                Halved from the arithmetic figure. 4 DIP is 5px
+                                at 125% on paper, but measured on screen it came
+                                out at 10 — something between the container and
+                                the presenter is doubling it — so the markup asks
+                                for half and the eye gets the 5 that was wanted.
+                                1 above and 1 below is 2 between two rows; the
+                                list's 2,1 padding puts the same at the sides and
+                                the ends.
                             -->
-                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="Margin" Value="0,1" />
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="MinHeight" Value="48" />
                             <Setter Property="CornerRadius" Value="8" />
@@ -234,12 +238,13 @@
                                     two lines tall for a URL nobody reads.
                                 -->
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                                    <!-- 16 DIP throughout: 20px at 125%. -->
                                     <TextBlock
-                                        FontSize="13.5"
+                                        FontSize="16"
                                         Text="{Binding Title}"
                                         TextTrimming="CharacterEllipsis" />
                                     <TextBlock
-                                        FontSize="13.5"
+                                        FontSize="16"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="{Binding SubtitleWithDash}"
                                         Visibility="{Binding SubtitleVisibility}"
@@ -254,14 +259,13 @@
                                     VerticalAlignment="Center"
                                     Visibility="{Binding SwitchToTabVisibility}">
                                     <TextBlock
-                                        FontSize="11"
-                                        FontWeight="Medium"
+                                        FontSize="16"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="Switch to Tab"
                                         VerticalAlignment="Center" />
                                     <!-- The arrow alone: the chip behind it made a button of a label. -->
                                     <FontIcon
-                                        FontSize="11"
+                                        FontSize="14"
                                         VerticalAlignment="Center"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Glyph="&#xE72A;" />
