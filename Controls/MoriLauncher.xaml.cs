@@ -2,7 +2,12 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Mori.Models;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Mori.Controls;
 
@@ -11,12 +16,24 @@ public class LauncherItem
     public BrowserTab? Tab { get; set; }
     public string Title { get; set; } = "";
     public string Subtitle { get; set; } = "";
+
+    /// <summary>
+    /// What choosing this row navigates to, when it is not a tab: the
+    /// suggestion's own text rather than whatever is in the box, since the two
+    /// differ the moment you arrow down the list.
+    /// </summary>
+    public string? Query { get; set; }
+
     public bool IsSearchFallback => Tab == null;
     public bool IsNewTab => Title == "New Tab";
 
     public Visibility SearchIconVisibility => (IsSearchFallback || IsNewTab) ? Visibility.Visible : Visibility.Collapsed;
     public Visibility TabIconVisibility => (IsSearchFallback || IsNewTab) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility SubtitleVisibility => string.IsNullOrEmpty(Subtitle) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility SwitchToTabVisibility => Tab is not null && !IsNewTab ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The subtitle as the row shows it, after an em dash.</summary>
+    public string SubtitleWithDash => string.IsNullOrEmpty(Subtitle) ? "" : "— " + Subtitle;
     public Microsoft.UI.Xaml.Media.ImageSource? TabFaviconSource
     {
         get
@@ -97,34 +114,114 @@ public sealed partial class MoriLauncher : UserControl
 
         var text = SearchBox.Text?.Trim().ToLowerInvariant();
         var rawText = SearchBox.Text?.Trim();
-        
+
+        // Anything still in flight is about the previous keystroke.
+        _suggestCts?.Cancel();
         _launcherItems.Clear();
 
         if (string.IsNullOrEmpty(text))
         {
             foreach (var t in store.Tabs.Where(t => t.HasBrowserView).Take(7))
-                _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "", Subtitle = t.DisplayUrl });
+                _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "" });
         }
         else
         {
-            foreach (var t in store.Tabs.Where(t => (t.Title?.ToLowerInvariant().Contains(text) ?? false) || (t.UrlString?.ToLowerInvariant().Contains(text) ?? false)).Take(7))
-                _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "", Subtitle = t.DisplayUrl });
-            
+            foreach (var t in store.Tabs.Where(t => (t.Title?.ToLowerInvariant().Contains(text) ?? false) || (t.UrlString?.ToLowerInvariant().Contains(text) ?? false)).Take(5))
+                _launcherItems.Add(new LauncherItem { Tab = t, Title = t.Title ?? "" });
+
             // Fallback action
             bool isUrl = rawText != null && (rawText.Contains("://") || rawText.StartsWith("about:") || (rawText.Contains('.') && !rawText.Contains(' ')));
             if (isUrl)
             {
-                _launcherItems.Add(new LauncherItem { Title = $"Open {rawText}", Subtitle = "Open URL" });
+                _launcherItems.Add(new LauncherItem { Title = rawText!, Subtitle = "Open URL", Query = rawText });
             }
             else
             {
-                _launcherItems.Add(new LauncherItem { Title = $"Search for \"{rawText}\"", Subtitle = "Google Search" });
+                _launcherItems.Add(new LauncherItem { Title = rawText!, Subtitle = "Google Search", Query = rawText });
+
+                _suggestCts = new CancellationTokenSource();
+                _ = AppendSearchSuggestionsAsync(rawText!, _suggestCts.Token);
             }
         }
 
         if (_launcherItems.Count > 0)
         {
             ResultsList.SelectedIndex = 0;
+        }
+    }
+
+    /// <summary>The suggest request for the keystroke being typed right now.</summary>
+    private CancellationTokenSource? _suggestCts;
+
+    /// <summary>
+    /// One client for the control's lifetime — a new HttpClient per keystroke
+    /// leaves a socket in TIME_WAIT for each one.
+    /// </summary>
+    private static readonly HttpClient s_http = new() { Timeout = TimeSpan.FromSeconds(4) };
+
+    /// <summary>
+    /// Complete what is being typed, from the same suggest endpoint the address
+    /// bar of every Chromium browser uses. The rows arrive after the local ones
+    /// are already on screen and never disturb the selection, so the list does
+    /// not move under a hand that is on its way to Enter.
+    ///
+    /// <para>
+    /// Failure is silence: no network, a refused request or a shape we did not
+    /// expect all leave the tab and fallback rows exactly as they were.
+    /// </para>
+    /// </summary>
+    private async Task AppendSearchSuggestionsAsync(string query, CancellationToken token)
+    {
+        try
+        {
+            // A short wait so a fast typist makes one request, not one per key.
+            await Task.Delay(140, token);
+
+            string url =
+                "https://suggestqueries.google.com/complete/search?client=firefox&q=" +
+                Uri.EscapeDataString(query);
+
+            string json = await s_http.GetStringAsync(url, token);
+            if (token.IsCancellationRequested) return;
+
+            // ["typed", ["first", "second", …], …]
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array ||
+                doc.RootElement.GetArrayLength() < 2)
+                return;
+
+            var list = doc.RootElement[1];
+            if (list.ValueKind != JsonValueKind.Array) return;
+
+            var suggestions = new List<string>();
+            foreach (var entry in list.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.String) continue;
+                string? s = entry.GetString();
+                if (string.IsNullOrWhiteSpace(s)) continue;
+                // The first suggestion is usually what was typed.
+                if (string.Equals(s, query, StringComparison.OrdinalIgnoreCase)) continue;
+                suggestions.Add(s);
+                if (suggestions.Count == 5) break;
+            }
+
+            if (suggestions.Count == 0 || token.IsCancellationRequested) return;
+
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                // The box may have moved on while this was in the air.
+                if (token.IsCancellationRequested) return;
+                if (!string.Equals(SearchBox.Text?.Trim(), query, StringComparison.Ordinal)) return;
+
+                int selected = ResultsList.SelectedIndex;
+                foreach (string s in suggestions)
+                    _launcherItems.Add(new LauncherItem { Title = s, Subtitle = "Google Search", Query = s });
+                if (selected >= 0) ResultsList.SelectedIndex = selected;
+            });
+        }
+        catch (Exception)
+        {
+            // Cancelled, offline, timed out or malformed — the list stands.
         }
     }
 
@@ -169,7 +266,9 @@ public sealed partial class MoriLauncher : UserControl
     {
         if (item.IsSearchFallback)
         {
-            var text = SearchBox.Text?.Trim();
+            // The row's own text first: arrowing onto a suggestion should open
+            // that suggestion, not the half-typed thing still in the box.
+            var text = item.Query ?? SearchBox.Text?.Trim();
             if (!string.IsNullOrEmpty(text))
             {
                 GetStore()?.NewTab(text);

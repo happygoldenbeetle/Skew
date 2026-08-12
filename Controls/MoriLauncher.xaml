@@ -48,8 +48,8 @@
             Margin="24,0"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
-            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            Background="#090A09"
+            BorderBrush="#676D6E"
             BorderThickness="1"
             CornerRadius="12"
             PointerPressed="Card_PointerPressed"
@@ -67,9 +67,12 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <PathIcon Grid.Column="0" Margin="0,0,10,0" Width="17" Height="17" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Data="F0 M 13.8125 1.59375 C 13.8125 2.47395 14.526 3.1875 15.4062 3.1875 H 15.9375 V 4.25 H 15.4062 C 14.8083 4.25 14.2565 4.05241 13.8125 3.71895 C 13.8126 4.59906 14.5261 5.3125 15.4062 5.3125 H 15.9375 V 6.375 H 15.4062 C 14.8083 6.375 14.2565 6.17743 13.8125 5.84396 V 7.96875 H 12.75 V 3.71895 C 12.306 4.05241 11.7542 4.25 11.1562 4.25 H 10.625 V 3.1875 H 11.1562 C 12.0365 3.1875 12.75 2.47395 12.75 1.59375 V 1.0625 H 13.8125 V 1.59375 Z M 5.84375 10.405 L 7.96875 12.53 V 15.4062 H 3.71875 V 12.53 L 5.84375 10.405 Z M 11.3763 5.3125 H 5.62371 L 1.0625 9.87371 V 15.9375 H 15.9375 V 9.87371 L 11.3763 5.3125 Z M 5.84375 6.59504 L 2.125 10.3138 V 14.875 H 9.5625 V 10.3138 L 5.84375 6.59504 Z M 3.71875 1.0625 C 2.25175 1.0625 1.0625 2.25175 1.0625 3.71875 C 1.0625 4.98171 1.94392 6.03877 3.12517 6.30843 L 4.8724 4.5612 C 5.07166 4.36194 5.34193 4.25 5.62371 4.25 H 6.32188 C 6.35672 4.07835 6.375 3.90069 6.375 3.71875 C 6.375 2.25175 5.18575 1.0625 3.71875 1.0625 Z" />
-
-                    <PathIcon Grid.Column="1" Margin="0,0,8,0" Width="15" Height="15" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Data="F1 M 6.45833 1.25 A 5.20833 5.20833 0 0 1 11.6667 6.45833 a 5.18333 5.18333 0 0 1 -1.11167 3.2125 l 3.01167 3.0125 a 0.625 0.625 0 0 1 -0.883333 0.883333 l -3.0125 -3.01167 A 5.18333 5.18333 0 0 1 6.45833 11.6667 a 5.20833 5.20833 0 0 1 0 -10.4167 m 0 1.25 a 3.95833 3.95833 0 1 0 0 7.91667 3.95833 3.95833 0 0 0 0 -7.91667" />
+                    <!--
+                        The glass alone. The app mark that used to sit beside it
+                        said only what window you were in, which the window
+                        already says.
+                    -->
+                    <PathIcon Grid.Column="1" Margin="0,0,12,0" Width="15" Height="15" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Data="F1 M 6.45833 1.25 A 5.20833 5.20833 0 0 1 11.6667 6.45833 a 5.18333 5.18333 0 0 1 -1.11167 3.2125 l 3.01167 3.0125 a 0.625 0.625 0 0 1 -0.883333 0.883333 l -3.0125 -3.01167 A 5.18333 5.18333 0 0 1 6.45833 11.6667 a 5.20833 5.20833 0 0 1 0 -10.4167 m 0 1.25 a 3.95833 3.95833 0 1 0 0 7.91667 3.95833 3.95833 0 0 0 0 -7.91667" />
 
                     <TextBox
                         x:Name="SearchBox"
@@ -78,7 +81,7 @@
                         Background="Transparent"
                         BorderThickness="0"
                         FontSize="15"
-                        PlaceholderText="Search…"
+                        PlaceholderText="Search or Enter URL..."
                         KeyDown="SearchBox_KeyDown"
                         PreviewKeyDown="SearchBox_PreviewKeyDown"
                         TextChanged="SearchBox_TextChanged">
@@ -112,6 +115,18 @@
                     <ListView.Resources>
                         <CornerRadius x:Key="ListViewItemCornerRadius">8</CornerRadius>
                         <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+                        <!--
+                            One colour for hover, selection and press. The list
+                            is keyboard-driven — the selected row moves with the
+                            arrows while the pointer sits still — so a selection
+                            wash that differs from the hover wash reads as two
+                            rows both claiming to be next.
+                        -->
+                        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#181817" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#181817" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#181817" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#181817" />
+                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#181817" />
                     </ListView.Resources>
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
@@ -187,26 +202,31 @@
                                     Glyph="&#xE721;" 
                                     FontSize="14"/>
 
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <!--
+                                    One line, title then subtitle in grey after
+                                    an em dash — a stacked pair made every row
+                                    two lines tall for a URL nobody reads.
+                                -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
                                     <TextBlock
-                                        FontSize="13"
-                                        FontWeight="Medium"
+                                        FontSize="13.5"
                                         Text="{Binding Title}"
                                         TextTrimming="CharacterEllipsis" />
                                     <TextBlock
-                                        FontSize="11"
+                                        FontSize="13.5"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Text="{Binding Subtitle}"
+                                        Text="{Binding SubtitleWithDash}"
                                         Visibility="{Binding SubtitleVisibility}"
                                         TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
 
-                                <!-- 'Switch to Tab' indicator -->
+                                <!-- 'Switch to Tab' indicator — only where there is a tab to switch to -->
                                 <StackPanel
                                     Grid.Column="2"
                                     Orientation="Horizontal"
                                     Spacing="6"
-                                    VerticalAlignment="Center">
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding SwitchToTabVisibility}">
                                     <TextBlock
                                         FontSize="11"
                                         FontWeight="Medium"

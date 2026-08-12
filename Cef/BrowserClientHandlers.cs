@@ -603,6 +603,16 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
         CefBrowser browser, CefFrame frame, CefContextMenuParams state, CefMenuModel model,
         CefRunContextMenuCallback callback)
     {
+        // Mori's own pages get no page menu. The new tab page is chrome wearing
+        // a page's clothes: Back, View page source and Inspect are all aimed at
+        // a site, and there is no site here.
+        string frameUrl = frame.Url ?? "";
+        if (frameUrl.StartsWith("mori://", StringComparison.OrdinalIgnoreCase))
+        {
+            callback.Cancel();
+            return true;
+        }
+
         var items = ParseMenuModel(model);
         var args = new BrowserContextMenuEventArgs
         {
