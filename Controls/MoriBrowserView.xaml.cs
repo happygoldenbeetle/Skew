@@ -266,11 +266,23 @@ public sealed partial class MoriBrowserView : UserControl, IBrowserViewDelegate,
         }
         else
         {
+            string label = (model.Label ?? "").Replace("&", "");
             var item = new MenuFlyoutItem
             {
-                Text = (model.Label ?? "").Replace("&", ""),
+                Text = label,
                 IsEnabled = model.IsEnabled
             };
+
+            // Icon and shortcut column, keyed off the label — a CefMenuModel row
+            // carries neither, and the tab and sidebar menus both have them.
+            string? glyph = Helpers.ContextMenuChrome.GlyphFor(model.Label);
+            if (glyph is not null)
+                item.Icon = new FontIcon { Glyph = glyph };
+
+            string? shortcut = Helpers.ContextMenuChrome.ShortcutFor(model.Label);
+            if (shortcut is not null)
+                item.KeyboardAcceleratorTextOverride = shortcut;
+
             item.Click += (s, args) =>
             {
                 actionChosen[0] = true;

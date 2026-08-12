@@ -340,10 +340,14 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
 
         if (isImage)
         {
-            model.InsertSeparatorAt(0);
-            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 6, "Copy image address");
-            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 5, "Save image as...");
-            model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 4, "Open image in new tab");
+            // Everything Chromium offered for an image goes; these are the six
+            // that are actually wanted, in this order.
+            model.Clear();
+            model.AddItem((int)CefMenuId.CustomFirst + 4, "Open image in new tab");
+            model.AddItem((int)CefMenuId.CustomFirst + 5, "Save image as...");
+            model.AddItem((int)CefMenuId.CustomFirst + 13, "Copy image");
+            model.AddItem((int)CefMenuId.CustomFirst + 6, "Copy image address");
+            model.AddItem((int)CefMenuId.CustomFirst + 14, "Search Google for image");
         }
 
         if (isLink)
@@ -357,10 +361,36 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
             model.InsertItemAt(0, (int)CefMenuId.CustomFirst + 1, "Open link in new tab");
         }
 
-        // Add "Reload" for standard page clicks if it's missing (usually below Forward)
-        if ((state.ContextMenuType & CefContextMenuTypeFlags.Page) != 0 && !isImage && !isLink)
+        // ── Plain page click ──────────────────────────────────────────────
+        //
+        // Chromium's own page menu is a grab bag that changes with the build,
+        // so it is replaced outright rather than patched. Only for a bare click:
+        // a caret in a text box or a live selection still gets Chromium's
+        // editing items, which are the ones that belong there.
+        bool isEditable = (state.ContextMenuType & CefContextMenuTypeFlags.Editable) != 0;
+        bool hasSelection = (state.ContextMenuType & CefContextMenuTypeFlags.Selection) != 0;
+
+        if (!isImage && !isLink && !isEditable && !hasSelection)
         {
-            model.InsertItemAt(2, (int)CefMenuId.Reload, "Reload");
+            model.Clear();
+
+            model.AddItem((int)CefMenuId.Back, "Back");
+            model.SetEnabled((int)CefMenuId.Back, browser.CanGoBack);
+            model.AddItem((int)CefMenuId.Forward, "Forward");
+            model.SetEnabled((int)CefMenuId.Forward, browser.CanGoForward);
+            model.AddItem((int)CefMenuId.Reload, "Reload");
+
+            model.AddSeparator();
+            model.AddItem((int)CefMenuId.CustomFirst + 10, "Save as...");
+            model.AddItem((int)CefMenuId.Print, "Print...");
+            // Casting needs a receiver stack CEF does not ship. The row is here
+            // because the menu is, and it says plainly that it cannot be used.
+            model.AddItem((int)CefMenuId.CustomFirst + 11, "Cast...");
+            model.SetEnabled((int)CefMenuId.CustomFirst + 11, false);
+            model.AddItem((int)CefMenuId.CustomFirst + 12, "Translate to English");
+
+            model.AddSeparator();
+            model.AddItem((int)CefMenuId.ViewSource, "View page source");
         }
 
         // Add Inspect at the bottom
@@ -480,6 +510,54 @@ internal sealed class MoriContextMenuHandler : CefContextMenuHandler
             var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
             dp.SetText(state.SourceUrl);
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 13) // Copy image
+        {
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            try
+            {
+                // The bitmap itself, so it can be pasted into anything that
+                // takes an image rather than only into a text field.
+                dp.SetBitmap(
+                    Windows.Storage.Streams.RandomAccessStreamReference.CreateFromUri(
+                        new Uri(state.SourceUrl)));
+            }
+            catch (Exception)
+            {
+                // data: URIs and anything the URI parser refuses fall back to
+                // the address, which is better than an empty clipboard.
+                dp.SetText(state.SourceUrl);
+            }
+            try { Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp); } catch (Exception) { }
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 14) // Search Google for image
+        {
+            _client.Delegate?.OnOpenUrlFromTab(
+                "https://lens.google.com/uploadbyurl?url=" + Uri.EscapeDataString(state.SourceUrl));
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 10) // Save as...
+        {
+            // The document, fetched again by the network stack — CEF has no
+            // "save page with its resources", so this is the page itself.
+            string pageUrl = frame.Url ?? "";
+            if (!string.IsNullOrEmpty(pageUrl))
+                browser.GetHost().StartDownload(pageUrl);
+            return true;
+        }
+        if (commandId == (int)CefMenuId.CustomFirst + 12) // Translate to English
+        {
+            // Chromium's own translate is a Google service that CEF leaves out,
+            // so this is the same service by its public route.
+            string pageUrl = frame.Url ?? "";
+            if (!string.IsNullOrEmpty(pageUrl))
+            {
+                _client.Delegate?.OnOpenUrlFromTab(
+                    "https://translate.google.com/translate?sl=auto&tl=en&u=" +
+                    Uri.EscapeDataString(pageUrl));
+            }
             return true;
         }
         if (commandId == (int)CefMenuId.CustomFirst + 7) // Inspect
