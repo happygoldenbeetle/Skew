@@ -120,7 +120,7 @@
                 -->
                 <ListView
                     x:Name="ResultsList"
-                    Padding="2,1"
+                    Padding="4,4,4,0"
                     SelectionMode="Single"
                     ItemClick="Result_Click"
                     IsItemClickEnabled="True"
@@ -131,73 +131,94 @@
                     <ListView.ItemContainerTransitions>
                         <TransitionCollection />
                     </ListView.ItemContainerTransitions>
-                    <ListView.Resources>
-                        <CornerRadius x:Key="ListViewItemCornerRadius">8</CornerRadius>
-                        <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
-                        <!--
-                            One colour for hover, selection and press. The list
-                            is keyboard-driven — the selected row moves with the
-                            arrows while the pointer sits still — so a selection
-                            wash that differs from the hover wash reads as two
-                            rows both claiming to be next.
-                        -->
-                        <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="#181817" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="#181817" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#181817" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#181817" />
-                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#181817" />
-                    </ListView.Resources>
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
                             <!--
-                                Halved from the arithmetic figure. 4 DIP is 5px
-                                at 125% on paper, but measured on screen it came
-                                out at 10 — something between the container and
-                                the presenter is doubling it — so the markup asks
-                                for half and the eye gets the 5 that was wanted.
-                                1 above and 1 below is 2 between two rows; the
-                                list's 2,1 padding puts the same at the sides and
-                                the ends.
+                                4 below each row and 4,4,4,0 on the list: 4 to
+                                the card on every side and 4 between any two
+                                rows, from the last row's own margin at the
+                                bottom. 5px at 125%.
                             -->
-                            <Setter Property="Margin" Value="0,1" />
+                            <Setter Property="Margin" Value="0,0,0,4" />
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="MinHeight" Value="48" />
-                            <Setter Property="CornerRadius" Value="8" />
+                            <Setter Property="CornerRadius" Value="3.2" />
+                            <Setter Property="Background" Value="Transparent" />
                             <Setter Property="Template">
                                 <Setter.Value>
+                                    <!--
+                                        A plain Grid, not ListViewItemPresenter.
+                                        The presenter insets its own wash by an
+                                        amount that is not ours to set, so the
+                                        gaps on screen kept disagreeing with the
+                                        gaps in the markup — 8 one side, 7 the
+                                        other, from a symmetric figure. Here the
+                                        wash fills the container exactly, so the
+                                        only spacing is the margin above.
+                                    -->
                                     <ControlTemplate TargetType="ListViewItem">
-                                        <ListViewItemPresenter
-                                            ContentTransitions="{TemplateBinding ContentTransitions}"
-                                            Control.IsTemplateFocusTarget="True"
-                                            FocusVisualMargin="{TemplateBinding FocusVisualMargin}"
-                                            FocusVisualPrimaryBrush="{TemplateBinding FocusVisualPrimaryBrush}"
-                                            FocusVisualPrimaryThickness="{TemplateBinding FocusVisualPrimaryThickness}"
-                                            FocusVisualSecondaryBrush="{TemplateBinding FocusVisualSecondaryBrush}"
-                                            FocusVisualSecondaryThickness="{TemplateBinding FocusVisualSecondaryThickness}"
-                                            SelectionCheckMarkVisualEnabled="True"
-                                            CheckBrush="{ThemeResource ListViewItemCheckBrush}"
-                                            CheckBoxBrush="{ThemeResource ListViewItemCheckBoxBrush}"
-                                            DragBackground="{ThemeResource ListViewItemDragBackground}"
-                                            DragForeground="{ThemeResource ListViewItemDragForeground}"
-                                            FocusBorderBrush="{ThemeResource ListViewItemFocusBorderBrush}"
-                                            FocusSecondaryBorderBrush="{ThemeResource ListViewItemFocusSecondaryBorderBrush}"
-                                            PlaceholderBackground="{ThemeResource ListViewItemPlaceholderBackground}"
-                                            PointerOverBackground="{ThemeResource ListViewItemBackgroundPointerOver}"
-                                            PointerOverForeground="{ThemeResource ListViewItemForegroundPointerOver}"
-                                            SelectedBackground="{ThemeResource ListViewItemBackgroundSelected}"
-                                            SelectedForeground="{ThemeResource ListViewItemForegroundSelected}"
-                                            SelectedPointerOverBackground="{ThemeResource ListViewItemBackgroundSelectedPointerOver}"
-                                            PressedBackground="{ThemeResource ListViewItemBackgroundPressed}"
-                                            SelectedPressedBackground="{ThemeResource ListViewItemBackgroundSelectedPressed}"
-                                            DisabledOpacity="{ThemeResource ListViewItemDisabledThemeOpacity}"
-                                            DragOpacity="{ThemeResource ListViewItemDragThemeOpacity}"
-                                            ReorderHintOffset="{ThemeResource ListViewItemReorderHintThemeOffset}"
-                                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                            ContentMargin="{TemplateBinding Padding}"
-                                            CheckMode="{ThemeResource ListViewItemCheckMode}"
-                                            CornerRadius="{TemplateBinding CornerRadius}" />
+                                        <Grid x:Name="RowRoot"
+                                              Background="{TemplateBinding Background}"
+                                              CornerRadius="{TemplateBinding CornerRadius}"
+                                              MinHeight="{TemplateBinding MinHeight}">
+                                            <VisualStateManager.VisualStateGroups>
+                                                <VisualStateGroup x:Name="CommonStates">
+                                                    <VisualState x:Name="Normal" />
+                                                    <!--
+                                                        One colour for hover,
+                                                        press and selection: the
+                                                        list is keyboard-driven,
+                                                        and two different washes
+                                                        read as two rows both
+                                                        claiming to be next.
+                                                    -->
+                                                    <VisualState x:Name="PointerOver">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowRoot" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#181817" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Pressed">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowRoot" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#181817" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="Selected">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowRoot" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#181817" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="PointerOverSelected">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowRoot" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#181817" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                    <VisualState x:Name="PressedSelected">
+                                                        <Storyboard>
+                                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RowRoot" Storyboard.TargetProperty="Background">
+                                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#181817" />
+                                                            </ObjectAnimationUsingKeyFrames>
+                                                        </Storyboard>
+                                                    </VisualState>
+                                                </VisualStateGroup>
+                                            </VisualStateManager.VisualStateGroups>
+
+                                            <ContentPresenter
+                                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                Content="{TemplateBinding Content}"
+                                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                Padding="{TemplateBinding Padding}" />
+                                        </Grid>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
