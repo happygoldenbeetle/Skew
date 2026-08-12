@@ -74,6 +74,15 @@ public sealed partial class MoriLauncher : UserControl
         SearchBox.Text = "";
         SearchBox.Focus(FocusState.Programmatic);
         RefreshResults();
+
+        // Stop the close first. A storyboard holds its final value when it
+        // ends, so a hide that was still running — or had just finished — kept
+        // the card part-way faded, and an opaque card read as a translucent
+        // one. Reopening fast enough left it there for good.
+        HideAnimation.Stop();
+        ScrimGrid.Opacity = 1;
+        Card.Opacity = 1;
+
         RevealAnimation.Begin();
     }
 
@@ -82,6 +91,7 @@ public sealed partial class MoriLauncher : UserControl
     public void PlayHideAnimation(System.Action onCompleted)
     {
         _onHideCompleted = onCompleted;
+        RevealAnimation.Stop();
         HideAnimation.Begin();
     }
 
@@ -89,6 +99,12 @@ public sealed partial class MoriLauncher : UserControl
     {
         _onHideCompleted?.Invoke();
         _onHideCompleted = null;
+
+        // Hand the card back at full strength once it is out of sight, so the
+        // faded-out values can never be what the next open starts from.
+        HideAnimation.Stop();
+        ScrimGrid.Opacity = 1;
+        Card.Opacity = 1;
     }
 
     private void SearchBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
