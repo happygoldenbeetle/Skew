@@ -298,6 +298,8 @@ internal static class ExtensionBackgroundManager
             {
                 ExtensionChangeKind.Installed => "install",
                 ExtensionChangeKind.Updated => "update",
+                ExtensionChangeKind.Loaded when
+                    ExtensionBridge.PrepareContextMenuRegistrationMigration(extension) => "install",
                 _ => "startup"
             };
             StartIfNeeded(extension, reason, restart: kind == ExtensionChangeKind.Updated);

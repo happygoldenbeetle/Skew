@@ -41,6 +41,16 @@ internal static class ExtensionBridge
         }
     }
 
+    public static bool PrepareContextMenuRegistrationMigration(BrowserExtension extension)
+    {
+        if (!HasPermission(extension, "contextMenus")) return false;
+        string path = ContextMenusPath(extension.Id);
+        if (File.Exists(path)) return false;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "[]");
+        return true;
+    }
+
     /// <summary>
     /// Handle an incoming extension bridge request and return a JSON-serialisable
     /// response dictionary. Returns null if the method is unrecognised.
@@ -201,7 +211,7 @@ internal static class ExtensionBridge
 
     private static Dictionary<string, object?> HandleContextMenus(string requestId, string extensionId, string method, JsonElement args)
     {
-        var items = _contextMenuItems.GetOrAdd(extensionId, _ => new List<Dictionary<string, object?>>());
+        var items = _contextMenuItems.GetOrAdd(extensionId, LoadContextMenus);
 
         if (method == "contextMenus.create")
         {
@@ -221,6 +231,7 @@ internal static class ExtensionBridge
                 // Remove any existing item with the same id
                 items.RemoveAll(i => i.TryGetValue("id", out var v) && v?.ToString() == itemId);
                 items.Add(props);
+                SaveContextMenus(extensionId, items);
             }
             return MakeResponse(requestId, itemId);
         }
@@ -243,6 +254,7 @@ internal static class ExtensionBridge
                     {
                         foreach (var kv in updateProps)
                             items[i][kv.Key] = kv.Value;
+                        SaveContextMenus(extensionId, items);
                         return MakeResponse(requestId, (object?)null);
                     }
                 }
@@ -256,6 +268,7 @@ internal static class ExtensionBridge
             lock (items)
             {
                 items.RemoveAll(i => i.TryGetValue("id", out var v) && v?.ToString() == itemId);
+                SaveContextMenus(extensionId, items);
             }
             return MakeResponse(requestId, (object?)null);
         }
@@ -265,6 +278,7 @@ internal static class ExtensionBridge
             lock (items)
             {
                 items.Clear();
+                SaveContextMenus(extensionId, items);
             }
             return MakeResponse(requestId, (object?)null);
         }
@@ -434,16 +448,17 @@ internal static class ExtensionBridge
 
         var extensions = Skew.Models.ExtensionStore.Shared.GetSnapshot();
 
-        foreach (var kvp in _contextMenuItems)
+        foreach (BrowserExtension installed in extensions.Where(extension =>
+            extension.Enabled && HasPermission(extension, "contextMenus")))
         {
-            var extensionId = kvp.Key;
-            var ext = extensions.FirstOrDefault(e => e.Id == extensionId && e.Enabled);
-            if (ext == null) continue;
+            string extensionId = installed.Id;
+            List<Dictionary<string, object?>> registered =
+                _contextMenuItems.GetOrAdd(extensionId, LoadContextMenus);
 
             List<Dictionary<string, object?>> itemsCopy;
-            lock (kvp.Value)
+            lock (registered)
             {
-                itemsCopy = new List<Dictionary<string, object?>>(kvp.Value);
+                itemsCopy = new List<Dictionary<string, object?>>(registered);
             }
 
             foreach (var item in itemsCopy)
@@ -566,6 +581,43 @@ internal static class ExtensionBridge
         }
     }
 
+    private static List<Dictionary<string, object?>> LoadContextMenus(string extensionId)
+    {
+        try
+        {
+            string path = ContextMenusPath(extensionId);
+            if (!File.Exists(path)) return new List<Dictionary<string, object?>>();
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                return new List<Dictionary<string, object?>>();
+            return document.RootElement.EnumerateArray().Select(JsonToDict).ToList();
+        }
+        catch (Exception ex)
+        {
+            ExtensionDiagnostics.Write("context-menu-error", extensionId,
+                $"Failed to load registered menu items: {ex.Message}");
+            return new List<Dictionary<string, object?>>();
+        }
+    }
+
+    private static void SaveContextMenus(
+        string extensionId, List<Dictionary<string, object?>> items)
+    {
+        string path = ContextMenusPath(extensionId);
+        string folder = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(folder);
+        string temporary = path + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(items));
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
     private static void SaveStorage(string extensionId, Dictionary<string, JsonElement> store)
     {
         string path = StoragePath(extensionId);
@@ -591,5 +643,11 @@ internal static class ExtensionBridge
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Skew", "ExtensionData", extensionId, "storage.local.json");
+    }
+
+    private static string ContextMenusPath(string extensionId)
+    {
+        string storage = StoragePath(extensionId);
+        return Path.Combine(Path.GetDirectoryName(storage)!, "contextMenus.json");
     }
 }
