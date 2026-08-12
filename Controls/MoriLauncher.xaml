@@ -39,12 +39,21 @@
         </Storyboard>
     </UserControl.Resources>
 
-    <!-- Full-window scrim + centered card (Spotlight-style command palette) -->
-    <Grid x:Name="ScrimGrid" Background="#40000000" CornerRadius="10" PointerPressed="Scrim_PointerPressed">
+    <!--
+        Centered card, no scrim. The dimming wash is gone at the user's
+        request; the layer stays, transparent, because it is still what
+        catches a click outside the card and dismisses it — and a
+        transparent background hit-tests where a null one does not.
+
+        Sizes below are DIPs. The design is in pixels at 125%, so each
+        figure is that pixel value over 1.25: 900px card, 65px field,
+        60px rows, 30px favicons.
+    -->
+    <Grid x:Name="ScrimGrid" Background="Transparent" CornerRadius="10" PointerPressed="Scrim_PointerPressed">
         <Border
             x:Name="Card"
             RenderTransformOrigin="0.5,0.5"
-            Width="620"
+            Width="720"
             Margin="24,0"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
@@ -59,8 +68,8 @@
                 <ScaleTransform x:Name="CardScale" ScaleX="1" ScaleY="1" />
             </Border.RenderTransform>
             <StackPanel>
-                <!-- Header: icon + search field + zoom label -->
-                <Grid Padding="16,0" Height="48">
+                <!-- Header: icon + search field + zoom label. 65px at 125%. -->
+                <Grid Padding="16,0" Height="52">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -104,7 +113,7 @@
                 <!-- Results list -->
                 <ListView
                     x:Name="ResultsList"
-                    MaxHeight="246"
+                    MaxHeight="250"
                     Padding="6"
                     SelectionMode="Single"
                     ItemClick="Result_Click"
@@ -133,7 +142,7 @@
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="Margin" Value="0,1" />
                             <Setter Property="Padding" Value="0" />
-                            <Setter Property="MinHeight" Value="46" />
+                            <Setter Property="MinHeight" Value="48" />
                             <Setter Property="CornerRadius" Value="8" />
                             <Setter Property="Template">
                                 <Setter.Value>
@@ -176,7 +185,8 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Grid Height="46" Padding="10,0">
+                            <!-- 60px row, 30px favicon, both at 125%. -->
+                            <Grid Height="48" Padding="10,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -186,21 +196,21 @@
                                 <!-- Show PersonPicture for existing tabs -->
                                 <muxc:PersonPicture
                                     Grid.Column="0"
-                                    Width="18" Height="18"
-                                    Margin="0,0,10,0"
+                                    Width="24" Height="24"
+                                    Margin="0,0,12,0"
                                     Visibility="{Binding TabIconVisibility}"
                                     DisplayName="{Binding Title}"
                                     ProfilePicture="{Binding TabFaviconSource}" />
 
                                 <!-- Show Search Icon for Google Fallback -->
-                                <FontIcon 
+                                <FontIcon
                                     Grid.Column="0"
-                                    Width="18" Height="18"
-                                    Margin="0,0,10,0"
+                                    Width="24" Height="24"
+                                    Margin="0,0,12,0"
                                     Visibility="{Binding SearchIconVisibility}"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Glyph="&#xE721;" 
-                                    FontSize="14"/>
+                                    Glyph="&#xE721;"
+                                    FontSize="15"/>
 
                                 <!--
                                     One line, title then subtitle in grey after
