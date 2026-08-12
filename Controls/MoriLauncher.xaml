@@ -66,7 +66,7 @@
             Margin="24,0"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
-            Background="#CC000000"
+            Background="#E6000000"
             BorderBrush="#676D6E"
             BorderThickness="1"
             CornerRadius="12"
@@ -98,7 +98,7 @@
                         VerticalAlignment="Center"
                         Background="Transparent"
                         BorderThickness="0"
-                        FontSize="16"
+                        FontSize="14.4"
                         PlaceholderText="Search or Enter URL..."
                         KeyDown="SearchBox_KeyDown"
                         PreviewKeyDown="SearchBox_PreviewKeyDown"
@@ -273,28 +273,32 @@
                                     title ran straight under Switch to Tab. Here
                                     the title takes what is left and ellipsises.
                                 -->
-                                <Grid Grid.Column="1" VerticalAlignment="Center">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <!-- 16 DIP throughout: 20px at 125%. -->
+                                <!--
+                                    Back to a stack, so the subtitle sits against
+                                    the title instead of away at the right edge —
+                                    a * column gave the title all the leftover
+                                    width and pushed the grey text off with it.
+                                    A stack hands out infinite width, so the
+                                    title carries a MaxWidth: that is what makes
+                                    TextTrimming fire, and it leaves room for the
+                                    subtitle and Switch to Tab in a 720 card.
+                                -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                                    <!-- 14.4 DIP throughout: 18px at 125%. -->
                                     <TextBlock
-                                        Grid.Column="0"
-                                        FontSize="16"
+                                        FontSize="14.4"
+                                        MaxWidth="430"
                                         Text="{Binding Title}"
                                         TextWrapping="NoWrap"
                                         TextTrimming="CharacterEllipsis" />
                                     <TextBlock
-                                        Grid.Column="1"
-                                        Margin="6,0,0,0"
-                                        FontSize="16"
+                                        FontSize="14.4"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="{Binding SubtitleWithDash}"
                                         Visibility="{Binding SubtitleVisibility}"
                                         TextWrapping="NoWrap"
                                         TextTrimming="CharacterEllipsis" />
-                                </Grid>
+                                </StackPanel>
 
                                 <!--
                                     'Switch to Tab' indicator — only where there
@@ -310,13 +314,13 @@
                                     VerticalAlignment="Center"
                                     Visibility="{Binding SwitchToTabVisibility}">
                                     <TextBlock
-                                        FontSize="16"
+                                        FontSize="14.4"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="Switch to Tab"
                                         VerticalAlignment="Center" />
                                     <!-- The arrow alone: the chip behind it made a button of a label. -->
                                     <FontIcon
-                                        FontSize="14"
+                                        FontSize="12"
                                         VerticalAlignment="Center"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Glyph="&#xE72A;" />
