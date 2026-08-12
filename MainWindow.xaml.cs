@@ -1099,12 +1099,19 @@ public sealed partial class MainWindow : Window
     /// Put the current tab's URL on the clipboard.
     ///
     /// <para>
-    /// SetContent alone was not enough: the package stays owned by this process
-    /// and the copy is lost the moment the window closes, and the call throws
-    /// outright (CLIPBRD_E_CANT_OPEN) when another app is holding the clipboard
-    /// open — which is why the button appeared to do nothing at all. Flush hands
-    /// the data to the system so it outlives us, and a failed open is worth one
-    /// retry rather than a silent no-op.
+    /// The call throws (CLIPBRD_E_CANT_OPEN) while another app holds the
+    /// clipboard open, which is what made the button look inert — so a failure
+    /// is worth one retry, with a fresh package each time since a set one is
+    /// not reusable.
+    /// </para>
+    ///
+    /// <para>
+    /// No Flush. It is the documented way to leave the data behind after the
+    /// app exits, but in an unpackaged desktop app it fails with E_UNEXPECTED
+    /// and the failure arrives as a stowed exception — a fail-fast that takes
+    /// the process with it before any handler, including App.UnhandledException,
+    /// gets a look. A copy that does not outlive the browser is the lesser
+    /// problem; Windows' own clipboard history still captures it.
     /// </para>
     /// </summary>
     private bool CopyLinkToClipboard()
@@ -1112,15 +1119,13 @@ public sealed partial class MainWindow : Window
         string? url = Store.SelectedTab?.UrlString;
         if (string.IsNullOrEmpty(url)) return false;
 
-        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
-        package.SetText(url);
-
         for (int attempt = 0; attempt < 2; attempt++)
         {
             try
             {
+                var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                package.SetText(url);
                 Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-                Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
                 return true;
             }
             catch (Exception)
