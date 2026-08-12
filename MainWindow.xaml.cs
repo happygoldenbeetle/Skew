@@ -197,13 +197,10 @@ public sealed partial class MainWindow : Window
                 if (Store.LauncherVisible)
                 {
                     LauncherHost.Visibility = Visibility.Visible;
-                    SyncLauncherSize();
-                    AnimateScrim(LauncherScrim, to: 0.28);
                     Launcher.FocusSearchBox();
                 }
                 else if (LauncherHost.Visibility == Visibility.Visible)
                 {
-                    AnimateScrim(LauncherScrim, to: 0);
                     Launcher.PlayHideAnimation(() => LauncherHost.Visibility = Visibility.Collapsed);
                 }
                 break;
@@ -249,9 +246,6 @@ public sealed partial class MainWindow : Window
 
     private void WebContentBorder_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e)
     {
-        if (LauncherHost.Visibility == Visibility.Visible)
-            SyncLauncherSize();
-
         SwipeOverlay.UpdateSize(e.NewSize.Width, e.NewSize.Height);
     }
 
@@ -272,41 +266,14 @@ public sealed partial class MainWindow : Window
         SyncCaptionButtonSpacer();
     }
 
-    /// <summary>Size the launcher to the web card, which it floats over.</summary>
-    private void SyncLauncherSize()
-    {
-        Launcher.Width = WebContentBorder.ActualWidth;
-        Launcher.Height = WebContentBorder.ActualHeight;
-    }
-
-    private void LauncherScrim_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
-        => Store.LauncherVisible = false;
+    // SyncLauncherSize and LauncherScrim_Tapped are gone with the scrim: the
+    // launcher fills the window by stretching, so there is no size to keep in
+    // step, and its own transparent root is what a click outside now lands on.
 
     private void SettingsScrim_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
         => Store.SettingsVisible = false;
 
-    /// <summary>
-    /// Fade a scrim over the live page. Only possible now that the page is a
-    /// XAML layer — a scrim could never have covered the old child window.
-    /// </summary>
-    private static void AnimateScrim(Microsoft.UI.Xaml.Shapes.Rectangle scrim, double to)
-    {
-        var fade = new Microsoft.UI.Xaml.Media.Animation.DoubleAnimation
-        {
-            To = to,
-            Duration = new Duration(MoriMotion.Reveal),
-            EnableDependentAnimation = true,
-            EasingFunction = new Microsoft.UI.Xaml.Media.Animation.CubicEase
-            {
-                EasingMode = Microsoft.UI.Xaml.Media.Animation.EasingMode.EaseOut
-            },
-        };
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTarget(fade, scrim);
-        Microsoft.UI.Xaml.Media.Animation.Storyboard.SetTargetProperty(fade, "Opacity");
-        var sb = new Microsoft.UI.Xaml.Media.Animation.Storyboard();
-        sb.Children.Add(fade);
-        sb.Begin();
-    }
+    // AnimateScrim went with the launcher's scrim, which was its only caller.
 
     /// <summary>
     /// Swap the web-content host to display the currently selected tab's CEF

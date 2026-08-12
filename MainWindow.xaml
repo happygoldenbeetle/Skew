@@ -677,19 +677,19 @@
 
         <!--
             ═══ Launcher / command palette (LauncherOverlay.swift) ═══
-            Centred over the whole window with a scrim that dims the live page
-            behind it, exactly as on the Mac.
+            Both rows, and stretched: the palette centres on the window, so a
+            docked sidebar of any width and the title bar's own height leave it
+            where it was. Sizing it to the web card put it in the middle of the
+            page instead, which walks left and right as the sidebar is dragged.
+
+            No scrim. The dimming rectangle that used to sit here is gone; the
+            launcher's own root is a transparent layer that still catches a
+            click outside the card and dismisses it.
         -->
-        <!--
-            Row 1, like the other overlays: the launcher's scrim stops at the
-            title bar rather than dimming it, which keeps the window draggable
-            and its caption buttons live while the palette is open.
-        -->
-        <Grid x:Name="LauncherHost" Grid.Row="1" Visibility="Collapsed">
-            <Rectangle x:Name="LauncherScrim" Fill="#000000" Opacity="0" Tapped="LauncherScrim_Tapped" />
+        <Grid x:Name="LauncherHost" Grid.RowSpan="2" Visibility="Collapsed">
             <controls:MoriLauncher x:Name="Launcher"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch" />
         </Grid>
 
         <!-- ═══ Swipe gesture indicator ═══ -->
