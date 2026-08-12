@@ -338,6 +338,7 @@
                                                         CornerRadius="8"
                                                         Style="{StaticResource SkewGhostButtonStyle}"
                                                         Tag="{x:Bind Id}"
+                                                        Click="PageOptionsExtension_Click"
                                                         ToolTipService.ToolTip="{x:Bind Name}">
                                                     <Grid>
                                                         <FontIcon Glyph="&#xE71D;" FontSize="13"

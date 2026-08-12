@@ -38,6 +38,12 @@ public static class SkewBrowserHostChannel
     /// <summary>Structured console markers from injected agents (media/extension).</summary>
     public static Action<CefBrowser, string>? ConsoleMarkerHandler;
 
+    /// <summary>A Chrome Web Store detail page asked Skew to install an extension.</summary>
+    public static Action<CefBrowser, string>? WebStoreInstallHandler;
+
+    /// <summary>A Chrome Web Store detail page asked Skew to remove an extension.</summary>
+    public static Action<CefBrowser, string>? WebStoreRemoveHandler;
+
     internal static bool HandleShortcut(int windowsKeyCode, CefEventFlags modifiers)
         => ShortcutHandler?.Invoke(windowsKeyCode, modifiers) ?? false;
 
@@ -76,4 +82,10 @@ public static class SkewBrowserHostChannel
 
     internal static void HandleConsoleMarker(CefBrowser browser, string message)
         => ConsoleMarkerHandler?.Invoke(browser, message);
+
+    internal static void HandleWebStoreInstall(CefBrowser browser, string extensionId)
+        => WebStoreInstallHandler?.Invoke(browser, extensionId);
+
+    internal static void HandleWebStoreRemove(CefBrowser browser, string extensionId)
+        => WebStoreRemoveHandler?.Invoke(browser, extensionId);
 }

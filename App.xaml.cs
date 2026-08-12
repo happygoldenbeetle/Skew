@@ -50,14 +50,16 @@ public partial class App : Application
         _ = Skew.Models.ExtensionStore.Shared;
 
         Window = new MainWindow();
+        DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        Skew.Cef.ExtensionBackgroundManager.Initialize();
         Window.Closed += (_, _) =>
         {
             // Flush before teardown: session saves are debounced, so closing
             // right after a change would otherwise drop it.
             Skew.Models.BrowserStore.Shared.FlushSessionSave();
+            Skew.Cef.ExtensionBackgroundManager.Shutdown();
             Skew.Cef.CefRuntimeHost.Shutdown();
         };
-        DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
     }
 }

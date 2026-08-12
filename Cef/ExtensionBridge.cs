@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using Skew.Models;
+using Xilium.CefGlue;
 
 namespace Skew.Cef;
 
@@ -20,24 +21,123 @@ internal static class ExtensionBridge
     // Per-extension simple key-value storage (chrome.storage.local).
     private static readonly ConcurrentDictionary<string, Dictionary<string, JsonElement>> _storage = new();
 
+    private const int StorageQuotaBytes = 10 * 1024 * 1024;
+
+    public static void ClearContextMenus(string extensionId)
+        => _contextMenuItems.TryRemove(extensionId, out _);
+
+    public static void ClearExtensionData(string extensionId)
+    {
+        ClearContextMenus(extensionId);
+        _storage.TryRemove(extensionId, out _);
+        try
+        {
+            string folder = Path.GetDirectoryName(StoragePath(extensionId))!;
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to remove extension data: {ex.Message}");
+        }
+    }
+
     /// <summary>
     /// Handle an incoming extension bridge request and return a JSON-serialisable
     /// response dictionary. Returns null if the method is unrecognised.
     /// </summary>
-    public static Dictionary<string, object?> HandleRequest(string requestId, string extensionId, string method, JsonElement args)
+    public static Dictionary<string, object?> HandleRequest(
+        CefBrowser browser, BrowserClient client, string sourceUrl,
+        string requestId, string extensionId, string method, JsonElement args)
     {
         try
         {
+            BrowserExtension? extension = ExtensionStore.Shared.GetSnapshot().FirstOrDefault(item =>
+                item.Enabled && string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+            if (extension?.Manifest is null)
+                return MakeError(requestId, "Extension is not installed or enabled.");
+
+            bool extensionPage = Uri.TryCreate(sourceUrl, UriKind.Absolute, out Uri? sourceUri) &&
+                string.Equals(sourceUri.Scheme, SkewSchemes.ExtensionScheme, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(sourceUri.Host, extensionId, StringComparison.OrdinalIgnoreCase);
+            bool activeTabPage = HasPermission(extension, "activeTab") &&
+                string.Equals(BrowserStore.Shared.SelectedTab?.UrlString, sourceUrl,
+                    StringComparison.OrdinalIgnoreCase);
+            if (!extensionPage && !activeTabPage && !BrowserClient.ExtensionCanRunAtUrl(extension, sourceUrl))
+                return MakeError(requestId, "Extension request came from an unauthorized page.");
+
             if (method.StartsWith("contextMenus."))
+            {
+                if (!HasPermission(extension, "contextMenus"))
+                    return MakeError(requestId, "The extension has not requested contextMenus permission.");
                 return HandleContextMenus(requestId, extensionId, method, args);
+            }
             if (method.StartsWith("storage.local."))
+            {
+                if (!HasPermission(extension, "storage"))
+                    return MakeError(requestId, "The extension has not requested storage permission.");
                 return HandleStorageLocal(requestId, extensionId, method, args);
+            }
             if (method == "tabs.query")
-                return MakeResponse(requestId, new object[] { new { id = 1, url = "", active = true } });
+            {
+                BrowserTab? selected = BrowserStore.Shared.SelectedTab;
+                return MakeResponse(requestId, new object[]
+                {
+                    new { id = ExtensionBackgroundManager.SelectedTabId,
+                        url = selected?.UrlString ?? "", active = true, index = 0 }
+                });
+            }
             if (method == "tabs.create")
-                return MakeResponse(requestId, new { id = 1 });
-            if (method == "runtime.sendMessage")
+            {
+                string? url = null;
+                if (args.TryGetProperty("createProperties", out JsonElement properties) &&
+                    properties.TryGetProperty("url", out JsonElement urlElement))
+                    url = urlElement.GetString();
+                if (!string.IsNullOrWhiteSpace(url) && Uri.TryCreate(url, UriKind.Relative, out _))
+                    url = $"{SkewSchemes.ExtensionScheme}://{extensionId}/" + url.TrimStart('/');
+                if (string.IsNullOrWhiteSpace(url))
+                    return MakeError(requestId, "The extension did not provide a valid tab URL.");
+                App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.NewTab(url));
+                return MakeResponse(requestId, new { id = -1, url, active = true });
+            }
+            if (method == "tabs.sendMessage")
+            {
+                object? message = args.TryGetProperty("message", out JsonElement messageElement)
+                    ? messageElement.Clone() : null;
+                if (!ExtensionBackgroundManager.DispatchTabMessage(extensionId, message, requestId, browser))
+                    return MakeError(requestId, "No active tab is available for the message.");
+                return MakeDeferredResponse(requestId);
+            }
+            if (method == "tabs.reload")
+            {
+                App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.Reload());
                 return MakeResponse(requestId, (object?)null);
+            }
+            if (method == "scripting.executeScript")
+            {
+                if (!HasPermission(extension, "scripting"))
+                    return MakeError(requestId, "The extension has not requested scripting permission.");
+                if (!args.TryGetProperty("injection", out JsonElement injection) ||
+                    !injection.TryGetProperty("files", out JsonElement fileArray) ||
+                    fileArray.ValueKind != JsonValueKind.Array)
+                    return MakeError(requestId, "Only file based script injection is supported.");
+                string[] files = fileArray.EnumerateArray()
+                    .Select(item => item.GetString() ?? string.Empty).ToArray();
+                bool allFrames = injection.TryGetProperty("target", out JsonElement target) &&
+                    target.TryGetProperty("allFrames", out JsonElement allFramesElement) &&
+                    allFramesElement.ValueKind == JsonValueKind.True;
+                if (files.Length == 0 || !ExtensionBackgroundManager.ExecuteScriptFiles(extensionId, files, allFrames))
+                    return MakeError(requestId, "The extension script could not be injected.");
+                return MakeResponse(requestId, Array.Empty<object>());
+            }
+            if (method == "runtime.sendMessage")
+            {
+                object? message = args.TryGetProperty("message", out JsonElement messageElement)
+                    ? messageElement.Clone() : null;
+                if (!ExtensionBackgroundManager.DispatchRuntimeMessage(
+                        extensionId, message, sourceUrl, requestId, browser))
+                    return MakeResponse(requestId, (object?)null);
+                return MakeDeferredResponse(requestId);
+            }
 
             // Unrecognised method — return a generic "not implemented" that
             // doesn't break the extension.
@@ -128,7 +228,7 @@ internal static class ExtensionBridge
 
     private static Dictionary<string, object?> HandleStorageLocal(string requestId, string extensionId, string method, JsonElement args)
     {
-        var store = _storage.GetOrAdd(extensionId, _ => new Dictionary<string, JsonElement>());
+        var store = _storage.GetOrAdd(extensionId, LoadStorage);
 
         if (method == "storage.local.get")
         {
@@ -179,10 +279,14 @@ internal static class ExtensionBridge
             {
                 lock (store)
                 {
+                    var updated = store.ToDictionary(pair => pair.Key, pair => pair.Value.Clone());
                     foreach (var prop in itemsEl.EnumerateObject())
-                    {
-                        store[prop.Name] = prop.Value.Clone();
-                    }
+                        updated[prop.Name] = prop.Value.Clone();
+                    if (JsonSerializer.SerializeToUtf8Bytes(updated).Length > StorageQuotaBytes)
+                        return MakeError(requestId, "chrome.storage.local quota exceeded.");
+                    store.Clear();
+                    foreach (var pair in updated) store[pair.Key] = pair.Value;
+                    SaveStorage(extensionId, store);
                 }
             }
             return MakeResponse(requestId, (object?)null);
@@ -203,6 +307,7 @@ internal static class ExtensionBridge
                     {
                         store.Remove(keysEl.GetString() ?? "");
                     }
+                    SaveStorage(extensionId, store);
                 }
             }
             return MakeResponse(requestId, (object?)null);
@@ -210,7 +315,11 @@ internal static class ExtensionBridge
 
         if (method == "storage.local.clear")
         {
-            lock (store) { store.Clear(); }
+            lock (store)
+            {
+                store.Clear();
+                SaveStorage(extensionId, store);
+            }
             return MakeResponse(requestId, (object?)null);
         }
 
@@ -312,6 +421,15 @@ internal static class ExtensionBridge
         };
     }
 
+    private static Dictionary<string, object?> MakeDeferredResponse(string requestId)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["requestId"] = requestId,
+            ["deferred"] = true
+        };
+    }
+
     private static Dictionary<string, object?> JsonToDict(JsonElement el)
     {
         var dict = new Dictionary<string, object?>();
@@ -326,10 +444,57 @@ internal static class ExtensionBridge
                     JsonValueKind.True => true,
                     JsonValueKind.False => false,
                     JsonValueKind.Null => null,
-                    _ => prop.Value // Keep as JsonElement for complex types
+                    _ => prop.Value.Clone()
                 };
             }
         }
         return dict;
+    }
+
+    private static bool HasPermission(BrowserExtension extension, string permission)
+        => extension.Manifest?.Permissions.Any(item =>
+            string.Equals(item, permission, StringComparison.OrdinalIgnoreCase)) == true;
+
+    private static Dictionary<string, JsonElement> LoadStorage(string extensionId)
+    {
+        try
+        {
+            string path = StoragePath(extensionId);
+            if (!File.Exists(path)) return new Dictionary<string, JsonElement>();
+            return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(path))
+                ?? new Dictionary<string, JsonElement>();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load extension storage: {ex.Message}");
+            return new Dictionary<string, JsonElement>();
+        }
+    }
+
+    private static void SaveStorage(string extensionId, Dictionary<string, JsonElement> store)
+    {
+        string path = StoragePath(extensionId);
+        string folder = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(folder);
+        string temporary = path + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(store));
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private static string StoragePath(string extensionId)
+    {
+        if (extensionId.Length != 32 || extensionId.Any(character =>
+            !(character is >= 'a' and <= 'z') && !(character is >= '0' and <= '9')))
+            throw new InvalidDataException("Invalid extension ID.");
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Skew", "ExtensionData", extensionId, "storage.local.json");
     }
 }

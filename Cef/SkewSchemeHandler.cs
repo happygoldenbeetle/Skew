@@ -36,7 +36,7 @@ internal static class SkewExtensionCatalog
         if (string.IsNullOrEmpty(extensionId))
             return null;
 
-        var ext = Skew.Models.ExtensionStore.Shared.Extensions.FirstOrDefault(x => string.Equals(x.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        var ext = Skew.Models.ExtensionStore.Shared.GetSnapshot().FirstOrDefault(x => string.Equals(x.Id, extensionId, StringComparison.OrdinalIgnoreCase));
         if (ext != null && ext.Enabled)
         {
             return ext.Path;
@@ -50,14 +50,20 @@ internal static class SkewExtensionCatalog
         if (string.IsNullOrEmpty(root))
             return null;
 
-        string relative = requestPath ?? string.Empty;
-        relative = relative.TrimStart('/');
-        relative = Uri.UnescapeDataString(relative);
-        if (relative.Length == 0)
+        string relative;
+        string rootResolved;
+        string candidate;
+        try
+        {
+            relative = Uri.UnescapeDataString(requestPath ?? string.Empty).TrimStart('/');
+            if (relative.Length == 0) return null;
+            rootResolved = Path.GetFullPath(root);
+            candidate = Path.GetFullPath(Path.Combine(rootResolved, relative));
+        }
+        catch
+        {
             return null;
-
-        string rootResolved = Path.GetFullPath(root);
-        string candidate = Path.GetFullPath(Path.Combine(rootResolved, relative));
+        }
 
         string requiredPrefix = rootResolved.EndsWith(Path.DirectorySeparatorChar)
             ? rootResolved

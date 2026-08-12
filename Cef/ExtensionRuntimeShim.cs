@@ -95,6 +95,30 @@ runtime.sendMessage=runtime.sendMessage||function(message,options,cb){{
   if(typeof cb==='function')p.then(cb);
   return p;
 }};
+runtime.setUninstallURL=runtime.setUninstallURL||function(url,cb){{
+  var p=Promise.resolve(); if(typeof cb==='function')p.then(cb); return p;
+}};
+
+// Host to content page message delivery. The first listener response is sent
+// back through the same authenticated request id used by the native bridge.
+window.__skewExtDispatchMessage=window.__skewExtDispatchMessage||function(targetId,message,requestId,sourceUrl,sourceOrigin){{
+  if(targetId!==extId||!runtime.onMessage)return;
+  var sent=false;
+  function sendResponse(value){{
+    if(sent||!requestId)return; sent=true;
+    console.info('__SKEW_EXTENSION_RESPONSE__'+JSON.stringify({{
+      requestId:requestId,extensionId:extId,result:value
+    }}));
+  }}
+  var sender={{id:extId,url:sourceUrl||'',origin:sourceOrigin||'',tab:{{id:0,url:sourceUrl||''}}}};
+  runtime.onMessage._listeners.slice().forEach(function(listener){{
+    try{{
+      var returned=listener(message,sender,sendResponse);
+      if(returned&&typeof returned.then==='function')returned.then(sendResponse);
+    }}catch(e){{console.error(e);}}
+  }});
+  if(requestId)setTimeout(function(){{sendResponse(null);}},1000);
+}};
 
 // --- chrome.contextMenus ---
 chrome.contextMenus=chrome.contextMenus||{{}};
@@ -167,6 +191,30 @@ chrome.tabs.sendMessage=chrome.tabs.sendMessage||function(tabId,message,options,
   if(typeof cb==='function')p.then(cb);
   return p;
 }};
+chrome.tabs.reload=chrome.tabs.reload||function(tabId,reloadProperties,cb){{
+  if(typeof tabId==='object'||typeof tabId==='function'){{cb=reloadProperties;reloadProperties=tabId;tabId=null;}}
+  var p=__skewExtCall('tabs.reload',{{tabId:tabId,reloadProperties:reloadProperties||{{}}}});
+  if(typeof cb==='function')p.then(function(){{cb();}}); return p;
+}};
+
+// --- chrome.action, browserAction, scripting and commands ---
+chrome.action=chrome.action||{{}};
+chrome.action.onClicked=chrome.action.onClicked||__skewEvent();
+['setTitle','setIcon','setBadgeText','setBadgeBackgroundColor','enable','disable'].forEach(function(name){{
+  chrome.action[name]=chrome.action[name]||function(details,cb){{
+    var p=Promise.resolve(); if(typeof cb==='function')p.then(cb); return p;
+  }};
+}});
+chrome.browserAction=chrome.browserAction||chrome.action;
+
+chrome.scripting=chrome.scripting||{{}};
+chrome.scripting.executeScript=chrome.scripting.executeScript||function(injection,cb){{
+  var p=__skewExtCall('scripting.executeScript',{{injection:injection||{{}}}});
+  if(typeof cb==='function')p.then(cb); return p;
+}};
+
+chrome.commands=chrome.commands||{{}};
+chrome.commands.onCommand=chrome.commands.onCommand||__skewEvent();
 
 // --- chrome.i18n ---
 chrome.i18n=chrome.i18n||{{}};

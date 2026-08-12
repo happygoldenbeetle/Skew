@@ -51,6 +51,12 @@ namespace Skew.Models
         [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
 
+        [JsonPropertyName("default_locale")]
+        public string? DefaultLocale { get; set; }
+
+        [JsonPropertyName("key")]
+        public string? Key { get; set; }
+
         [JsonPropertyName("icons")]
         public Dictionary<string, string>? Icons { get; set; }
 
@@ -65,6 +71,30 @@ namespace Skew.Models
 
         [JsonPropertyName("permissions")]
         public List<string> Permissions { get; set; } = new();
+
+        [JsonPropertyName("host_permissions")]
+        public List<string> HostPermissions { get; set; } = new();
+
+        [JsonPropertyName("action")]
+        public ActionMeta? Action { get; set; }
+
+        [JsonPropertyName("browser_action")]
+        public ActionMeta? BrowserAction { get; set; }
+
+        [JsonIgnore]
+        public ActionMeta? EffectiveAction => Action ?? BrowserAction;
+    }
+
+    public class ActionMeta
+    {
+        [JsonPropertyName("default_popup")]
+        public string? DefaultPopup { get; set; }
+
+        [JsonPropertyName("default_title")]
+        public string? DefaultTitle { get; set; }
+
+        [JsonPropertyName("default_icon")]
+        public System.Text.Json.JsonElement? DefaultIcon { get; set; }
     }
 
     public class BackgroundMeta
@@ -92,5 +122,11 @@ namespace Skew.Models
 
         [JsonPropertyName("css")]
         public List<string> Css { get; set; } = new();
+
+        [JsonPropertyName("all_frames")]
+        public bool AllFrames { get; set; }
+
+        [JsonPropertyName("run_at")]
+        public string RunAt { get; set; } = "document_idle";
     }
 }

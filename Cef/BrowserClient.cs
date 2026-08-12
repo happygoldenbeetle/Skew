@@ -118,7 +118,7 @@ public sealed class BrowserClient : CefClient
         frame.ExecuteJavaScript(js, frame.Url, 0);
     }
 
-    internal static void InjectContentScripts(CefFrame frame)
+    internal static void InjectContentScripts(CefFrame frame, string runAt)
     {
         string urlString = frame.Url;
         if (string.IsNullOrEmpty(urlString) || urlString.StartsWith("chrome://"))
@@ -138,7 +138,10 @@ public sealed class BrowserClient : CefClient
 
             foreach (var script in ext.Manifest.ContentScripts)
             {
-                if (ScriptMatchesURL(script, url))
+                string declaredRunAt = string.IsNullOrWhiteSpace(script.RunAt)
+                    ? "document_idle" : script.RunAt;
+                if (string.Equals(declaredRunAt, runAt, StringComparison.OrdinalIgnoreCase) &&
+                    (frame.IsMain || script.AllFrames) && ScriptMatchesURL(script, url))
                 {
                     // Inject runtime shim once per extension per frame
                     if (shimInjected.Add(ext.Id))
@@ -146,42 +149,6 @@ public sealed class BrowserClient : CefClient
                         string shim = ExtensionRuntimeShim.Generate(ext.Id, ext.Manifest);
                         frame.ExecuteJavaScript(shim, frame.Url, 0);
 
-                        // Also inject background scripts so contextMenus.create etc.
-                        // can register their items. In a proper implementation these
-                        // would run in a hidden background WebView, but for now we
-                        // run them in-page alongside content scripts.
-                        if (ext.Manifest.Background != null)
-                        {
-                            var bgScripts = new List<string>();
-                            if (!string.IsNullOrEmpty(ext.Manifest.Background.ServiceWorker))
-                                bgScripts.Add(ext.Manifest.Background.ServiceWorker);
-                            if (ext.Manifest.Background.Scripts != null)
-                                bgScripts.AddRange(ext.Manifest.Background.Scripts);
-
-                            foreach (var bgPath in bgScripts)
-                            {
-                                var fullBgPath = Path.Combine(ext.Path, bgPath);
-                                if (File.Exists(fullBgPath))
-                                {
-                                    string bgCode = File.ReadAllText(fullBgPath);
-                                    frame.ExecuteJavaScript(bgCode, frame.Url, 0);
-                                }
-                            }
-
-                            // Fire onInstalled and onStartup asynchronously so the background
-                            // scripts have time to attach their listeners.
-                            string fireEventsJs = @"
-                                setTimeout(function() {
-                                    if (chrome && chrome.runtime && chrome.runtime.onInstalled && chrome.runtime.onInstalled._fire) {
-                                        chrome.runtime.onInstalled._fire({ reason: 'install' });
-                                    }
-                                    if (chrome && chrome.runtime && chrome.runtime.onStartup && chrome.runtime.onStartup._fire) {
-                                        chrome.runtime.onStartup._fire();
-                                    }
-                                }, 10);
-                            ";
-                            frame.ExecuteJavaScript(fireEventsJs, frame.Url, 0);
-                        }
                     }
 
                     // Inject JS
@@ -202,11 +169,11 @@ public sealed class BrowserClient : CefClient
                         if (File.Exists(fullPath))
                         {
                             string css = File.ReadAllText(fullPath);
-                            // Basic CSS injection using JS
+                            string cssJson = System.Text.Json.JsonSerializer.Serialize(css);
                             string js = $@"
                             (function() {{
                                 var style = document.createElement('style');
-                                style.textContent = `{css.Replace("`", "\\`")}`;
+                                style.textContent = {cssJson};
                                 (document.head || document.documentElement).appendChild(style);
                             }})();";
                             frame.ExecuteJavaScript(js, frame.Url, 0);
@@ -216,6 +183,17 @@ public sealed class BrowserClient : CefClient
             }
         }
     }
+
+    internal static bool ExtensionCanRunAtUrl(Skew.Models.BrowserExtension extension, string urlString)
+    {
+        if (extension.Manifest is null ||
+            !Uri.TryCreate(urlString, UriKind.Absolute, out Uri? url))
+            return false;
+        return extension.Manifest.ContentScripts.Any(script => ScriptMatchesURL(script, url));
+    }
+
+    internal static string ExtensionRuntimeJavaScript(Skew.Models.BrowserExtension extension)
+        => ExtensionRuntimeShim.Generate(extension.Id, extension.Manifest);
 
     private static bool ScriptMatchesURL(Skew.Models.ContentScriptMeta script, Uri url)
     {
@@ -265,8 +243,14 @@ public sealed class BrowserClient : CefClient
         string host = url.Host.ToLowerInvariant();
         string path = string.IsNullOrEmpty(url.AbsolutePath) ? "/" : url.AbsolutePath;
 
-        if (schemePattern != "*" && schemePattern.ToLowerInvariant() != scheme)
+        if (schemePattern == "*")
+        {
+            if (scheme != "http" && scheme != "https") return false;
+        }
+        else if (schemePattern.ToLowerInvariant() != scheme)
+        {
             return false;
+        }
 
         if (hostPattern.StartsWith("*."))
         {
@@ -323,37 +307,293 @@ public sealed class BrowserClient : CefClient
         string shim = ExtensionRuntimeShim.Generate(ext.Id, ext.Manifest);
         frame.ExecuteJavaScript(shim, frame.Url, 0);
 
-        // If this is a background page, inject the background scripts
-        if (ext.Manifest.Background != null)
+        string? declaredPage = ext.Manifest.Background?.Page?.Replace('\\', '/').TrimStart('/');
+        bool syntheticBackground = string.Equals(
+            uri.AbsolutePath, SkewSchemes.ExtensionBackgroundPath, StringComparison.OrdinalIgnoreCase);
+        bool declaredBackground = !string.IsNullOrWhiteSpace(declaredPage) &&
+            string.Equals(uri.AbsolutePath.TrimStart('/'), declaredPage, StringComparison.OrdinalIgnoreCase) &&
+            GetQueryParameter(uri.Query, "__skew_background_reason") is not null;
+
+        // Background code belongs only to the dedicated hidden background page.
+        if (ext.Manifest.Background != null && (syntheticBackground || declaredBackground))
         {
             var scripts = new List<string>();
-            if (!string.IsNullOrEmpty(ext.Manifest.Background.ServiceWorker))
-                scripts.Add(ext.Manifest.Background.ServiceWorker);
-            if (ext.Manifest.Background.Scripts != null)
-                scripts.AddRange(ext.Manifest.Background.Scripts);
-
-            foreach (var scriptPath in scripts)
+            // A declared MV2 background page loads its own script tags. The
+            // synthetic page hosts service workers and script arrays directly.
+            if (!declaredBackground)
             {
-                var fullPath = Path.Combine(ext.Path, scriptPath);
-                if (File.Exists(fullPath))
-                {
-                    string code = File.ReadAllText(fullPath);
-                    frame.ExecuteJavaScript(code, frame.Url, 0);
-                }
+                if (!string.IsNullOrEmpty(ext.Manifest.Background.ServiceWorker))
+                    scripts.Add(ext.Manifest.Background.ServiceWorker);
+                if (ext.Manifest.Background.Scripts != null)
+                    scripts.AddRange(ext.Manifest.Background.Scripts);
             }
 
-            string fireEventsJs = @"
-                setTimeout(function() {
-                    if (chrome && chrome.runtime && chrome.runtime.onInstalled && chrome.runtime.onInstalled._fire) {
-                        chrome.runtime.onInstalled._fire({ reason: 'install' });
-                    }
-                    if (chrome && chrome.runtime && chrome.runtime.onStartup && chrome.runtime.onStartup._fire) {
-                        chrome.runtime.onStartup._fire();
-                    }
-                }, 10);
-            ";
-            frame.ExecuteJavaScript(fireEventsJs, frame.Url, 0);
+            var backgroundSource = new System.Text.StringBuilder();
+            backgroundSource.Append("if(!window.__skewBackgroundScriptsLoaded){window.__skewBackgroundScriptsLoaded=true;");
+            foreach (var scriptPath in scripts.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                string? fullPath = SkewExtensionCatalog.SafeExtensionFilePath(ext.Path, scriptPath);
+                if (fullPath is not null)
+                {
+                    backgroundSource.Append("\n").Append(File.ReadAllText(fullPath)).Append("\n");
+                }
+            }
+            string reason = GetQueryParameter(uri.Query, "__skew_background_reason") ?? "startup";
+            string reasonJson = System.Text.Json.JsonSerializer.Serialize(reason);
+            backgroundSource.Append($@"
+setTimeout(function(){{
+  var reason={reasonJson};
+  if(reason==='install'||reason==='update'){{
+    if(chrome.runtime.onInstalled&&chrome.runtime.onInstalled._fire)
+      chrome.runtime.onInstalled._fire({{reason:reason}});
+  }} else if(chrome.runtime.onStartup&&chrome.runtime.onStartup._fire) {{
+    chrome.runtime.onStartup._fire();
+  }}
+}},0);
+}}");
+            frame.ExecuteJavaScript(backgroundSource.ToString(), frame.Url, 0);
         }
+    }
+
+    private static string? GetQueryParameter(string query, string name)
+    {
+        foreach (string pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            int equals = pair.IndexOf('=');
+            string key = equals < 0 ? pair : pair[..equals];
+            if (string.Equals(Uri.UnescapeDataString(key), name, StringComparison.Ordinal))
+                return Uri.UnescapeDataString(equals < 0 ? string.Empty : pair[(equals + 1)..]);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Turn the disabled Chrome-only action on Web Store detail pages into a
+    /// native Skew install request. The store normally calls
+    /// chrome.webstorePrivate, which is part of Chrome rather than CEF.
+    /// </summary>
+    internal static void InjectWebStoreShim(CefFrame frame, string? navigationUrl = null)
+    {
+        if (!frame.IsMain ||
+            !Uri.TryCreate(navigationUrl ?? frame.Url, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.Host, "chromewebstore.google.com", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var segments = uri.AbsolutePath.Trim('/').Split('/');
+        if (segments.Length < 3 || !string.Equals(segments[0], "detail", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        string extensionId = segments[^1].ToLowerInvariant();
+        if (extensionId.Length != 32 || extensionId.Any(c => c is < 'a' or > 'p'))
+            return;
+
+        bool installed = Skew.Models.ExtensionStore.Shared.GetSnapshot()
+            .Any(ext => string.Equals(ext.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        string idJson = System.Text.Json.JsonSerializer.Serialize(extensionId);
+        string installedJson = installed ? "true" : "false";
+
+        string js = $$"""
+            (() => {
+              const incomingExtensionId = {{idJson}};
+              const incomingInstalled = {{installedJson}};
+              if (window.__skewWebStoreShim) {
+                window.__skewWebStoreShim.update(incomingExtensionId, incomingInstalled);
+                return;
+              }
+
+              let extensionId = incomingExtensionId;
+              let state = incomingInstalled ? 'installed' : 'ready';
+              let observer;
+              let renderScheduled = false;
+              let lastBannerScan = 0;
+
+              const normalize = value => (value || '').replace(/\s+/g, ' ').trim();
+              const labels = [
+                'Add to Chrome', 'Add to Desktop', 'Add to Skew', 'Installing...',
+                'Added to Skew', 'Remove from Skew', 'Removing...'
+              ];
+              const isVisible = element => {
+                if (!(element instanceof Element) || !element.isConnected ||
+                    element.hidden || element.getAttribute('aria-hidden') === 'true') return false;
+                const rect = element.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+              };
+              const findButton = () => {
+                const candidates = Array.from(document.querySelectorAll('button')).filter(button => {
+                  const text = normalize(button.textContent);
+                  const ariaLabel = normalize(button.getAttribute('aria-label'));
+                  return labels.some(label => text.includes(label) || ariaLabel.includes(label)) &&
+                    isVisible(button);
+                });
+                candidates.sort((left, right) => {
+                  const score = button => {
+                    const text = normalize(button.textContent);
+                    let value = button.dataset.skewWebStoreExtensionId === extensionId ? 1000 : 0;
+                    if (text === 'Add to Chrome' || text === 'Add to Desktop') value += 500;
+                    if (button.dataset.skewWebStoreButton === 'true') value += 100;
+                    const rect = button.getBoundingClientRect();
+                    if (rect.top >= 0 && rect.top <= innerHeight && rect.left >= 0 && rect.left <= innerWidth)
+                      value += 50;
+                    return value;
+                  };
+                  return score(right) - score(left);
+                });
+                return candidates[0];
+              };
+
+              const hideUnavailableBanner = () => {
+                const now = performance.now();
+                if (now - lastBannerScan < 750) return;
+                lastBannerScan = now;
+                const message = 'Item currently unavailable. Please check the troubleshooting guide.';
+                const root = document.body || document.documentElement;
+                if (!root) return;
+
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+                const messageElements = [];
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                  const element = node.parentElement;
+                  if (normalize(node.nodeValue).includes(message) && element &&
+                    !element.closest('[data-skew-unavailable-banner-hidden="true"]'))
+                    messageElements.push(element);
+                }
+
+                for (const messageElement of messageElements) {
+                  let current = messageElement;
+                  for (let depth = 0; current && depth < 5; depth++, current = current.parentElement) {
+                    if (current === document.body || current === document.documentElement) break;
+                    const text = normalize(current.textContent);
+                    const rect = current.getBoundingClientRect();
+                    const hasGuideControl = Array.from(
+                      current.querySelectorAll('a, button, [role="button"]')
+                    ).some(element => normalize(element.textContent) === 'View guide');
+                    const compactAlert = rect.width >= 200 && rect.width <= innerWidth &&
+                      rect.height >= 32 && rect.height <= 180 && text.length <= message.length + 80;
+                    if (hasGuideControl && compactAlert && text.includes(message) && isVisible(current)) {
+                      current.dataset.skewUnavailableBannerHidden = 'true';
+                      current.style.setProperty('display', 'none', 'important');
+                      return;
+                    }
+                  }
+                }
+              };
+
+              const render = () => {
+                const button = findButton();
+                if (!button) return;
+                hideUnavailableBanner();
+                const label = button.querySelector('[jsname="V67aGc"]') || button;
+                const text = state === 'installing' ? 'Installing...' :
+                  state === 'removing' ? 'Removing...' :
+                  state === 'installed' ? 'Remove from Skew' : 'Add to Skew';
+                if (normalize(label.textContent) !== text) label.textContent = text;
+                if (button.dataset.skewWebStoreButton !== 'true')
+                  button.dataset.skewWebStoreButton = 'true';
+                if (button.dataset.skewWebStoreExtensionId !== extensionId)
+                  button.dataset.skewWebStoreExtensionId = extensionId;
+
+                const disabled = state === 'installing' || state === 'removing';
+                if (button.disabled !== disabled) button.disabled = disabled;
+                if (button.hasAttribute('disabled') !== disabled)
+                  button.toggleAttribute('disabled', disabled);
+                if (button.getAttribute('aria-label') !== text)
+                  button.setAttribute('aria-label', text);
+                if (disabled) {
+                  if (button.getAttribute('aria-disabled') !== 'true')
+                    button.setAttribute('aria-disabled', 'true');
+                } else if (button.hasAttribute('aria-disabled')) {
+                  button.removeAttribute('aria-disabled');
+                }
+              };
+
+              const scheduleRender = () => {
+                if (renderScheduled) return;
+                renderScheduled = true;
+                setTimeout(() => {
+                  renderScheduled = false;
+                  render();
+                }, 50);
+              };
+
+              document.addEventListener('click', event => {
+                const button = event.target instanceof Element ? event.target.closest('button') : null;
+                if (!button || button.dataset.skewWebStoreExtensionId !== extensionId ||
+                    (state !== 'ready' && state !== 'installed')) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const removing = state === 'installed';
+                state = removing ? 'removing' : 'installing';
+                render();
+                console.info((removing ? '__SKEW_WEBSTORE_REMOVE__' :
+                  '__SKEW_WEBSTORE_INSTALL__') + extensionId);
+              }, true);
+
+              window.__skewWebStoreInstallResult = result => {
+                if (!result || result.id !== extensionId) return;
+                state = result.status === 'installed' ? 'installed' : 'ready';
+                scheduleRender();
+              };
+
+              window.__skewWebStoreShim = {
+                update(nextExtensionId, nextInstalled) {
+                  if (extensionId !== nextExtensionId) {
+                    document.querySelectorAll('button[data-skew-web-store-button="true"]').forEach(button => {
+                      delete button.dataset.skewWebStoreButton;
+                      delete button.dataset.skewWebStoreExtensionId;
+                    });
+                  }
+                  extensionId = nextExtensionId;
+                  state = nextInstalled ? 'installed' : 'ready';
+                  scheduleRender();
+                }
+              };
+
+              const observe = () => {
+                if (observer || !document.documentElement) return;
+                observer = new MutationObserver(scheduleRender);
+                observer.observe(document.documentElement, {
+                  childList: true,
+                  subtree: true
+                });
+                scheduleRender();
+              };
+
+              if (document.documentElement) observe();
+              else document.addEventListener('DOMContentLoaded', observe, { once: true });
+              // The Web Store retains listing DOM trees and swaps them during
+              // client side navigation. Keep a low frequency reconciliation
+              // pass alive for transitions that do not mutate the current root.
+              setInterval(scheduleRender, 1000);
+              scheduleRender();
+            })();
+            """;
+
+        frame.ExecuteJavaScript(js, frame.Url, 0);
+    }
+
+    internal static void CompleteWebStoreInstall(CefBrowser browser, string extensionId, bool installed)
+    {
+        string payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            id = extensionId,
+            status = installed ? "installed" : "failed"
+        });
+        var frame = browser.GetMainFrame();
+        frame?.ExecuteJavaScript(
+            $"window.__skewWebStoreInstallResult?.({payload});", frame.Url, 0);
+    }
+
+    internal static void CompleteWebStoreRemove(CefBrowser browser, string extensionId, bool removed)
+    {
+        string payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            id = extensionId,
+            status = removed ? "ready" : "installed"
+        });
+        CefFrame? frame = browser.GetMainFrame();
+        frame?.ExecuteJavaScript(
+            $"window.__skewWebStoreInstallResult?.({payload});", frame.Url, 0);
     }
 
     internal static void RegisterDownload(uint id, CefDownloadItemCallback callback)

@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Skew.Models;
+using Skew.Cef;
 using System.Linq;
 using System.Collections.ObjectModel;
 
@@ -334,8 +335,11 @@ public sealed partial class SkewOmnibox : UserControl
 
     private void RunExtension_Click(object sender, RoutedEventArgs e)
     {
-        // Extension action/popup activation isn't wired in the port yet; the row
-        // still reads as actionable to match mac's menu. No-op for now.
+        if (sender is FrameworkElement element && element.Tag is string extensionId)
+        {
+            ExtensionsMenuButton.Flyout?.Hide();
+            ExtensionBackgroundManager.Activate(extensionId);
+        }
     }
 
     private void ManageExtensions_Click(object sender, RoutedEventArgs e)
@@ -363,8 +367,8 @@ public sealed partial class SkewOmnibox : UserControl
 
     private void PinnedExtensionButton_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: Handle extension popup or action when clicked
-        System.Diagnostics.Debug.WriteLine("Pinned extension clicked: " + ((FrameworkElement)sender).Tag);
+        if (sender is FrameworkElement element && element.Tag is string extensionId)
+            ExtensionBackgroundManager.Activate(extensionId);
     }
 
     private async void AddExtensionButton_Click(object sender, RoutedEventArgs e)

@@ -46,6 +46,15 @@ internal sealed class SkewLoadHandler : CefLoadHandler
     {
         // Inject the WebAuthn/passkey shim before page scripts run.
         BrowserClient.InjectPasskeyShim(frame);
+
+        // Manifest content scripts that request document_start must execute in
+        // the new document before the page has finished loading.
+        BrowserClient.InjectContentScripts(frame, "document_start");
+
+        // Install the Web Store bridge before Google's client code finishes
+        // hydrating the page. OnLoadEnd below remains as a fallback.
+        BrowserClient.InjectWebStoreShim(frame);
+
         if (frame.IsMain)
             _client.Delegate?.OnLoadStart(frame.Url);
     }
@@ -55,12 +64,18 @@ internal sealed class SkewLoadHandler : CefLoadHandler
         // Inject the media/PiP agent into each frame once it finishes loading.
         BrowserClient.InjectMediaAgent(frame);
         
-        // Inject extension content scripts.
-        BrowserClient.InjectContentScripts(frame);
+        // document_end and document_idle share the load completion boundary in
+        // this CEF host. They remain distinct from document_start above.
+        BrowserClient.InjectContentScripts(frame, "document_end");
+        BrowserClient.InjectContentScripts(frame, "document_idle");
 
         // If this is an extension page (skew-extension://), inject the runtime
         // shim and background scripts so chrome.contextMenus etc. work.
         BrowserClient.InjectExtensionPageShim(frame);
+
+        // Chrome's Web Store install button calls a Chrome-only private API that
+        // CEF does not ship. Replace that disabled action with Skew's installer.
+        BrowserClient.InjectWebStoreShim(frame);
 
         if (frame.IsMain)
             _client.Delegate?.OnLoadEnd(frame.Url, httpStatusCode);
@@ -86,7 +101,12 @@ internal sealed class SkewDisplayHandler : CefDisplayHandler
     protected override void OnAddressChange(CefBrowser browser, CefFrame frame, string url)
     {
         if (frame.IsMain)
+        {
+            // Chrome Web Store listing navigation is frequently handled as an
+            // SPA route, so no new OnLoadStart/OnLoadEnd pair is guaranteed.
+            BrowserClient.InjectWebStoreShim(frame, url);
             _client.Delegate?.OnAddressChange(url ?? "");
+        }
     }
 
     protected override void OnFaviconUrlChange(CefBrowser browser, string[] iconUrls)
@@ -95,6 +115,24 @@ internal sealed class SkewDisplayHandler : CefDisplayHandler
     protected override bool OnConsoleMessage(
         CefBrowser browser, CefLogSeverity level, string message, string source, int line)
     {
+        const string kWebStorePrefix = "__SKEW_WEBSTORE_INSTALL__";
+        if (message is not null && message.StartsWith(kWebStorePrefix, StringComparison.Ordinal))
+        {
+            string extensionId = message.Substring(kWebStorePrefix.Length);
+            if (extensionId.Length == 32 && extensionId.All(c => c is >= 'a' and <= 'p'))
+                SkewBrowserHostChannel.HandleWebStoreInstall(browser, extensionId);
+            return true;
+        }
+
+        const string kWebStoreRemovePrefix = "__SKEW_WEBSTORE_REMOVE__";
+        if (message is not null && message.StartsWith(kWebStoreRemovePrefix, StringComparison.Ordinal))
+        {
+            string extensionId = message.Substring(kWebStoreRemovePrefix.Length);
+            if (extensionId.Length == 32 && extensionId.All(c => c is >= 'a' and <= 'p'))
+                SkewBrowserHostChannel.HandleWebStoreRemove(browser, extensionId);
+            return true;
+        }
+
         if (message is not null &&
             (message.StartsWith("__SKEW_MEDIA__", StringComparison.Ordinal) ||
              message.StartsWith("__SKEW_EXT__", StringComparison.Ordinal)))
@@ -105,6 +143,26 @@ internal sealed class SkewDisplayHandler : CefDisplayHandler
 
         // Extension API bridge: intercept __SKEW_EXTENSION__ prefixed messages
         const string kExtPrefix = "__SKEW_EXTENSION__";
+        const string kExtResponsePrefix = "__SKEW_EXTENSION_RESPONSE__";
+        if (message is not null && message.StartsWith(kExtResponsePrefix, StringComparison.Ordinal))
+        {
+            try
+            {
+                using var responseDocument = System.Text.Json.JsonDocument.Parse(
+                    message.Substring(kExtResponsePrefix.Length));
+                var responseRoot = responseDocument.RootElement;
+                string responseId = responseRoot.GetProperty("requestId").GetString() ?? "";
+                string responseExtension = responseRoot.GetProperty("extensionId").GetString() ?? "";
+                object? result = responseRoot.TryGetProperty("result", out var resultElement)
+                    ? resultElement.Clone() : null;
+                ExtensionBackgroundManager.CompleteMessage(responseId, responseExtension, result);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Extension response bridge error: {ex.Message}");
+            }
+            return true;
+        }
         if (message is not null && message.StartsWith(kExtPrefix, StringComparison.Ordinal))
         {
             try
@@ -117,7 +175,8 @@ internal sealed class SkewDisplayHandler : CefDisplayHandler
                 var method = root.GetProperty("method").GetString() ?? "";
                 var args = root.GetProperty("args");
 
-                var response = ExtensionBridge.HandleRequest(requestId, extensionId, method, args);
+                var response = ExtensionBridge.HandleRequest(
+                    browser, _client, source ?? "", requestId, extensionId, method, args);
                 if (response != null)
                 {
                     var responseJson = System.Text.Json.JsonSerializer.Serialize(response);
@@ -582,17 +641,9 @@ internal sealed class SkewContextMenuHandler : CefContextMenuHandler
             if (!string.IsNullOrEmpty(state.SelectionText))
                 clickInfo["selectionText"] = state.SelectionText;
 
-            var infoJson = System.Text.Json.JsonSerializer.Serialize(clickInfo);
-            var tabJson = System.Text.Json.JsonSerializer.Serialize(new { id = 1, url = frame.Url ?? "" });
-            var js = $"if(chrome&&chrome.contextMenus&&chrome.contextMenus.onClicked&&chrome.contextMenus.onClicked._fire)chrome.contextMenus.onClicked._fire({infoJson},{tabJson});";
-
-            // Dispatch to all frames in this browser
-            var frameIds = browser.GetFrameIdentifiers();
-            foreach (var fid in frameIds)
-            {
-                var f = browser.GetFrame(fid);
-                f?.ExecuteJavaScript(js, f.Url, 0);
-            }
+            ExtensionBackgroundManager.DispatchContextMenuClick(
+                extInfo.extensionId, clickInfo,
+                new { id = ExtensionBackgroundManager.SelectedTabId, url = frame.Url ?? "", active = true });
             return true;
         }
 

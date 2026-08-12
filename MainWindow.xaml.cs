@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Windowing;
 using Skew.Models;
+using Skew.Cef;
 using Skew.Theme;
 
 namespace Skew;
@@ -171,9 +172,93 @@ public sealed partial class MainWindow : Window
             }
         };
 
+        Skew.Cef.SkewBrowserHostChannel.WebStoreInstallHandler = (browser, extensionId) =>
+            DispatcherQueue.TryEnqueue(() => ConfirmAndInstallWebStoreExtensionAsync(browser, extensionId));
+        Skew.Cef.SkewBrowserHostChannel.WebStoreRemoveHandler = (browser, extensionId) =>
+            DispatcherQueue.TryEnqueue(() => RemoveWebStoreExtensionAsync(browser, extensionId));
+
         // Show the selected tab's CEF browser view in the web-content card.
         ShowSelectedBrowserView();
         WatchSelectedTabUrl();
+    }
+
+    private async void ConfirmAndInstallWebStoreExtensionAsync(
+        Xilium.CefGlue.CefBrowser browser, string extensionId)
+    {
+        var confirmation = new ContentDialog
+        {
+            Title = "Add extension to Skew?",
+            Content = "Skew will download this extension from the Chrome Web Store. " +
+                      "Extensions can read or change page content according to their permissions.",
+            PrimaryButtonText = "Add extension",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = RootGrid.XamlRoot,
+        };
+
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+        {
+            Skew.Cef.BrowserClient.CompleteWebStoreInstall(browser, extensionId, installed: false);
+            return;
+        }
+
+        string? error = await ExtensionStore.Shared.BeginWebStoreInstallAsync(extensionId);
+        bool installed = error is null;
+        Skew.Cef.BrowserClient.CompleteWebStoreInstall(browser, extensionId, installed);
+
+        if (installed) return;
+
+        await new ContentDialog
+        {
+            Title = "Extension Error",
+            Content = error,
+            CloseButtonText = "OK",
+            XamlRoot = RootGrid.XamlRoot,
+        }.ShowAsync();
+    }
+
+    private async void RemoveWebStoreExtensionAsync(
+        Xilium.CefGlue.CefBrowser browser, string extensionId)
+    {
+        BrowserExtension? extension = ExtensionStore.Shared.Extensions.FirstOrDefault(item =>
+            string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        if (extension is null)
+        {
+            BrowserClient.CompleteWebStoreRemove(browser, extensionId, removed: true);
+            return;
+        }
+
+        var confirmation = new ContentDialog
+        {
+            Title = $"Remove {extension.Name} from Skew?",
+            Content = "The extension and its saved data will be removed from Skew.",
+            PrimaryButtonText = "Remove",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = RootGrid.XamlRoot,
+        };
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+        {
+            BrowserClient.CompleteWebStoreRemove(browser, extensionId, removed: false);
+            return;
+        }
+
+        try
+        {
+            await ExtensionStore.Shared.RemoveExtensionAsync(extension);
+            BrowserClient.CompleteWebStoreRemove(browser, extensionId, removed: true);
+        }
+        catch (Exception error)
+        {
+            BrowserClient.CompleteWebStoreRemove(browser, extensionId, removed: false);
+            await new ContentDialog
+            {
+                Title = "Extension Error",
+                Content = $"Failed to remove the extension: {error.Message}",
+                CloseButtonText = "OK",
+                XamlRoot = RootGrid.XamlRoot,
+            }.ShowAsync();
+        }
     }
 
     private void Store_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1203,6 +1288,15 @@ public sealed partial class MainWindow : Window
     {
         PageOptionsFlyout.Hide();
         Store.NewTab("https://chromewebstore.google.com/");
+    }
+
+    private void PageOptionsExtension_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.Tag is string extensionId)
+        {
+            PageOptionsFlyout.Hide();
+            ExtensionBackgroundManager.Activate(extensionId);
+        }
     }
 
     /// <summary>
