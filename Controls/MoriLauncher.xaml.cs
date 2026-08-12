@@ -63,10 +63,35 @@ public sealed partial class MoriLauncher : UserControl
 
     private readonly System.Collections.ObjectModel.ObservableCollection<LauncherItem> _launcherItems = new();
 
+    /// <summary>
+    /// What the card measures with five rows in it: its two border edges, the
+    /// 52 field, the 1 separator, and a list of 4 top padding plus five rows of
+    /// 48 each carrying 4 below. The card is pinned so that this height lands
+    /// centred, and anything shorter simply leaves room at the bottom.
+    /// </summary>
+    private const double FullCardHeight = 2 + 52 + 1 + (4 + (MaxResults * (48 + 4)));
+
     public MoriLauncher()
     {
         InitializeComponent();
         ResultsList.ItemsSource = _launcherItems;
+    }
+
+    private void ScrimGrid_SizeChanged(object sender, SizeChangedEventArgs e) => PositionCard();
+
+    /// <summary>
+    /// Put the card's top where it would be if the card were full, so a five-row
+    /// palette is centred and a one-row palette has its field in the same place
+    /// rather than halfway down.
+    /// </summary>
+    private void PositionCard()
+    {
+        double available = ScrimGrid.ActualHeight;
+        if (available <= 0) return;
+
+        // Small windows: start at the top rather than off the top edge.
+        double top = Math.Max(0, (available - FullCardHeight) / 2);
+        Card.Margin = new Thickness(24, top, 24, 0);
     }
 
     public void FocusSearchBox()
@@ -83,6 +108,7 @@ public sealed partial class MoriLauncher : UserControl
         ScrimGrid.Opacity = 1;
         Card.Opacity = 1;
 
+        PositionCard();
         RevealAnimation.Begin();
     }
 

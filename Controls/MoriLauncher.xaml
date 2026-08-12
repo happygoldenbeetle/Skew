@@ -49,15 +49,24 @@
         figure is that pixel value over 1.25: 900px card, 65px field,
         60px rows, 30px favicons.
     -->
-    <Grid x:Name="ScrimGrid" Background="Transparent" CornerRadius="10" PointerPressed="Scrim_PointerPressed">
+    <Grid x:Name="ScrimGrid" Background="Transparent" CornerRadius="10"
+          PointerPressed="Scrim_PointerPressed" SizeChanged="ScrimGrid_SizeChanged">
+        <!--
+            Top-aligned, not centred: the list grows as results and completions
+            arrive, and a centred card moves half of every new row upward — the
+            palette jumped under the pointer while it was being read. PositionCard
+            puts the top where a five-row card's top would be, so the card is
+            centred when it is full and only ever grows downward into space that
+            was already accounted for.
+        -->
         <Border
             x:Name="Card"
             RenderTransformOrigin="0.5,0.5"
             Width="720"
             Margin="24,0"
             HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Background="#090A09"
+            VerticalAlignment="Top"
+            Background="#CC000000"
             BorderBrush="#676D6E"
             BorderThickness="1"
             CornerRadius="12"
@@ -257,26 +266,47 @@
                                     One line, title then subtitle in grey after
                                     an em dash — a stacked pair made every row
                                     two lines tall for a URL nobody reads.
+
+                                    A Grid, not a StackPanel: a horizontal stack
+                                    hands its children all the width they ask
+                                    for, so TextTrimming never fired and a long
+                                    title ran straight under Switch to Tab. Here
+                                    the title takes what is left and ellipsises.
                                 -->
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                                <Grid Grid.Column="1" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
                                     <!-- 16 DIP throughout: 20px at 125%. -->
                                     <TextBlock
+                                        Grid.Column="0"
                                         FontSize="16"
                                         Text="{Binding Title}"
+                                        TextWrapping="NoWrap"
                                         TextTrimming="CharacterEllipsis" />
                                     <TextBlock
+                                        Grid.Column="1"
+                                        Margin="6,0,0,0"
                                         FontSize="16"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                         Text="{Binding SubtitleWithDash}"
                                         Visibility="{Binding SubtitleVisibility}"
+                                        TextWrapping="NoWrap"
                                         TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
+                                </Grid>
 
-                                <!-- 'Switch to Tab' indicator — only where there is a tab to switch to -->
+                                <!--
+                                    'Switch to Tab' indicator — only where there
+                                    is a tab to switch to. 8 DIP of clear air to
+                                    its left (10px at 125%), so a title long
+                                    enough to be trimmed still stops short of it.
+                                -->
                                 <StackPanel
                                     Grid.Column="2"
                                     Orientation="Horizontal"
                                     Spacing="6"
+                                    Margin="8,0,0,0"
                                     VerticalAlignment="Center"
                                     Visibility="{Binding SwitchToTabVisibility}">
                                     <TextBlock
