@@ -69,6 +69,24 @@ var runtimeRegistry=globalThis.__skewChromeById=globalThis.__skewChromeById||{{}
 var chrome=runtimeRegistry[extId]=runtimeRegistry[extId]||{{}};
 var isExtensionPage=location.protocol==='skew-extension:';
 if(isExtensionPage){{globalThis.chrome=chrome;globalThis.browser=chrome;}}
+else{{
+  // Content scripts need to find chrome too. In Chromium they run in an
+  // isolated world where the API is simply there; here they share the page's
+  // global scope, and a closure variable is invisible to a bundled script that
+  // checks globalThis.chrome.runtime.id before doing anything — which is the
+  // guard behind the this-script-should-only-be-loaded-in-a-browser-extension
+  // error that was stopping content scripts dead.
+  //
+  // Only filled in when the page has nothing there already, so a site with its
+  // own chrome object keeps it.
+  try{{
+    var existing=globalThis.chrome;
+    if(!existing||!existing.runtime||!existing.runtime.id){{
+      globalThis.chrome=chrome;
+      if(!globalThis.browser)globalThis.browser=chrome;
+    }}
+  }}catch(e){{}}
+}}
 var embeddedResources={embeddedResourcesJson};
 var embeddedResourceUrls={{}};
 var __skewDiagnostic=function(category,error){{

@@ -367,8 +367,13 @@ public sealed partial class SkewOmnibox : UserControl
 
     private void PinnedExtensionButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement element && element.Tag is string extensionId)
-            ExtensionBackgroundManager.Activate(extensionId);
+        if (sender is Button button && button.Tag is string extensionId)
+        {
+            // The popup panel, not a new tab: Activate falls back to opening the
+            // popup page as a tab, which strands one behind every click.
+            if (MainWindow.Instance is { } window) window.ActivateExtension(extensionId, button);
+            else ExtensionBackgroundManager.Activate(extensionId);
+        }
     }
 
     private async void AddExtensionButton_Click(object sender, RoutedEventArgs e)

@@ -1308,6 +1308,23 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Open an extension's action popup anchored to a button anywhere in the
+    /// chrome, or fire its onClicked when it has none. The omnibox's pinned
+    /// buttons come through here so a click means the same thing there as it
+    /// does in the page options popover — it was opening the popup as a tab.
+    /// </summary>
+    public void ActivateExtension(string extensionId, Button anchor)
+    {
+        string? popupUrl = ExtensionBackgroundManager.ActionPopupUrl(extensionId);
+        if (popupUrl is null)
+        {
+            ExtensionBackgroundManager.Activate(extensionId);
+            return;
+        }
+        ShowExtensionActionPopup(anchor, extensionId, popupUrl);
+    }
+
     private void ShowExtensionActionPopup(Button anchor, string extensionId, string popupUrl)
     {
         CloseExtensionActionPopup();
