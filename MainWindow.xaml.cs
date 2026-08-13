@@ -1361,6 +1361,31 @@ public sealed partial class MainWindow : Window
         ExtensionDiagnostics.Write("action", extensionId, "Opened toolbar action popup.");
     }
 
+    /// <summary>
+    /// Fit the popup panel to the document inside it. Chrome sizes a popup to
+    /// its own page; here the panel opens at a guess and the page reports what
+    /// it actually needs, otherwise every popup carries dead space along its
+    /// right and bottom edges.
+    /// </summary>
+    public void ResizeExtensionPopup(string extensionId, double width, double height)
+    {
+        Controls.SkewBrowserView? view = _extensionActionPopupView;
+        if (view is null) return;
+
+        // Chrome's own limits, and a floor so a page that measures zero while
+        // it is still building does not collapse the panel.
+        double clampedWidth = Math.Clamp(width, 200, 760);
+        double clampedHeight = Math.Clamp(height, 100, 600);
+
+        if (Math.Abs(view.Width - clampedWidth) < 1 && Math.Abs(view.Height - clampedHeight) < 1)
+            return;
+
+        view.Width = clampedWidth;
+        view.Height = clampedHeight;
+        ExtensionDiagnostics.Write("action", extensionId,
+            $"Popup resized to {clampedWidth:n0}x{clampedHeight:n0}.");
+    }
+
     private void CloseExtensionActionPopup()
     {
         Flyout? flyout = _extensionActionPopupFlyout;

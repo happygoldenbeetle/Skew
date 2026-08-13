@@ -136,7 +136,15 @@ public sealed class BrowserClient : CefClient
         {
             if (!ext.Enabled || ext.Manifest == null) continue;
 
-            foreach (var script in ext.Manifest.ContentScripts)
+            // The manifest's scripts, then anything registered at runtime
+            // through chrome.scripting.registerContentScripts — an extension
+            // whose behaviour depends on a setting registers as the setting
+            // changes, and those scripts are content scripts like any other.
+            var declared = new List<Skew.Models.ContentScriptMeta>(ext.Manifest.ContentScripts);
+            foreach (var registration in DynamicContentScripts.For(ext.Id))
+                declared.Add(registration.AsContentScript());
+
+            foreach (var script in declared)
             {
                 string declaredRunAt = string.IsNullOrWhiteSpace(script.RunAt)
                     ? "document_idle" : script.RunAt;

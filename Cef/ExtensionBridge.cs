@@ -234,6 +234,34 @@ internal static class ExtensionBridge
                     return MakeError(requestId, "The extension script could not be injected.");
                 return MakeResponse(requestId, Array.Empty<object>());
             }
+            if (method is "scripting.registerContentScripts" or
+                "scripting.unregisterContentScripts" or
+                "scripting.getRegisteredContentScripts" or
+                "scripting.updateContentScripts")
+            {
+                if (!HasPermission(extension, "scripting"))
+                    return MakeError(requestId, "The extension has not requested scripting permission.");
+
+                switch (method)
+                {
+                    case "scripting.registerContentScripts":
+                    case "scripting.updateContentScripts":
+                        if (args.TryGetProperty("scripts", out JsonElement scripts))
+                            DynamicContentScripts.Register(extensionId, scripts);
+                        return MakeResponse(requestId, (object?)null);
+
+                    case "scripting.unregisterContentScripts":
+                    {
+                        string[] ids = args.TryGetProperty("filter", out JsonElement filter)
+                            ? StringArray(filter, "ids") : [];
+                        DynamicContentScripts.Unregister(extensionId, ids);
+                        return MakeResponse(requestId, (object?)null);
+                    }
+
+                    default:
+                        return MakeResponse(requestId, DynamicContentScripts.For(extensionId));
+                }
+            }
             if (method is "scripting.insertCSS" or "scripting.removeCSS")
             {
                 if (!HasPermission(extension, "scripting"))
@@ -252,6 +280,19 @@ internal static class ExtensionBridge
                         extensionId, message, sourceUrl, requestId, browser))
                     return MakeResponse(requestId, (object?)null);
                 return MakeDeferredResponse(requestId);
+            }
+            if (method == "popup.size")
+            {
+                // The popup telling the host how big it wants to be.
+                if (args.TryGetProperty("width", out JsonElement widthElement) &&
+                    args.TryGetProperty("height", out JsonElement heightElement) &&
+                    widthElement.TryGetDouble(out double width) &&
+                    heightElement.TryGetDouble(out double height))
+                {
+                    App.DispatcherQueue.TryEnqueue(() =>
+                        MainWindow.Instance?.ResizeExtensionPopup(extensionId, width, height));
+                }
+                return MakeResponse(requestId, (object?)null);
             }
             if (method is "permissions.request" or "permissions.remove")
             {

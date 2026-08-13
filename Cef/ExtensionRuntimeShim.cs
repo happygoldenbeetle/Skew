@@ -340,8 +340,17 @@ chrome.storage.local.clear=chrome.storage.local.clear||function(cb){{
 chrome.storage.local.getBytesInUse=chrome.storage.local.getBytesInUse||function(keys,cb){{
   var p=__skewExtCall('storage.local.getBytesInUse',{{keys:keys}});if(typeof cb==='function')p.then(cb);return p;
 }};
+chrome.storage.local.getKeys=chrome.storage.local.getKeys||function(cb){{
+  var p=chrome.storage.local.get(null).then(function(items){{return Object.keys(items||{{}});}});
+  if(typeof cb==='function')p.then(cb);return p;
+}};
 chrome.storage.sync=chrome.storage.sync||chrome.storage.local;
 chrome.storage.session=chrome.storage.session||chrome.storage.local;
+// Session storage is the same store here; the access level governs whether
+// content scripts may read it, and they share the store either way.
+chrome.storage.session.setAccessLevel=chrome.storage.session.setAccessLevel||function(options,cb){{
+  var p=Promise.resolve();if(typeof cb==='function')p.then(cb);return p;
+}};
 chrome.storage.managed=chrome.storage.managed||{{}};
 chrome.storage.managed.get=chrome.storage.managed.get||function(keys,cb){{var p=Promise.resolve({{}});if(typeof cb==='function')p.then(cb);return p;}};
 chrome.storage.managed.getBytesInUse=chrome.storage.managed.getBytesInUse||function(keys,cb){{var p=Promise.resolve(0);if(typeof cb==='function')p.then(cb);return p;}};
@@ -437,8 +446,42 @@ chrome.idle.onStateChanged=chrome.idle.onStateChanged||__skewEvent();
 chrome.idle.queryState=chrome.idle.queryState||function(seconds,cb){{var p=Promise.resolve('active');if(cb)p.then(cb);return p;}};
 
 chrome.windows=chrome.windows||{{}};
+chrome.windows.WINDOW_ID_CURRENT=-2;
+chrome.windows.WINDOW_ID_NONE=-1;
 chrome.windows.onRemoved=chrome.windows.onRemoved||__skewEvent();
+chrome.windows.onCreated=chrome.windows.onCreated||__skewEvent();
+chrome.windows.onFocusChanged=chrome.windows.onFocusChanged||__skewEvent();
 chrome.windows.update=chrome.windows.update||function(id,info,cb){{var p=Promise.resolve({{id:id,focused:true}});if(cb)p.then(cb);return p;}};
+// One window, so a new window is a new tab. Extensions that open their options
+// or a sign-in page this way get somewhere rather than nowhere.
+chrome.windows.create=chrome.windows.create||function(options,cb){{
+  if(typeof options==='function'){{cb=options;options={{}};}}
+  options=options||{{}};
+  var urls=options.url==null?[]:(Array.isArray(options.url)?options.url:[options.url]);
+  var opened=urls.map(function(url){{return chrome.tabs.create({{url:url,active:options.focused!==false}});}});
+  var p=Promise.all(opened).then(function(tabs){{
+    return {{id:1,focused:options.focused!==false,incognito:false,alwaysOnTop:false,
+      type:options.type||'normal',state:options.state||'normal',tabs:tabs}};
+  }});
+  if(typeof cb==='function')p.then(cb);
+  return p;
+}};
+chrome.windows.get=chrome.windows.get||function(id,info,cb){{
+  if(typeof info==='function'){{cb=info;info={{}};}}
+  var p=Promise.resolve({{id:1,focused:true,incognito:false,type:'normal',state:'normal'}});
+  if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.windows.getCurrent=chrome.windows.getCurrent||function(info,cb){{
+  if(typeof info==='function'){{cb=info;info={{}};}}
+  return chrome.windows.get(1,info,cb);
+}};
+chrome.windows.getLastFocused=chrome.windows.getLastFocused||chrome.windows.getCurrent;
+chrome.windows.getAll=chrome.windows.getAll||function(info,cb){{
+  if(typeof info==='function'){{cb=info;info={{}};}}
+  var p=chrome.windows.get(1,info).then(function(window){{return [window];}});
+  if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.windows.remove=chrome.windows.remove||function(id,cb){{var p=Promise.resolve();if(typeof cb==='function')p.then(cb);return p;}};
 
 chrome.webNavigation=chrome.webNavigation||{{}};
 chrome.webNavigation.onBeforeNavigate=chrome.webNavigation.onBeforeNavigate||__skewEvent();
@@ -560,6 +603,32 @@ chrome.scripting.executeScript=chrome.scripting.executeScript||function(injectio
   var p=__skewExtCall('scripting.executeScript',{{injection:injection||{{}}}});
   if(typeof cb==='function')p.then(cb); return p;
 }};
+// Registering content scripts at runtime is how an extension whose behaviour
+// follows a setting applies that setting — uBlock Origin Lite's filtering modes
+// are built on it, and without these the mode switch fails and the UI reverts.
+chrome.scripting.registerContentScripts=chrome.scripting.registerContentScripts||function(scripts,cb){{
+  var p=__skewExtCall('scripting.registerContentScripts',{{scripts:scripts||[]}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+chrome.scripting.updateContentScripts=chrome.scripting.updateContentScripts||function(scripts,cb){{
+  var p=__skewExtCall('scripting.updateContentScripts',{{scripts:scripts||[]}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+chrome.scripting.unregisterContentScripts=chrome.scripting.unregisterContentScripts||function(filter,cb){{
+  if(typeof filter==='function'){{cb=filter;filter={{}};}}
+  var p=__skewExtCall('scripting.unregisterContentScripts',{{filter:filter||{{}}}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+chrome.scripting.getRegisteredContentScripts=chrome.scripting.getRegisteredContentScripts||function(filter,cb){{
+  if(typeof filter==='function'){{cb=filter;filter={{}};}}
+  var p=__skewExtCall('scripting.getRegisteredContentScripts',{{filter:filter||{{}}}})
+    .then(function(r){{return r||[];}});
+  if(typeof cb==='function')p.then(cb);
+  return p;
+}};
 chrome.scripting.insertCSS=chrome.scripting.insertCSS||function(injection,cb){{var p=__skewExtCall('scripting.insertCSS',{{injection:injection||{{}}}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
 chrome.scripting.removeCSS=chrome.scripting.removeCSS||function(injection,cb){{var p=__skewExtCall('scripting.removeCSS',{{injection:injection||{{}}}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
 
@@ -652,6 +721,43 @@ chrome.devtools.panels=chrome.devtools.panels||{{themeName:'dark',openResource:f
 
 chrome.commands=chrome.commands||{{}};
 chrome.commands.onCommand=chrome.commands.onCommand||__skewEvent();
+
+// --- Popup sizing ---
+// A popup is sized by its own document in Chrome; the host has no way to know
+// how big it wants to be until it says so. Without this the panel keeps its
+// opening guess and the page floats inside it with dead space at the right and
+// bottom, which is what an extension popup here looked like.
+if(isExtensionPage&&!chrome.__skewPopupSizeReporter){{
+  chrome.__skewPopupSizeReporter=true;
+  var __skewLastSize='';
+  var __skewReportSize=function(){{
+    try{{
+      var root=document.documentElement,body=document.body;
+      if(!root&&!body)return;
+      var width=Math.max(root?root.scrollWidth:0,body?body.scrollWidth:0,
+        body?body.offsetWidth:0);
+      var height=Math.max(root?root.scrollHeight:0,body?body.scrollHeight:0,
+        body?body.offsetHeight:0);
+      if(width<=0||height<=0)return;
+      var key=width+'x'+height;
+      if(key===__skewLastSize)return;
+      __skewLastSize=key;
+      __skewExtCall('popup.size',{{width:width,height:height}});
+    }}catch(e){{}}
+  }};
+  var __skewScheduleSize=function(){{setTimeout(__skewReportSize,0);setTimeout(__skewReportSize,120);}};
+  if(document.readyState==='loading')
+    document.addEventListener('DOMContentLoaded',__skewScheduleSize);
+  else __skewScheduleSize();
+  window.addEventListener('load',__skewScheduleSize);
+  try{{
+    // Popups grow as their own scripts fill them in.
+    if(window.ResizeObserver){{
+      var __skewObserver=new ResizeObserver(__skewReportSize);
+      if(document.documentElement)__skewObserver.observe(document.documentElement);
+    }}
+  }}catch(e){{}}
+}}
 
 // --- chrome.cookies ---
 chrome.cookies=chrome.cookies||{{}};

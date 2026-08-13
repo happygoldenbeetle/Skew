@@ -63,7 +63,27 @@ internal static partial class ExtensionCompatibilityAnalyzer
         "devtools.panels.openResource", "devtools.panels.create",
         "storage.local.getBytesInUse", "storage.managed.get", "storage.managed.getBytesInUse",
         "tabs.TAB_ID_NONE", "tabs.insertCSS", "tabs.removeCSS", "tabs.remove",
-        "commands.onCommand", "i18n.getUILanguage", "i18n.getMessage", "extension.getURL"
+        "commands.onCommand", "i18n.getUILanguage", "i18n.getMessage", "extension.getURL",
+
+        // Added since: dynamic content scripts, the real permissions surface,
+        // cookies, downloads, rulesets and the rest of tabs. The roster is what
+        // this analyzer reports against, so anything implemented and left off it
+        // shows up as missing and sends the next reader chasing a fixed bug.
+        "scripting.registerContentScripts", "scripting.unregisterContentScripts",
+        "scripting.getRegisteredContentScripts", "scripting.updateContentScripts",
+        "permissions.onAdded", "permissions.onRemoved",
+        "i18n.getAcceptLanguages",
+        "cookies.get", "cookies.getAll", "cookies.set", "cookies.remove",
+        "cookies.getAllCookieStores", "cookies.onChanged",
+        "downloads.download", "downloads.search", "downloads.cancel", "downloads.show",
+        "downloads.showDefaultFolder", "downloads.onCreated", "downloads.onChanged",
+        "declarativeNetRequest.updateDynamicRules", "declarativeNetRequest.updateSessionRules",
+        "declarativeNetRequest.getDynamicRules", "declarativeNetRequest.getSessionRules",
+        "declarativeNetRequest.updateEnabledRulesets", "declarativeNetRequest.getEnabledRulesets",
+        "declarativeNetRequest.onRuleMatchedDebug",
+        "tabs.get", "tabs.update", "tabs.query", "tabs.create", "tabs.reload",
+        "storage.local.getKeys", "storage.session.getKeys", "storage.session.setAccessLevel",
+        "windows.create", "windows.getAll", "windows.getCurrent"
     };
 
     internal static void AnalyzeAndWrite(BrowserExtension extension)
