@@ -411,6 +411,61 @@ internal sealed class SkewResourceRequestHandler : CefResourceRequestHandler
     protected override CefCookieAccessFilter? GetCookieAccessFilter(
         CefBrowser browser, CefFrame frame, CefRequest request)
         => null;
+
+    /// <summary>
+    /// Where extension blocking happens. Every request the page makes passes
+    /// through here, so it is the one place a declarativeNetRequest rule can be
+    /// enforced without the extension being asked — which is the whole design of
+    /// the API, and why an MV3 ad blocker does nothing until the host does this.
+    ///
+    /// <para>
+    /// Runs on the IO thread and must be quick and total: the engine swallows
+    /// its own errors and answers Allow when unsure, so a bad rule costs a
+    /// missed block rather than a dead page.
+    /// </para>
+    /// </summary>
+    protected override CefReturnValue OnBeforeResourceLoad(
+        CefBrowser browser, CefFrame frame, CefRequest request, CefCallback callback)
+    {
+        try
+        {
+            string url = request.Url ?? string.Empty;
+            if (url.Length == 0) return CefReturnValue.Continue;
+
+            // Our own pages and extension resources are not the web.
+            if (url.StartsWith(SkewSchemes.InternalScheme + "://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith(SkewSchemes.ExtensionScheme + "://", StringComparison.OrdinalIgnoreCase))
+                return CefReturnValue.Continue;
+
+            // The initiator is the page the request belongs to, which is what
+            // initiatorDomains conditions and third-party tests are about.
+            string? initiator = frame?.Url;
+            if (string.IsNullOrEmpty(initiator) && request.ResourceType != CefResourceType.MainFrame)
+                initiator = null;
+
+            var result = DeclarativeNetRequestEngine.Match(
+                url,
+                initiator,
+                DeclarativeNetRequestEngine.ResourceTypeName(request.ResourceType),
+                request.Method ?? "GET");
+
+            switch (result.Decision)
+            {
+                case DeclarativeNetRequestEngine.Decision.Block:
+                    return CefReturnValue.Cancel;
+
+                case DeclarativeNetRequestEngine.Decision.Redirect
+                    when !string.IsNullOrEmpty(result.RedirectUrl):
+                    request.Url = result.RedirectUrl;
+                    return CefReturnValue.Continue;
+            }
+        }
+        catch (Exception)
+        {
+            // A request is never worth taking the browser down for.
+        }
+        return CefReturnValue.Continue;
+    }
 }
 
 internal sealed class SkewContextMenuHandler : CefContextMenuHandler
@@ -538,34 +593,90 @@ internal sealed class SkewContextMenuHandler : CefContextMenuHandler
             _extensionMenuMap.Clear();
             string pageUrl = frame.Url ?? "";
             string? linkUrl = string.IsNullOrEmpty(state.UnfilteredLinkUrl) ? null : state.UnfilteredLinkUrl;
-            string? mediaType = isImage ? "image" : null;
+            string selectionText = state.SelectionText ?? "";
+            bool editable = (state.ContextMenuType & CefContextMenuTypeFlags.Editable) != 0;
 
-            var extItems = ExtensionBridge.GetMenuItemsForContext(pageUrl, linkUrl, mediaType);
+            // What kind of media, if any, was clicked — an extension asking for
+            // "video" should not be offered on an image and the other way about.
+            string? mediaType = state.MediaType switch
+            {
+                CefContextMenuMediaType.Image => "image",
+                CefContextMenuMediaType.Video => "video",
+                CefContextMenuMediaType.Audio => "audio",
+                _ => isImage ? "image" : null,
+            };
+
+            var extItems = ExtensionBridge.GetMenuItemsForContext(
+                pageUrl, linkUrl, mediaType, selectionText, editable);
+
             if (extItems.Count > 0)
             {
                 model.AddSeparator();
-                int cmdBase = (int)CefMenuId.CustomFirst + 100;
-                for (int i = 0; i < extItems.Count && i < 50; i++)
-                {
-                    int cmdId = cmdBase + i;
-                    // Substitute %s in title with selection text
-                    var title = extItems[i].title;
-                    var selText = state.SelectionText;
-                    if (!string.IsNullOrEmpty(selText))
-                        title = title.Replace("%s", selText);
-                    
-                    if (string.IsNullOrEmpty(title))
-                        title = "Extension Item";
-
-                    model.AddItem(cmdId, title);
-                    _extensionMenuMap[cmdId] = (extItems[i].extensionId, extItems[i].itemId);
-                }
+                int nextCommandId = (int)CefMenuId.CustomFirst + 100;
+                AddExtensionItems(model, extItems, selectionText, ref nextCommandId);
             }
         }
         catch (Exception ex)
         {
-            System.IO.File.AppendAllText("crash.log", $"[CRASH OnBeforeContextMenu] {ex}\n");
+            ExtensionDiagnostics.Write("context-menu-error", "", ex.ToString());
         }
+    }
+
+    /// <summary>
+    /// Put an extension's rows into the model, recursing into submenus. The
+    /// command id for each leaf is remembered so a click can be routed back to
+    /// the extension that registered it.
+    /// </summary>
+    private void AddExtensionItems(
+        CefMenuModel model, List<ExtensionBridge.ExtensionMenuItem> items,
+        string selectionText, ref int nextCommandId)
+    {
+        foreach (var item in items)
+        {
+            if (nextCommandId > (int)CefMenuId.CustomFirst + 400) return;
+
+            if (item.Type == "separator")
+            {
+                model.AddSeparator();
+                continue;
+            }
+
+            // %s carries the selected text, which is the whole point of a
+            // "search for %s" row.
+            string title = item.Title;
+            if (!string.IsNullOrEmpty(selectionText))
+                title = title.Replace("%s", Ellipsise(selectionText, 40));
+            if (string.IsNullOrEmpty(title)) title = "Extension Item";
+
+            if (item.Children.Count > 0)
+            {
+                CefMenuModel? submenu = model.AddSubMenu(nextCommandId++, title);
+                if (submenu is not null)
+                    AddExtensionItems(submenu, item.Children, selectionText, ref nextCommandId);
+                continue;
+            }
+
+            int commandId = nextCommandId++;
+            if (item.Type is "checkbox" or "radio")
+            {
+                model.AddCheckItem(commandId, title);
+                model.SetChecked(commandId, item.Checked);
+            }
+            else
+            {
+                model.AddItem(commandId, title);
+            }
+            if (!item.Enabled) model.SetEnabled(commandId, false);
+
+            _extensionMenuMap[commandId] = (item.ExtensionId, item.ItemId);
+        }
+    }
+
+    /// <summary>Keep a long selection from stretching the menu across the window.</summary>
+    private static string Ellipsise(string text, int limit)
+    {
+        string flattened = text.Replace('\n', ' ').Replace('\r', ' ').Trim();
+        return flattened.Length <= limit ? flattened : flattened[..limit] + "…";
     }
 
     protected override bool OnContextMenuCommand(
@@ -690,6 +801,20 @@ internal sealed class SkewContextMenuHandler : CefContextMenuHandler
                 clickInfo["srcUrl"] = state.SourceUrl;
             if (!string.IsNullOrEmpty(state.SelectionText))
                 clickInfo["selectionText"] = state.SelectionText;
+
+            // The rest of what Chromium puts in the info object. Extensions
+            // branch on these — editable to decide whether to offer a
+            // replacement, mediaType to tell an image from a video.
+            clickInfo["editable"] = (state.ContextMenuType & CefContextMenuTypeFlags.Editable) != 0;
+            clickInfo["frameId"] = frame.IsMain ? 0 : 1;
+            string? clickedMedia = state.MediaType switch
+            {
+                CefContextMenuMediaType.Image => "image",
+                CefContextMenuMediaType.Video => "video",
+                CefContextMenuMediaType.Audio => "audio",
+                _ => null,
+            };
+            if (clickedMedia is not null) clickInfo["mediaType"] = clickedMedia;
 
             ExtensionBackgroundManager.DispatchContextMenuClick(
                 extInfo.extensionId, clickInfo,

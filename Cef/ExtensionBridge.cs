@@ -186,6 +186,31 @@ internal static class ExtensionBridge
                     return MakeResponse(requestId, (object?)null);
                 return MakeDeferredResponse(requestId);
             }
+            if (method.StartsWith("declarativeNetRequest."))
+            {
+                if (!HasPermission(extension, "declarativeNetRequest") &&
+                    !HasPermission(extension, "declarativeNetRequestWithHostAccess"))
+                    return MakeError(requestId,
+                        "The extension has not requested declarativeNetRequest permission.");
+
+                switch (method)
+                {
+                    case "declarativeNetRequest.updateDynamicRules":
+                    case "declarativeNetRequest.updateSessionRules":
+                        DeclarativeNetRequestEngine.UpdateDynamicRules(extensionId, args);
+                        return MakeResponse(requestId, (object?)null);
+
+                    case "declarativeNetRequest.getDynamicRules":
+                    case "declarativeNetRequest.getSessionRules":
+                        return MakeResponse(requestId,
+                            DeclarativeNetRequestEngine.GetDynamicRules(extensionId));
+
+                    case "declarativeNetRequest.getMatchedRuleCount":
+                        return MakeResponse(requestId,
+                            DeclarativeNetRequestEngine.BlockedCount(extensionId));
+                }
+                return MakeResponse(requestId, (object?)null);
+            }
             if (method == "runtime.fetch")
             {
                 if (!extensionPage)
@@ -437,14 +462,41 @@ internal static class ExtensionBridge
 
     // ── Context menu item queries (used by context menu handler) ────────
 
-    /// <summary>
-    /// Get all registered context menu items for all enabled extensions,
-    /// filtered by the given context type (e.g. "page", "image", "link").
-    /// </summary>
-    public static List<(string extensionId, string itemId, string title)> GetMenuItemsForContext(
-        string pageUrl, string? linkUrl, string? mediaType)
+    /// <summary>One row an extension contributed, with whatever hangs under it.</summary>
+    public sealed class ExtensionMenuItem
     {
-        var result = new List<(string, string, string)>();
+        public required string ExtensionId { get; init; }
+        public required string ItemId { get; init; }
+        public required string Title { get; init; }
+        public bool Enabled { get; init; } = true;
+
+        /// <summary>"normal", "separator", "checkbox" or "radio".</summary>
+        public string Type { get; init; } = "normal";
+        public bool Checked { get; init; }
+        public List<ExtensionMenuItem> Children { get; } = [];
+    }
+
+    /// <summary>
+    /// The menu rows every enabled extension wants for this particular click.
+    ///
+    /// <para>
+    /// Chromium decides this from the node under the cursor: a selection, a
+    /// link, an image, an editable field, or the bare page. An item declaring
+    /// <c>contexts:["selection"]</c> — the "search for %s" shape almost every
+    /// dictionary, translator and search extension ships — only appears when
+    /// text is selected, which is why passing the selection in matters.
+    /// </para>
+    ///
+    /// <para>
+    /// Children come back nested under their parent rather than dropped, so a
+    /// submenu survives the trip.
+    /// </para>
+    /// </summary>
+    public static List<ExtensionMenuItem> GetMenuItemsForContext(
+        string pageUrl, string? linkUrl, string? mediaType,
+        string? selectionText = null, bool isEditable = false)
+    {
+        var result = new List<ExtensionMenuItem>();
 
         var extensions = Skew.Models.ExtensionStore.Shared.GetSnapshot();
 
@@ -461,34 +513,133 @@ internal static class ExtensionBridge
                 itemsCopy = new List<Dictionary<string, object?>>(registered);
             }
 
+            // Build by id first so children can be attached to their parents.
+            var byId = new Dictionary<string, ExtensionMenuItem>(StringComparer.Ordinal);
+            var parentOf = new Dictionary<string, string>(StringComparer.Ordinal);
+
             foreach (var item in itemsCopy)
             {
-                // Skip child items (parentId) for now — we flatten to top-level
-                if (item.TryGetValue("parentId", out var pid) && pid != null)
+                if (!ItemAppliesHere(item, pageUrl, linkUrl, mediaType, selectionText, isEditable))
                     continue;
 
-                var title = item.TryGetValue("title", out var t) ? t?.ToString() ?? "" : "";
-                var itemId = item.TryGetValue("id", out var id) ? id?.ToString() ?? "" : "";
-                var contexts = GetContexts(item);
+                string itemId = Value(item, "id") ?? "";
+                string title = Value(item, "title") ?? "";
+                string type = (Value(item, "type") ?? "normal").ToLowerInvariant();
 
-                // Check if this item applies to the current context
-                bool matches = false;
-                if (contexts.Contains("all")) matches = true;
-                else if (!string.IsNullOrEmpty(mediaType) && mediaType == "image" && contexts.Contains("image")) matches = true;
-                else if (!string.IsNullOrEmpty(linkUrl) && contexts.Contains("link")) matches = true;
-                else if (string.IsNullOrEmpty(mediaType) && string.IsNullOrEmpty(linkUrl) && contexts.Contains("page")) matches = true;
-                // Default context is "page" if none specified
-                else if (contexts.Count == 0 && string.IsNullOrEmpty(mediaType) && string.IsNullOrEmpty(linkUrl)) matches = true;
+                // A separator carries no title; everything else without one is
+                // a row that would render blank.
+                if (type != "separator" && string.IsNullOrEmpty(title)) continue;
+                if (string.IsNullOrEmpty(itemId)) continue;
 
-                if (matches && !string.IsNullOrEmpty(title))
+                byId[itemId] = new ExtensionMenuItem
                 {
-                    result.Add((extensionId, itemId, title));
-                }
+                    ExtensionId = extensionId,
+                    ItemId = itemId,
+                    Title = title,
+                    Enabled = !(item.TryGetValue("enabled", out var enabled) && enabled is false),
+                    Type = type,
+                    Checked = item.TryGetValue("checked", out var isChecked) && isChecked is true,
+                };
+
+                string? parentId = Value(item, "parentId");
+                if (!string.IsNullOrEmpty(parentId)) parentOf[itemId] = parentId;
+            }
+
+            foreach (var pair in byId)
+            {
+                if (parentOf.TryGetValue(pair.Key, out string? parentId) &&
+                    byId.TryGetValue(parentId, out ExtensionMenuItem? parent))
+                    parent.Children.Add(pair.Value);
+                else if (!parentOf.ContainsKey(pair.Key))
+                    result.Add(pair.Value);
+                // A child whose parent did not match this context is dropped
+                // with it, which is what Chromium does.
             }
         }
 
         return result;
     }
+
+    /// <summary>
+    /// Does this registration belong in the menu for the node that was clicked?
+    /// </summary>
+    private static bool ItemAppliesHere(
+        Dictionary<string, object?> item, string pageUrl, string? linkUrl,
+        string? mediaType, string? selectionText, bool isEditable)
+    {
+        if (item.TryGetValue("visible", out var visible) && visible is false) return false;
+
+        var contexts = GetContexts(item);
+        // "page" is the default when the extension names none.
+        if (contexts.Count == 0) contexts.Add("page");
+
+        bool hasSelection = !string.IsNullOrWhiteSpace(selectionText);
+        bool hasLink = !string.IsNullOrEmpty(linkUrl);
+
+        bool matches = contexts.Contains("all");
+        if (!matches && hasSelection && contexts.Contains("selection")) matches = true;
+        if (!matches && hasLink && contexts.Contains("link")) matches = true;
+        if (!matches && isEditable && contexts.Contains("editable")) matches = true;
+        if (!matches && mediaType == "image" && contexts.Contains("image")) matches = true;
+        if (!matches && mediaType == "video" && contexts.Contains("video")) matches = true;
+        if (!matches && mediaType == "audio" && contexts.Contains("audio")) matches = true;
+        // The bare page: nothing else claimed this click.
+        if (!matches && contexts.Contains("page") &&
+            !hasSelection && !hasLink && !isEditable && string.IsNullOrEmpty(mediaType))
+            matches = true;
+        if (!matches && contexts.Contains("frame") && string.IsNullOrEmpty(mediaType)) matches = false;
+
+        if (!matches) return false;
+
+        if (!UrlPatternsAllow(item, "documentUrlPatterns", pageUrl)) return false;
+        if (hasLink && !UrlPatternsAllow(item, "targetUrlPatterns", linkUrl!)) return false;
+        if (mediaType is not null && !string.IsNullOrEmpty(mediaType) &&
+            !UrlPatternsAllow(item, "targetUrlPatterns", pageUrl)) return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Match-pattern filtering, as declared by documentUrlPatterns and
+    /// targetUrlPatterns. No patterns means no restriction.
+    /// </summary>
+    private static bool UrlPatternsAllow(Dictionary<string, object?> item, string key, string url)
+    {
+        if (!item.TryGetValue(key, out var value) || value is not JsonElement element ||
+            element.ValueKind != JsonValueKind.Array)
+            return true;
+
+        bool any = false;
+        foreach (JsonElement entry in element.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.String) continue;
+            string? pattern = entry.GetString();
+            if (string.IsNullOrEmpty(pattern)) continue;
+            any = true;
+            if (MatchPattern(pattern, url)) return true;
+        }
+        return !any;
+    }
+
+    /// <summary>A Chromium match pattern ("*://*.example.com/*") against a URL.</summary>
+    private static bool MatchPattern(string pattern, string url)
+    {
+        if (pattern == "<all_urls>") return true;
+        try
+        {
+            string regex = "^" + System.Text.RegularExpressions.Regex.Escape(pattern)
+                .Replace("\\*", ".*") + "$";
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                url, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static string? Value(Dictionary<string, object?> item, string key)
+        => item.TryGetValue(key, out var value) ? value?.ToString() : null;
 
     private static List<string> GetContexts(Dictionary<string, object?> item)
     {

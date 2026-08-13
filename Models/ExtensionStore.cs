@@ -515,7 +515,16 @@ public sealed class ExtensionStore
         lock (sync) target = source.ToList();
     }
 
-    private void UpdateSnapshot() => UpdateSnapshotFrom(Extensions, _snapshotLock, ref _snapshot);
+    private void UpdateSnapshot()
+    {
+        UpdateSnapshotFrom(Extensions, _snapshotLock, ref _snapshot);
+
+        // Recompile blocking rules whenever the set of extensions changes.
+        // Install, remove, enable and disable all pass through here, so the
+        // engine never holds rules for an extension that is no longer running.
+        try { Skew.Cef.DeclarativeNetRequestEngine.Reload(); }
+        catch (Exception) { /* never let rule loading break the store */ }
+    }
 
     private static void CopyDirectory(string source, string destination)
     {

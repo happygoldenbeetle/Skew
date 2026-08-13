@@ -470,15 +470,34 @@ chrome.declarativeNetRequest=chrome.declarativeNetRequest||{{}};
 chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES=chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_AND_SESSION_RULES||5000;
 chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES=chrome.declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES||5000;
 chrome.declarativeNetRequest.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS=chrome.declarativeNetRequest.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS||50;
-chrome.declarativeNetRequest.getDynamicRules=chrome.declarativeNetRequest.getDynamicRules||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
-chrome.declarativeNetRequest.getSessionRules=chrome.declarativeNetRequest.getSessionRules||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
+// Dynamic and session rules go to the host engine, which is what actually
+// blocks — a blocker that adds rules at runtime (per-site toggles, temporary
+// allowances) would otherwise be writing into a stub that answers nothing.
+chrome.declarativeNetRequest.getDynamicRules=chrome.declarativeNetRequest.getDynamicRules||function(cb){{
+  var p=__skewExtCall('declarativeNetRequest.getDynamicRules',{{}}).then(function(r){{return r||[];}});
+  if(cb)p.then(cb);return p;
+}};
+chrome.declarativeNetRequest.getSessionRules=chrome.declarativeNetRequest.getSessionRules||function(cb){{
+  var p=__skewExtCall('declarativeNetRequest.getSessionRules',{{}}).then(function(r){{return r||[];}});
+  if(cb)p.then(cb);return p;
+}};
 chrome.declarativeNetRequest.getEnabledRulesets=chrome.declarativeNetRequest.getEnabledRulesets||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
 chrome.declarativeNetRequest.getAvailableStaticRuleCount=chrome.declarativeNetRequest.getAvailableStaticRuleCount||function(cb){{var p=Promise.resolve(30000);if(cb)p.then(cb);return p;}};
 chrome.declarativeNetRequest.getDisabledRuleIds=chrome.declarativeNetRequest.getDisabledRuleIds||function(options,cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
 chrome.declarativeNetRequest.isRegexSupported=chrome.declarativeNetRequest.isRegexSupported||function(options,cb){{var p=Promise.resolve({{isSupported:true}});if(cb)p.then(cb);return p;}};
-['updateDynamicRules','updateEnabledRulesets','updateStaticRules'].forEach(function(name){{
+['updateDynamicRules','updateSessionRules'].forEach(function(name){{
+  chrome.declarativeNetRequest[name]=chrome.declarativeNetRequest[name]||function(options,cb){{
+    var p=__skewExtCall('declarativeNetRequest.'+name,options||{{}});
+    if(cb)p.then(function(){{cb();}});
+    return p;
+  }};
+}});
+// Static ruleset enablement is read from the manifest at load, so these accept
+// the call and report success rather than pretending to reconfigure anything.
+['updateEnabledRulesets','updateStaticRules'].forEach(function(name){{
   chrome.declarativeNetRequest[name]=chrome.declarativeNetRequest[name]||function(options,cb){{var p=Promise.resolve();if(cb)p.then(cb);return p;}};
 }});
+chrome.declarativeNetRequest.onRuleMatchedDebug=chrome.declarativeNetRequest.onRuleMatchedDebug||__skewEvent();
 
 // --- chrome.action, browserAction, scripting and commands ---
 chrome.action=chrome.action||{{}};
