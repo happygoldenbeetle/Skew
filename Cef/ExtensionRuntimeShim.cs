@@ -58,6 +58,7 @@ internal static class ExtensionRuntimeShim
         }
 
         string embeddedResourcesJson = BuildEmbeddedResourcesJson(manifest, extensionRoot);
+        string messagesJson = BuildMessagesJson(extensionRoot);
 
         // The shim is a self-executing function that sets up all the chrome.*
         // polyfills and the IPC bridge. Mirrors BrowserClient.mm lines 2316–3470.
@@ -599,9 +600,49 @@ chrome.downloads.show=chrome.downloads.show||function(id){{__skewExtCall('downlo
 chrome.downloads.showDefaultFolder=chrome.downloads.showDefaultFolder||function(){{__skewExtCall('downloads.show',{{}});}};
 
 // --- chrome.i18n ---
+// The extension's own messages, read from _locales at load. Returning the key
+// — which is what this did — leaves __MSG_appName__ on screen wherever an
+// extension localises its own strings, and localised extensions are the norm.
+var __skewMessages={messagesJson};
 chrome.i18n=chrome.i18n||{{}};
 chrome.i18n.getUILanguage=chrome.i18n.getUILanguage||function(){{return 'en';}};
-chrome.i18n.getMessage=chrome.i18n.getMessage||function(name){{return name||'';}};
+chrome.i18n.getAcceptLanguages=chrome.i18n.getAcceptLanguages||function(cb){{
+  var p=Promise.resolve(['en-US','en']);if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.i18n.getMessage=chrome.i18n.getMessage||function(name,substitutions){{
+  if(name==='@@extension_id')return extId;
+  if(name==='@@ui_locale')return 'en';
+  if(name==='@@bidi_dir')return 'ltr';
+  if(name==='@@bidi_reversed_dir')return 'rtl';
+  if(name==='@@bidi_start_edge')return 'left';
+  if(name==='@@bidi_end_edge')return 'right';
+  var key=String(name||'');
+  var entry=__skewMessages[key];
+  if(!entry){{
+    // Message names are case-insensitive in Chrome.
+    var lower=key.toLowerCase();
+    for(var candidate in __skewMessages){{
+      if(candidate.toLowerCase()===lower){{entry=__skewMessages[candidate];break;}}
+    }}
+  }}
+  if(!entry)return '';
+  var text=String(entry.message||'');
+  // Named placeholders first — their content is what the numbered
+  // substitutions actually land in.
+  if(entry.placeholders){{
+    for(var placeholder in entry.placeholders){{
+      var definition=entry.placeholders[placeholder];
+      var content=definition&&definition.content!=null?String(definition.content):'';
+      text=text.replace(new RegExp('\\\\$'+placeholder+'\\\\$','gi'),content);
+    }}
+  }}
+  var values=substitutions==null?[]:(Array.isArray(substitutions)?substitutions:[substitutions]);
+  for(var i=0;i<9;i++){{
+    var value=i<values.length?String(values[i]):'';
+    text=text.split('$'+(i+1)).join(value);
+  }}
+  return text.split('$$').join('$');
+}};
 
 // --- chrome.extension ---
 chrome.extension=chrome.extension||{{}};
@@ -611,6 +652,65 @@ chrome.extension.getURL=chrome.extension.getURL||runtime.getURL;
 if(isExtensionPage){{globalThis.browser=chrome;}}
 
 }})();";
+    }
+
+    /// <summary>
+    /// The extension's messages.json for the locale it will be read in, verbatim
+    /// so placeholders survive. Falls back through the declared default locale
+    /// to English, then to whatever single locale the extension ships.
+    /// </summary>
+    private static string BuildMessagesJson(string? extensionRoot)
+    {
+        if (string.IsNullOrWhiteSpace(extensionRoot)) return "{}";
+        string localesRoot = Path.Combine(extensionRoot, "_locales");
+        if (!Directory.Exists(localesRoot)) return "{}";
+
+        string? defaultLocale = null;
+        try
+        {
+            string manifestPath = Path.Combine(extensionRoot, "manifest.json");
+            if (File.Exists(manifestPath))
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+                if (document.RootElement.TryGetProperty("default_locale", out var value))
+                    defaultLocale = value.GetString();
+            }
+        }
+        catch (Exception) { }
+
+        var candidates = new List<string>();
+        if (!string.IsNullOrWhiteSpace(defaultLocale)) candidates.Add(defaultLocale.Replace('-', '_'));
+        candidates.Add("en");
+        candidates.Add("en_US");
+
+        foreach (string locale in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            string path = Path.Combine(localesRoot, locale, "messages.json");
+            if (File.Exists(path)) return ReadMessages(path);
+        }
+
+        // Some extensions ship exactly one locale and name it something else.
+        string? only = Directory.EnumerateDirectories(localesRoot)
+            .Select(directory => Path.Combine(directory, "messages.json"))
+            .FirstOrDefault(File.Exists);
+        return only is null ? "{}" : ReadMessages(only);
+
+        static string ReadMessages(string path)
+        {
+            try
+            {
+                string text = File.ReadAllText(path);
+                // Parsed and re-emitted so a malformed file cannot inject
+                // anything into the shim it is embedded in.
+                using var document = System.Text.Json.JsonDocument.Parse(text);
+                return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                    ? document.RootElement.GetRawText() : "{}";
+            }
+            catch (Exception)
+            {
+                return "{}";
+            }
+        }
     }
 
     private static string BuildEmbeddedResourcesJson(
@@ -697,6 +797,29 @@ if(isExtensionPage){{globalThis.browser=chrome;}}
             .Replace("\\*", ".*").Replace("\\?", ".") + "$";
         return System.Text.RegularExpressions.Regex.IsMatch(
             relativePath, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>
+    /// Resolve a __MSG_key__ manifest string against the extension's locales.
+    /// Anything else comes back unchanged, so this is safe to call on every
+    /// name and description.
+    /// </summary>
+    internal static string LocalizeManifestString(string? value, string extensionRoot)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value ?? string.Empty;
+        string? defaultLocale = null;
+        try
+        {
+            string manifestPath = Path.Combine(extensionRoot, "manifest.json");
+            if (File.Exists(manifestPath))
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+                if (document.RootElement.TryGetProperty("default_locale", out var locale))
+                    defaultLocale = locale.GetString();
+            }
+        }
+        catch (Exception) { }
+        return ResolveManifestMessage(value, defaultLocale, extensionRoot);
     }
 
     private static string ResolveManifestMessage(string value, string? defaultLocale, string root)

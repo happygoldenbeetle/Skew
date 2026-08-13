@@ -261,8 +261,12 @@ public sealed class ExtensionStore
 
             extension.Manifest = ReadManifest(extension.Path);
             if (extension.Manifest is null) continue;
-            extension.Name = extension.Manifest.Name;
-            extension.Detail = extension.Manifest.Description;
+            // Resolved on every load, not only at install, so extensions already
+            // in the catalogue under a __MSG_ placeholder come back named.
+            extension.Name = Skew.Cef.ExtensionRuntimeShim.LocalizeManifestString(
+                extension.Manifest.Name, extension.Path);
+            extension.Detail = Skew.Cef.ExtensionRuntimeShim.LocalizeManifestString(
+                extension.Manifest.Description, extension.Path);
             extension.Version = extension.Manifest.Version;
             extension.IconPath = GetBestIconPath(extension.Manifest, extension.Path);
             Extensions.Add(extension);
@@ -295,12 +299,18 @@ public sealed class ExtensionStore
             string.Equals(extension.Id, id, StringComparison.OrdinalIgnoreCase));
         int previousIndex = previous is null ? -1 : Extensions.IndexOf(previous);
 
+        // A localised extension names itself __MSG_appName__ in the manifest and
+        // expects the browser to look the string up. Storing the placeholder put
+        // it on screen in the settings list and the extensions menu.
+        string resolvedName = Skew.Cef.ExtensionRuntimeShim.LocalizeManifestString(manifest.Name, staging);
+        string resolvedDetail = Skew.Cef.ExtensionRuntimeShim.LocalizeManifestString(manifest.Description, staging);
+
         var replacement = new BrowserExtension
         {
             Id = id,
-            Name = string.IsNullOrWhiteSpace(manifest.Name) ? fallbackName : manifest.Name,
+            Name = string.IsNullOrWhiteSpace(resolvedName) ? fallbackName : resolvedName,
             Version = manifest.Version,
-            Detail = manifest.Description,
+            Detail = resolvedDetail,
             Path = managed,
             IconPath = GetBestIconPath(manifest, staging),
             Enabled = previous?.Enabled ?? true,

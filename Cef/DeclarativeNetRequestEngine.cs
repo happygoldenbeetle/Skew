@@ -106,6 +106,13 @@ internal static class DeclarativeNetRequestEngine
     /// </summary>
     private static string s_loadedSignature = "";
 
+    /// <summary>
+    /// Compiled static rules, keyed by extension id, version and path — the
+    /// things that would change what the rules are. Survives a reload triggered
+    /// by some other extension.
+    /// </summary>
+    private static readonly Dictionary<string, List<CompiledRule>> s_compileCache = new(StringComparer.Ordinal);
+
     public static void Reload()
     {
         try
@@ -127,20 +134,31 @@ internal static class DeclarativeNetRequestEngine
                 if (!extension.Enabled) continue;
                 if (!DeclaresNetRequest(extension)) continue;
 
-                var rules = new List<CompiledRule>();
-                foreach (string rulePath in StaticRulesetPaths(extension))
+                // Keyed by what would change the rules. The store raises a
+                // change per extension as it loads, so without this cache a
+                // blocker's 58,000 rules are recompiled again every time some
+                // unrelated extension appears after it.
+                string cacheKey = extension.Id + "@" + extension.Version + "@" + extension.Path;
+                List<CompiledRule>? rules;
+                lock (s_lock) s_compileCache.TryGetValue(cacheKey, out rules);
+
+                if (rules is null)
                 {
-                    string full = Path.Combine(extension.Path, rulePath.Replace('/', Path.DirectorySeparatorChar));
-                    if (!File.Exists(full)) continue;
-                    rules.AddRange(CompileRuleFile(extension.Id, full));
+                    rules = [];
+                    foreach (string rulePath in StaticRulesetPaths(extension))
+                    {
+                        string full = Path.Combine(extension.Path, rulePath.Replace('/', Path.DirectorySeparatorChar));
+                        if (!File.Exists(full)) continue;
+                        rules.AddRange(CompileRuleFile(extension.Id, full));
+                    }
+                    lock (s_lock) s_compileCache[cacheKey] = rules;
+
+                    if (rules.Count > 0)
+                        ExtensionDiagnostics.Write("dnr", extension.Id,
+                            $"Compiled {rules.Count} static rules.");
                 }
 
-                if (rules.Count > 0)
-                {
-                    compiled[extension.Id] = rules;
-                    ExtensionDiagnostics.Write("dnr", extension.Id,
-                        $"Compiled {rules.Count} static rules.");
-                }
+                if (rules.Count > 0) compiled[extension.Id] = rules;
             }
 
             lock (s_lock)
