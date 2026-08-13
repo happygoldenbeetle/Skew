@@ -283,6 +283,28 @@ internal sealed class SkewExtensionResourceHandler : SkewBufferedResourceHandler
         sb.Append("<!doctype html><html><head><meta charset=\"utf-8\"></head><body>");
         if (runtime is not null)
             sb.Append("<script>").Append(runtime).Append("</script>");
+
+        // An ES module worker is loaded by the page, with a script tag, so
+        // Chromium's own module loader resolves its imports over the extension
+        // scheme. Concatenating it as a classic script — which is what happens
+        // to every other background script — makes its first import statement a
+        // syntax error and the whole extension dead on arrival. uBlock Origin
+        // Lite is built this way.
+        Models.BrowserExtension? extension = Models.ExtensionStore.Shared.GetSnapshot()
+            .FirstOrDefault(item => item.Enabled &&
+                string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        string? worker = extension?.Manifest?.Background?.ServiceWorker;
+        bool isModule = string.Equals(
+            extension?.Manifest?.Background?.Type, "module", StringComparison.OrdinalIgnoreCase);
+
+        if (isModule && !string.IsNullOrWhiteSpace(worker) &&
+            SkewExtensionCatalog.SafeExtensionFilePath(extension!.Path, worker) is not null)
+        {
+            string source = string.Join('/', worker.Replace('\\', '/').Split('/')
+                .Select(Uri.EscapeDataString));
+            sb.Append("<script type=\"module\" src=\"/").Append(source).Append("\"></script>");
+        }
+
         sb.Append("</body></html>");
         return sb.ToString();
     }

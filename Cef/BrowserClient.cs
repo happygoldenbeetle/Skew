@@ -348,7 +348,13 @@ public sealed class BrowserClient : CefClient
             // synthetic page hosts service workers and script arrays directly.
             if (!declaredBackground)
             {
-                if (!string.IsNullOrEmpty(ext.Manifest.Background.ServiceWorker))
+                // A module worker is loaded by the background page's own script
+                // tag so the module loader can resolve its imports; adding it
+                // here as well would run the extension twice.
+                bool moduleWorker = string.Equals(
+                    ext.Manifest.Background.Type, "module", StringComparison.OrdinalIgnoreCase);
+
+                if (!moduleWorker && !string.IsNullOrEmpty(ext.Manifest.Background.ServiceWorker))
                 {
                     scripts.AddRange(GetServiceWorkerCompanionScripts(
                         ext.Path, ext.Manifest.Background.ServiceWorker));

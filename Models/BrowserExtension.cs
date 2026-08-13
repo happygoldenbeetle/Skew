@@ -108,6 +108,15 @@ namespace Skew.Models
         [JsonPropertyName("service_worker")]
         public string? ServiceWorker { get; set; }
 
+        /// <summary>
+        /// "module" when the worker is an ES module. It changes how the script
+        /// must be loaded — import statements are a syntax error in a classic
+        /// script — so it decides whether the background page loads the file
+        /// itself or the host concatenates it.
+        /// </summary>
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
         [JsonPropertyName("scripts")]
         public List<string>? Scripts { get; set; }
 

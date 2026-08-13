@@ -437,11 +437,18 @@ internal sealed class SkewResourceRequestHandler : CefResourceRequestHandler
                 url.StartsWith(SkewSchemes.ExtensionScheme + "://", StringComparison.OrdinalIgnoreCase))
                 return CefReturnValue.Continue;
 
-            // The initiator is the page the request belongs to, which is what
-            // initiatorDomains conditions and third-party tests are about.
+            // The initiator is the page the request belongs to — what
+            // initiatorDomains conditions and third-party tests are about. A
+            // subframe or worker request can arrive with no frame URL of its
+            // own, so the page's main frame stands in; without it the request
+            // looks first-party and every third-party rule misses.
             string? initiator = frame?.Url;
-            if (string.IsNullOrEmpty(initiator) && request.ResourceType != CefResourceType.MainFrame)
-                initiator = null;
+            if (string.IsNullOrEmpty(initiator))
+            {
+                try { initiator = browser?.GetMainFrame()?.Url; }
+                catch (Exception) { initiator = null; }
+            }
+            if (request.ResourceType == CefResourceType.MainFrame) initiator = null;
 
             var result = DeclarativeNetRequestEngine.Match(
                 url,

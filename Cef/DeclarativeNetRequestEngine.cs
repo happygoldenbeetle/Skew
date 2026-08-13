@@ -138,7 +138,8 @@ internal static class DeclarativeNetRequestEngine
                 // change per extension as it loads, so without this cache a
                 // blocker's 58,000 rules are recompiled again every time some
                 // unrelated extension appears after it.
-                string cacheKey = extension.Id + "@" + extension.Version + "@" + extension.Path;
+                string cacheKey = extension.Id + "@" + extension.Version + "@" + extension.Path +
+                    "@" + string.Join(',', GetEnabledRulesets(extension.Id));
                 List<CompiledRule>? rules;
                 lock (s_lock) s_compileCache.TryGetValue(cacheKey, out rules);
 
@@ -178,39 +179,150 @@ internal static class DeclarativeNetRequestEngine
         => extension.Manifest?.Permissions.Any(permission =>
             permission.StartsWith("declarativeNetRequest", StringComparison.OrdinalIgnoreCase)) == true;
 
-    /// <summary>
-    /// The rule files named by <c>declarative_net_request.rule_resources</c>.
-    /// Disabled rulesets are skipped — a blocker ships many and enables a few.
-    /// </summary>
-    private static IEnumerable<string> StaticRulesetPaths(BrowserExtension extension)
+    /// <summary>Every ruleset the manifest declares, with the id it is known by.</summary>
+    private static List<(string Id, string Path, bool EnabledByDefault)> DeclaredRulesets(
+        BrowserExtension extension)
     {
+        var result = new List<(string, string, bool)>();
         string manifestPath = Path.Combine(extension.Path, "manifest.json");
-        if (!File.Exists(manifestPath)) yield break;
+        if (!File.Exists(manifestPath)) return result;
 
-        JsonDocument? document = null;
-        try { document = JsonDocument.Parse(File.ReadAllText(manifestPath)); }
-        catch (Exception) { yield break; }
-
-        using (document)
+        try
         {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(manifestPath));
             if (!document.RootElement.TryGetProperty("declarative_net_request", out JsonElement dnr) ||
                 !dnr.TryGetProperty("rule_resources", out JsonElement resources) ||
                 resources.ValueKind != JsonValueKind.Array)
-                yield break;
+                return result;
 
             foreach (JsonElement entry in resources.EnumerateArray())
             {
                 if (entry.ValueKind != JsonValueKind.Object) continue;
-                if (entry.TryGetProperty("enabled", out JsonElement enabled) &&
-                    enabled.ValueKind == JsonValueKind.False)
+                if (!entry.TryGetProperty("path", out JsonElement path) ||
+                    path.ValueKind != JsonValueKind.String ||
+                    path.GetString() is not { Length: > 0 } value)
                     continue;
-                if (entry.TryGetProperty("path", out JsonElement path) &&
-                    path.ValueKind == JsonValueKind.String &&
-                    path.GetString() is { Length: > 0 } value)
-                    yield return value;
+                string id = entry.TryGetProperty("id", out JsonElement idElement) &&
+                    idElement.ValueKind == JsonValueKind.String
+                        ? idElement.GetString() ?? value : value;
+                bool enabled = !entry.TryGetProperty("enabled", out JsonElement enabledElement) ||
+                    enabledElement.ValueKind != JsonValueKind.False;
+                result.Add((id, value, enabled));
             }
         }
+        catch (Exception) { }
+        return result;
     }
+
+    /// <summary>
+    /// The rulesets that should be live for this extension: what the manifest
+    /// turns on, unless the extension has said otherwise at runtime.
+    ///
+    /// <para>
+    /// This is how a blocker really works. AdBlock ships 37 lists and enables 3
+    /// in the manifest; EasyList and the rest are switched on by its own code
+    /// through updateEnabledRulesets. Treating that call as a no-op — which it
+    /// was — leaves the blocker running on a fraction of its rules, which looks
+    /// like blocking that half works.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<string> StaticRulesetPaths(BrowserExtension extension)
+    {
+        var declared = DeclaredRulesets(extension);
+        HashSet<string>? chosen = LoadEnabledRulesets(extension.Id);
+
+        foreach (var ruleset in declared)
+        {
+            bool enabled = chosen is null ? ruleset.EnabledByDefault : chosen.Contains(ruleset.Id);
+            if (enabled) yield return ruleset.Path;
+        }
+    }
+
+    /// <summary>The ruleset ids the extension has enabled, or null if it never said.</summary>
+    private static HashSet<string>? LoadEnabledRulesets(string extensionId)
+    {
+        try
+        {
+            string path = EnabledRulesetsPath(extensionId);
+            if (!File.Exists(path)) return null;
+            var ids = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(path));
+            return ids is null ? null : new HashSet<string>(ids, StringComparer.Ordinal);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Apply updateEnabledRulesets and recompile. Persisted, because an
+    /// extension enables its lists once and expects them to stay on.
+    /// </summary>
+    public static void UpdateEnabledRulesets(string extensionId, JsonElement args)
+    {
+        try
+        {
+            BrowserExtension? extension = ExtensionStore.Shared.GetSnapshot().FirstOrDefault(item =>
+                string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+            if (extension is null) return;
+
+            var declared = DeclaredRulesets(extension);
+            HashSet<string> current = LoadEnabledRulesets(extensionId) ??
+                [.. declared.Where(item => item.EnabledByDefault).Select(item => item.Id)];
+
+            if (args.TryGetProperty("disableRulesetIds", out JsonElement disable) &&
+                disable.ValueKind == JsonValueKind.Array)
+                foreach (JsonElement id in disable.EnumerateArray())
+                    if (id.GetString() is { } value) current.Remove(value);
+
+            if (args.TryGetProperty("enableRulesetIds", out JsonElement enable) &&
+                enable.ValueKind == JsonValueKind.Array)
+                foreach (JsonElement id in enable.EnumerateArray())
+                    if (id.GetString() is { } value) current.Add(value);
+
+            string path = EnabledRulesetsPath(extensionId);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(current));
+
+            ExtensionDiagnostics.Write("dnr", extensionId,
+                $"Enabled rulesets now: {current.Count} of {declared.Count}.");
+
+            // The chosen set is part of what the compile is keyed on, so drop
+            // the cache for this extension and rebuild.
+            lock (s_lock)
+            {
+                foreach (string key in s_compileCache.Keys
+                    .Where(key => key.StartsWith(extensionId + "@", StringComparison.Ordinal)).ToList())
+                    s_compileCache.Remove(key);
+                s_loadedSignature = "";
+            }
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            ExtensionDiagnostics.Write("dnr-error", extensionId, $"updateEnabledRulesets: {ex.Message}");
+        }
+    }
+
+    /// <summary>The ids currently live, for getEnabledRulesets.</summary>
+    public static List<string> GetEnabledRulesets(string extensionId)
+    {
+        BrowserExtension? extension = ExtensionStore.Shared.GetSnapshot().FirstOrDefault(item =>
+            string.Equals(item.Id, extensionId, StringComparison.OrdinalIgnoreCase));
+        if (extension is null) return [];
+
+        var declared = DeclaredRulesets(extension);
+        HashSet<string>? chosen = LoadEnabledRulesets(extensionId);
+        return declared
+            .Where(item => chosen is null ? item.EnabledByDefault : chosen.Contains(item.Id))
+            .Select(item => item.Id)
+            .ToList();
+    }
+
+    private static string EnabledRulesetsPath(string extensionId)
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Skew", "ExtensionData", extensionId, "dnrEnabledRulesets.json");
 
     private static List<CompiledRule> CompileRuleFile(string extensionId, string path)
     {
@@ -521,8 +633,13 @@ internal static class DeclarativeNetRequestEngine
             string lowerUrl = url.ToLowerInvariant();
             string? initiatorHost = HostOf(initiatorUrl);
             string? requestHost = HostOf(url);
-            bool thirdParty = initiatorHost is not null && requestHost is not null &&
-                !IsSameSite(initiatorHost, requestHost);
+            // Unknown, not false, when there is no initiator to compare against.
+            // Treating it as first-party made every domainType:thirdParty rule
+            // fail to match — and third-party rules are most of what a filter
+            // list is made of, so the blocker looked like it barely worked.
+            bool? thirdParty = initiatorHost is not null && requestHost is not null
+                ? !IsSameSite(initiatorHost, requestHost)
+                : null;
 
             CompiledRule? bestBlock = null;
             CompiledRule? bestAllow = null;
@@ -592,7 +709,7 @@ internal static class DeclarativeNetRequestEngine
 
     private static bool Matches(
         CompiledRule rule, string url, string? initiatorHost, string? requestHost,
-        string resourceType, string method, bool thirdParty)
+        string resourceType, string method, bool? thirdParty)
     {
         if (rule.UrlPattern is not null && !rule.UrlPattern.IsMatch(url)) return false;
 
@@ -601,10 +718,12 @@ internal static class DeclarativeNetRequestEngine
 
         if (rule.RequestMethods is not null && !rule.RequestMethods.Contains(method)) return false;
 
-        if (rule.DomainType is not null)
+        // Only judged when the initiator is known; an unknown one is not
+        // evidence that the request is first-party.
+        if (rule.DomainType is not null && thirdParty is bool isThirdParty)
         {
             bool wantsThirdParty = rule.DomainType.Equals("thirdParty", StringComparison.OrdinalIgnoreCase);
-            if (wantsThirdParty != thirdParty) return false;
+            if (wantsThirdParty != isThirdParty) return false;
         }
 
         if (rule.InitiatorDomains is not null &&
@@ -671,6 +790,14 @@ internal static class DeclarativeNetRequestEngine
         CefResourceType.Favicon => "image",
         CefResourceType.SubResource => "other",
         CefResourceType.Prefetch => "other",
+        // DNR has no worker type; Chromium counts worker scripts as scripts,
+        // and a rule written for "script" is meant to catch them.
+        CefResourceType.Worker => "script",
+        CefResourceType.SharedWorker => "script",
+        CefResourceType.ServiceWorker => "script",
+        CefResourceType.PluginResource => "object",
+        CefResourceType.NavigationPreloadMainFrame => "main_frame",
+        CefResourceType.NavigationPreloadSubFrame => "sub_frame",
         _ => "other",
     };
 }

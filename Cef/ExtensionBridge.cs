@@ -284,6 +284,14 @@ internal static class ExtensionBridge
                         return MakeResponse(requestId,
                             DeclarativeNetRequestEngine.GetDynamicRules(extensionId));
 
+                    case "declarativeNetRequest.updateEnabledRulesets":
+                        DeclarativeNetRequestEngine.UpdateEnabledRulesets(extensionId, args);
+                        return MakeResponse(requestId, (object?)null);
+
+                    case "declarativeNetRequest.getEnabledRulesets":
+                        return MakeResponse(requestId,
+                            DeclarativeNetRequestEngine.GetEnabledRulesets(extensionId));
+
                     case "declarativeNetRequest.getMatchedRuleCount":
                         return MakeResponse(requestId,
                             DeclarativeNetRequestEngine.BlockedCount(extensionId));

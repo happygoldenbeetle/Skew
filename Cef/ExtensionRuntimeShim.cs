@@ -502,7 +502,13 @@ chrome.declarativeNetRequest.getSessionRules=chrome.declarativeNetRequest.getSes
   var p=__skewExtCall('declarativeNetRequest.getSessionRules',{{}}).then(function(r){{return r||[];}});
   if(cb)p.then(cb);return p;
 }};
-chrome.declarativeNetRequest.getEnabledRulesets=chrome.declarativeNetRequest.getEnabledRulesets||function(cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
+// Which lists are live is the blocker's own decision, made at runtime: a
+// manifest that enables three of thirty-seven rulesets is waiting for these
+// calls to turn the rest on.
+chrome.declarativeNetRequest.getEnabledRulesets=chrome.declarativeNetRequest.getEnabledRulesets||function(cb){{
+  var p=__skewExtCall('declarativeNetRequest.getEnabledRulesets',{{}}).then(function(r){{return r||[];}});
+  if(cb)p.then(cb);return p;
+}};
 chrome.declarativeNetRequest.getAvailableStaticRuleCount=chrome.declarativeNetRequest.getAvailableStaticRuleCount||function(cb){{var p=Promise.resolve(30000);if(cb)p.then(cb);return p;}};
 chrome.declarativeNetRequest.getDisabledRuleIds=chrome.declarativeNetRequest.getDisabledRuleIds||function(options,cb){{var p=Promise.resolve([]);if(cb)p.then(cb);return p;}};
 chrome.declarativeNetRequest.isRegexSupported=chrome.declarativeNetRequest.isRegexSupported||function(options,cb){{var p=Promise.resolve({{isSupported:true}});if(cb)p.then(cb);return p;}};
@@ -513,11 +519,13 @@ chrome.declarativeNetRequest.isRegexSupported=chrome.declarativeNetRequest.isReg
     return p;
   }};
 }});
-// Static ruleset enablement is read from the manifest at load, so these accept
-// the call and report success rather than pretending to reconfigure anything.
-['updateEnabledRulesets','updateStaticRules'].forEach(function(name){{
-  chrome.declarativeNetRequest[name]=chrome.declarativeNetRequest[name]||function(options,cb){{var p=Promise.resolve();if(cb)p.then(cb);return p;}};
-}});
+chrome.declarativeNetRequest.updateEnabledRulesets=chrome.declarativeNetRequest.updateEnabledRulesets||function(options,cb){{
+  var p=__skewExtCall('declarativeNetRequest.updateEnabledRulesets',options||{{}});
+  if(cb)p.then(function(){{cb();}});
+  return p;
+}};
+// Individual static rule toggles are still read from the ruleset files.
+chrome.declarativeNetRequest.updateStaticRules=chrome.declarativeNetRequest.updateStaticRules||function(options,cb){{var p=Promise.resolve();if(cb)p.then(cb);return p;}};
 chrome.declarativeNetRequest.onRuleMatchedDebug=chrome.declarativeNetRequest.onRuleMatchedDebug||__skewEvent();
 
 // --- chrome.action, browserAction, scripting and commands ---
