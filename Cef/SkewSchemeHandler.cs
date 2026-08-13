@@ -300,9 +300,16 @@ internal sealed class SkewExtensionResourceHandler : SkewBufferedResourceHandler
         if (isModule && !string.IsNullOrWhiteSpace(worker) &&
             SkewExtensionCatalog.SafeExtensionFilePath(extension!.Path, worker) is not null)
         {
-            string source = string.Join('/', worker.Replace('\\', '/').Split('/')
+            // Absolute, and the leading slash trimmed first. A manifest may
+            // write the worker as "/js/background.js"; prefixing that with
+            // another slash makes the src protocol-relative, so the browser
+            // reads "js" as the host, loses the extension id, and refuses the
+            // fetch as cross-origin. uBlock Origin Lite declares it that way.
+            string source = string.Join('/', worker.Replace('\\', '/').TrimStart('/').Split('/')
                 .Select(Uri.EscapeDataString));
-            sb.Append("<script type=\"module\" src=\"/").Append(source).Append("\"></script>");
+            sb.Append("<script type=\"module\" src=\"")
+              .Append(SkewSchemes.ExtensionScheme).Append("://").Append(extension.Id)
+              .Append('/').Append(source).Append("\"></script>");
         }
 
         sb.Append("</body></html>");
