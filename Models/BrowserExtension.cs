@@ -78,6 +78,17 @@ namespace Skew.Models
         [JsonPropertyName("host_permissions")]
         public List<string> HostPermissions { get; set; } = new();
 
+        /// <summary>
+        /// Reach the extension may ask for later, through
+        /// chrome.permissions.request. It is what a filtering-mode switch or a
+        /// per-site toggle is built on.
+        /// </summary>
+        [JsonPropertyName("optional_permissions")]
+        public List<string> OptionalPermissions { get; set; } = new();
+
+        [JsonPropertyName("optional_host_permissions")]
+        public List<string> OptionalHostPermissions { get; set; } = new();
+
         [JsonPropertyName("web_accessible_resources")]
         public System.Text.Json.JsonElement? WebAccessibleResources { get; set; }
 

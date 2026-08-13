@@ -59,6 +59,7 @@ internal static class ExtensionRuntimeShim
 
         string embeddedResourcesJson = BuildEmbeddedResourcesJson(manifest, extensionRoot);
         string messagesJson = BuildMessagesJson(extensionRoot);
+        string granted = ExtensionPermissions.GrantedJson(extensionId);
 
         // The shim is a self-executing function that sets up all the chrome.*
         // polyfills and the IPC bridge. Mirrors BrowserClient.mm lines 2316–3470.
@@ -562,11 +563,79 @@ chrome.scripting.executeScript=chrome.scripting.executeScript||function(injectio
 chrome.scripting.insertCSS=chrome.scripting.insertCSS||function(injection,cb){{var p=__skewExtCall('scripting.insertCSS',{{injection:injection||{{}}}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
 chrome.scripting.removeCSS=chrome.scripting.removeCSS||function(injection,cb){{var p=__skewExtCall('scripting.removeCSS',{{injection:injection||{{}}}});if(typeof cb==='function')p.then(function(){{cb();}});return p;}};
 
+// --- chrome.permissions ---
+//
+// Optional permissions are how an extension asks for more reach after install:
+// uBlock Origin Lite's filtering modes are exactly this, and a request that
+// always answers false is a mode switch that silently refuses. Anything the
+// manifest declared as optional is granted — there is no prompt here, so the
+// declaration is the consent — and the grant is remembered by the host so it
+// survives the popup being closed.
 chrome.permissions=chrome.permissions||{{}};
-chrome.permissions.getAll=chrome.permissions.getAll||function(cb){{var result={{permissions:(manifest.permissions||[]).slice(),origins:(manifest.host_permissions||[]).slice()}};var p=Promise.resolve(result);if(cb)p.then(cb);return p;}};
-chrome.permissions.contains=chrome.permissions.contains||function(request,cb){{request=request||{{}};var declared=(manifest.permissions||[]).concat(manifest.optional_permissions||[]),origins=(manifest.host_permissions||[]).concat(manifest.optional_host_permissions||[]);var value=(request.permissions||[]).every(function(x){{return declared.indexOf(x)>=0;}})&&(request.origins||[]).every(function(x){{return origins.indexOf(x)>=0;}});var p=Promise.resolve(value);if(cb)p.then(cb);return p;}};
-chrome.permissions.request=chrome.permissions.request||function(request,cb){{var p=chrome.permissions.contains(request||{{}});if(cb)p.then(cb);return p;}};
-chrome.permissions.remove=chrome.permissions.remove||function(request,cb){{var p=Promise.resolve(false);if(cb)p.then(cb);return p;}};
+chrome.permissions.onAdded=chrome.permissions.onAdded||__skewEvent();
+chrome.permissions.onRemoved=chrome.permissions.onRemoved||__skewEvent();
+var __skewGranted=chrome.permissions.__skewGranted=chrome.permissions.__skewGranted||{granted};
+function __skewDeclaredPermissions(){{
+  return (manifest.permissions||[]).concat(manifest.optional_permissions||[])
+    .concat(__skewGranted.permissions||[]);
+}}
+function __skewDeclaredOrigins(){{
+  return (manifest.host_permissions||[]).concat(manifest.optional_host_permissions||[])
+    .concat(__skewGranted.origins||[]);
+}}
+// A broad declaration covers a narrow request: an extension holding <all_urls>
+// asking for one site is asking for something it already has.
+function __skewOriginCovered(origin,list){{
+  for(var i=0;i<list.length;i++){{
+    var declared=list[i];
+    if(declared===origin||declared==='<all_urls>'||declared==='*://*/*')return true;
+    if(declared==='http://*/*'&&origin.indexOf('http://')===0)return true;
+    if(declared==='https://*/*'&&origin.indexOf('https://')===0)return true;
+  }}
+  return false;
+}}
+chrome.permissions.getAll=chrome.permissions.getAll||function(cb){{
+  var result={{permissions:__skewDeclaredPermissions(),origins:__skewDeclaredOrigins()}};
+  var p=Promise.resolve(result);if(cb)p.then(cb);return p;
+}};
+chrome.permissions.contains=chrome.permissions.contains||function(request,cb){{
+  request=request||{{}};
+  var declared=__skewDeclaredPermissions(),origins=__skewDeclaredOrigins();
+  var value=(request.permissions||[]).every(function(x){{return declared.indexOf(x)>=0;}})&&
+    (request.origins||[]).every(function(x){{return __skewOriginCovered(x,origins);}});
+  var p=Promise.resolve(value);if(cb)p.then(cb);return p;
+}};
+chrome.permissions.request=chrome.permissions.request||function(request,cb){{
+  request=request||{{}};
+  var p=__skewExtCall('permissions.request',{{
+    permissions:request.permissions||[],origins:request.origins||[]
+  }}).then(function(result){{
+    if(result&&result.granted){{
+      __skewGranted.permissions=result.permissions||__skewGranted.permissions;
+      __skewGranted.origins=result.origins||__skewGranted.origins;
+      if(chrome.permissions.onAdded&&chrome.permissions.onAdded._fire)
+        chrome.permissions.onAdded._fire(request);
+      return true;
+    }}
+    return false;
+  }});
+  if(cb)p.then(cb);return p;
+}};
+chrome.permissions.remove=chrome.permissions.remove||function(request,cb){{
+  request=request||{{}};
+  var p=__skewExtCall('permissions.remove',{{
+    permissions:request.permissions||[],origins:request.origins||[]
+  }}).then(function(result){{
+    if(result){{
+      __skewGranted.permissions=result.permissions||[];
+      __skewGranted.origins=result.origins||[];
+      if(chrome.permissions.onRemoved&&chrome.permissions.onRemoved._fire)
+        chrome.permissions.onRemoved._fire(request);
+    }}
+    return true;
+  }});
+  if(cb)p.then(cb);return p;
+}};
 
 chrome.management=chrome.management||{{}};
 function __skewManagementSelf(){{return {{id:extId,name:manifest.name||'',shortName:manifest.short_name||manifest.name||'',description:manifest.description||'',version:manifest.version||'',enabled:true,mayDisable:true,type:'extension',installType:'normal',homepageUrl:manifest.homepage_url||'',optionsUrl:manifest.options_ui&&manifest.options_ui.page?runtime.getURL(manifest.options_ui.page):''}};}}
@@ -659,7 +728,7 @@ chrome.i18n.getMessage=chrome.i18n.getMessage||function(name,substitutions){{
     for(var placeholder in entry.placeholders){{
       var definition=entry.placeholders[placeholder];
       var content=definition&&definition.content!=null?String(definition.content):'';
-      text=text.replace(new RegExp('\\\\$'+placeholder+'\\\\$','gi'),content);
+      text=text.replace(new RegExp('\\$'+placeholder+'\\$','gi'),content);
     }}
   }}
   var values=substitutions==null?[]:(Array.isArray(substitutions)?substitutions:[substitutions]);

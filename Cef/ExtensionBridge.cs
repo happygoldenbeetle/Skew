@@ -253,6 +253,28 @@ internal static class ExtensionBridge
                     return MakeResponse(requestId, (object?)null);
                 return MakeDeferredResponse(requestId);
             }
+            if (method is "permissions.request" or "permissions.remove")
+            {
+                string[] wantedPermissions = StringArray(args, "permissions");
+                string[] wantedOrigins = StringArray(args, "origins");
+
+                if (method == "permissions.remove")
+                {
+                    var removed = ExtensionPermissions.Remove(extensionId, wantedPermissions, wantedOrigins);
+                    return MakeResponse(requestId, new
+                    {
+                        permissions = removed.Permissions, origins = removed.Origins,
+                    });
+                }
+
+                var result = ExtensionPermissions.Request(extension, wantedPermissions, wantedOrigins);
+                return MakeResponse(requestId, new
+                {
+                    granted = result.Granted,
+                    permissions = result.Permissions,
+                    origins = result.Origins,
+                });
+            }
             if (method.StartsWith("cookies."))
             {
                 if (!HasPermission(extension, "cookies"))
@@ -627,6 +649,19 @@ internal static class ExtensionBridge
         => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out JsonElement value) &&
            value.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? value.ValueKind == JsonValueKind.True : null;
+
+    private static string[] StringArray(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object ||
+            !element.TryGetProperty(name, out JsonElement value) ||
+            value.ValueKind != JsonValueKind.Array)
+            return [];
+        return value.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.String)
+            .Select(item => item.GetString() ?? string.Empty)
+            .Where(item => item.Length > 0)
+            .ToArray();
+    }
 
     private static string? String(JsonElement element, string name)
         => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out JsonElement value) &&
