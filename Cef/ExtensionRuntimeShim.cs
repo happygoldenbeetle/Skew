@@ -759,6 +759,81 @@ if(isExtensionPage&&!chrome.__skewPopupSizeReporter){{
   }}catch(e){{}}
 }}
 
+// --- chrome.userScripts ---
+// Scriptlets: code that must look like the page's own, so it can replace a
+// function before the site calls it. Blockers use them to defuse anti-adblock
+// scripts, which is most of what the higher filtering modes do beyond blocking
+// requests.
+chrome.userScripts=chrome.userScripts||{{}};
+chrome.userScripts.register=chrome.userScripts.register||function(scripts,cb){{
+  var p=__skewExtCall('userScripts.register',{{scripts:scripts||[]}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+chrome.userScripts.update=chrome.userScripts.update||function(scripts,cb){{
+  var p=__skewExtCall('userScripts.update',{{scripts:scripts||[]}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+chrome.userScripts.unregister=chrome.userScripts.unregister||function(filter,cb){{
+  if(typeof filter==='function'){{cb=filter;filter={{}};}}
+  var p=__skewExtCall('userScripts.unregister',{{filter:filter||{{}}}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+chrome.userScripts.getScripts=chrome.userScripts.getScripts||function(filter,cb){{
+  if(typeof filter==='function'){{cb=filter;filter={{}};}}
+  var p=__skewExtCall('userScripts.getScripts',{{filter:filter||{{}}}}).then(function(r){{return r||[];}});
+  if(typeof cb==='function')p.then(cb);
+  return p;
+}};
+chrome.userScripts.configureWorld=chrome.userScripts.configureWorld||function(properties,cb){{
+  var p=__skewExtCall('userScripts.configureWorld',{{properties:properties||{{}}}});
+  if(typeof cb==='function')p.then(function(){{cb();}});
+  return p;
+}};
+
+// --- chrome.offscreen ---
+// An offscreen document exists because a service worker has no DOM. The
+// background here is a page and does, so the document becomes a hidden iframe
+// inside it — same origin, same extension, a real DOM to parse in.
+chrome.offscreen=chrome.offscreen||{{}};
+chrome.offscreen.Reason=chrome.offscreen.Reason||{{
+  DOM_SCRAPING:'DOM_SCRAPING',DOM_PARSER:'DOM_PARSER',BLOBS:'BLOBS',
+  CLIPBOARD:'CLIPBOARD',AUDIO_PLAYBACK:'AUDIO_PLAYBACK',IFRAME_SCRIPTING:'IFRAME_SCRIPTING',
+  LOCAL_STORAGE:'LOCAL_STORAGE',WORKERS:'WORKERS',TESTING:'TESTING'
+}};
+chrome.offscreen.createDocument=chrome.offscreen.createDocument||function(parameters,cb){{
+  var p=new Promise(function(resolve){{
+    try{{
+      var url=(parameters&&parameters.url)||'';
+      if(!url){{resolve();return;}}
+      var existing=document.getElementById('__skew_offscreen__');
+      if(existing){{resolve();return;}}
+      var frame=document.createElement('iframe');
+      frame.id='__skew_offscreen__';
+      frame.style.display='none';
+      frame.src=runtime.getURL(url);
+      frame.onload=function(){{resolve();}};
+      (document.body||document.documentElement).appendChild(frame);
+      setTimeout(resolve,2000);
+    }}catch(e){{resolve();}}
+  }});
+  if(typeof cb==='function')p.then(cb);
+  return p;
+}};
+chrome.offscreen.closeDocument=chrome.offscreen.closeDocument||function(cb){{
+  try{{
+    var frame=document.getElementById('__skew_offscreen__');
+    if(frame&&frame.parentNode)frame.parentNode.removeChild(frame);
+  }}catch(e){{}}
+  var p=Promise.resolve();if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.offscreen.hasDocument=chrome.offscreen.hasDocument||function(cb){{
+  var p=Promise.resolve(!!document.getElementById('__skew_offscreen__'));
+  if(typeof cb==='function')p.then(cb);return p;
+}};
+
 // --- chrome.cookies ---
 chrome.cookies=chrome.cookies||{{}};
 chrome.cookies.onChanged=chrome.cookies.onChanged||__skewEvent();

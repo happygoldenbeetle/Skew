@@ -141,8 +141,14 @@ public sealed class BrowserClient : CefClient
             // whose behaviour depends on a setting registers as the setting
             // changes, and those scripts are content scripts like any other.
             var declared = new List<Skew.Models.ContentScriptMeta>(ext.Manifest.ContentScripts);
-            foreach (var registration in DynamicContentScripts.For(ext.Id))
+            var dynamicRegistrations = DynamicContentScripts.For(ext.Id);
+            foreach (var registration in dynamicRegistrations)
                 declared.Add(registration.AsContentScript());
+
+            // User scripts are the page's own code — scriptlets that patch what
+            // a site does — so they run raw, with no extension binding, before
+            // the content scripts that might depend on them.
+            InjectUserScripts(frame, url, runAt, ext, dynamicRegistrations);
 
             foreach (var script in declared)
             {
@@ -215,6 +221,50 @@ public sealed class BrowserClient : CefClient
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Run this extension's registered user scripts in the page's own world.
+    ///
+    /// <para>
+    /// Unlike a content script, a user script gets no <c>chrome</c> binding and
+    /// no wrapper: its whole purpose is to be indistinguishable from the page's
+    /// own code, which is what lets a scriptlet replace a function a site is
+    /// about to call. Blockers use them for anti-adblock defusing.
+    /// </para>
+    /// </summary>
+    private static void InjectUserScripts(
+        CefFrame frame, Uri url, string runAt, Skew.Models.BrowserExtension ext,
+        IReadOnlyList<DynamicContentScripts.Registration> registrations)
+    {
+        foreach (var registration in registrations)
+        {
+            if (!registration.IsUserScript) continue;
+
+            string declaredRunAt = string.IsNullOrWhiteSpace(registration.RunAt)
+                ? "document_idle" : registration.RunAt;
+            if (!string.Equals(declaredRunAt, runAt, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!frame.IsMain && !registration.AllFrames) continue;
+            if (!ScriptMatchesURL(registration.AsContentScript(), url)) continue;
+
+            var source = new System.Text.StringBuilder();
+            foreach (string filePath in registration.Js)
+            {
+                string full = Path.Combine(ext.Path, filePath);
+                if (!File.Exists(full)) continue;
+                source.AppendLine(File.ReadAllText(full));
+                source.AppendLine($"//# sourceURL={SkewSchemes.ExtensionScheme}://{ext.Id}/" +
+                    filePath.Replace('\\', '/').TrimStart('/'));
+            }
+            foreach (string code in registration.Code)
+                source.AppendLine(code);
+
+            if (source.Length == 0) continue;
+
+            frame.ExecuteJavaScript(source.ToString(), frame.Url, 0);
+            ExtensionDiagnostics.Write("user-script", ext.Id,
+                $"Ran user script {registration.Id} at {runAt} into {url.Host}.");
         }
     }
 

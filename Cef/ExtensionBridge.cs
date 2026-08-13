@@ -234,6 +234,39 @@ internal static class ExtensionBridge
                     return MakeError(requestId, "The extension script could not be injected.");
                 return MakeResponse(requestId, Array.Empty<object>());
             }
+            if (method.StartsWith("userScripts."))
+            {
+                // userScripts is its own permission in MV3.
+                if (!HasPermission(extension, "userScripts") && !HasPermission(extension, "scripting"))
+                    return MakeError(requestId, "The extension has not requested userScripts permission.");
+
+                switch (method)
+                {
+                    case "userScripts.register":
+                    case "userScripts.update":
+                        if (args.TryGetProperty("scripts", out JsonElement userScripts))
+                            DynamicContentScripts.Register(extensionId, userScripts, asUserScripts: true);
+                        return MakeResponse(requestId, (object?)null);
+
+                    case "userScripts.unregister":
+                    {
+                        string[] ids = args.TryGetProperty("filter", out JsonElement filter)
+                            ? StringArray(filter, "ids") : [];
+                        DynamicContentScripts.Unregister(extensionId, ids, userScriptsOnly: true);
+                        return MakeResponse(requestId, (object?)null);
+                    }
+
+                    case "userScripts.getScripts":
+                        return MakeResponse(requestId,
+                            DynamicContentScripts.For(extensionId).Where(item => item.IsUserScript).ToList());
+
+                    // configureWorld governs CSP and messaging for the user
+                    // script world; there is one world here, so it is accepted
+                    // and has nothing to change.
+                    default:
+                        return MakeResponse(requestId, (object?)null);
+                }
+            }
             if (method is "scripting.registerContentScripts" or
                 "scripting.unregisterContentScripts" or
                 "scripting.getRegisteredContentScripts" or

@@ -37,6 +37,16 @@ internal static class DynamicContentScripts
         [JsonPropertyName("world")] public string World { get; set; } = "ISOLATED";
         [JsonPropertyName("persistAcrossSessions")] public bool Persist { get; set; } = true;
 
+        /// <summary>
+        /// Registered through chrome.userScripts rather than chrome.scripting.
+        /// A user script runs as the page's own code — no extension API bound to
+        /// it — which is how scriptlets that patch page behaviour must run.
+        /// </summary>
+        [JsonPropertyName("isUserScript")] public bool IsUserScript { get; set; }
+
+        /// <summary>Inline source, for the {code:"..."} form userScripts allows.</summary>
+        [JsonPropertyName("code")] public List<string> Code { get; set; } = [];
+
         /// <summary>The manifest shape, so one matcher serves both kinds.</summary>
         public ContentScriptMeta AsContentScript() => new()
         {
@@ -72,7 +82,7 @@ internal static class DynamicContentScripts
     /// friendlier and an extension re-registering after a setting change is the
     /// common case.
     /// </summary>
-    public static void Register(string extensionId, JsonElement scripts)
+    public static void Register(string extensionId, JsonElement scripts, bool asUserScripts = false)
     {
         if (scripts.ValueKind != JsonValueKind.Array) return;
 
@@ -85,7 +95,9 @@ internal static class DynamicContentScripts
             {
                 Registration? registration = Parse(entry);
                 if (registration is null) continue;
-                list.RemoveAll(item => string.Equals(item.Id, registration.Id, StringComparison.Ordinal));
+                registration.IsUserScript = asUserScripts;
+                list.RemoveAll(item => string.Equals(item.Id, registration.Id, StringComparison.Ordinal) &&
+                    item.IsUserScript == registration.IsUserScript);
                 list.Add(registration);
             }
 
@@ -96,16 +108,21 @@ internal static class DynamicContentScripts
         }
     }
 
-    public static void Unregister(string extensionId, IReadOnlyCollection<string> ids)
+    public static void Unregister(
+        string extensionId, IReadOnlyCollection<string> ids, bool userScriptsOnly = false)
     {
         lock (s_lock)
         {
             List<Registration> list = s_registered.TryGetValue(extensionId, out List<Registration>? existing)
                 ? existing : Load(extensionId);
 
-            // No ids means all of them, which is what the API specifies.
-            if (ids.Count == 0) list.Clear();
-            else list.RemoveAll(item => ids.Contains(item.Id, StringComparer.Ordinal));
+            // No ids means all of them, which is what the API specifies — but
+            // only within the kind being unregistered, so clearing user scripts
+            // does not take the content scripts with them.
+            bool Matches(Registration item) =>
+                item.IsUserScript == userScriptsOnly &&
+                (ids.Count == 0 || ids.Contains(item.Id, StringComparer.Ordinal));
+            list.RemoveAll(Matches);
 
             s_registered[extensionId] = list;
             Save(extensionId, list);
@@ -121,12 +138,35 @@ internal static class DynamicContentScripts
             idElement.ValueKind == JsonValueKind.String ? idElement.GetString() ?? "" : "";
         if (string.IsNullOrEmpty(id)) return null;
 
+        // userScripts writes js as [{file:"..."}] or [{code:"..."}]; scripting
+        // writes it as a plain list of paths. Both arrive here.
+        var files = new List<string>();
+        var inline = new List<string>();
+        if (entry.TryGetProperty("js", out JsonElement js) && js.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in js.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String && item.GetString() is { Length: > 0 } path)
+                    files.Add(path);
+                else if (item.ValueKind == JsonValueKind.Object)
+                {
+                    if (item.TryGetProperty("file", out JsonElement file) &&
+                        file.GetString() is { Length: > 0 } filePath)
+                        files.Add(filePath);
+                    if (item.TryGetProperty("code", out JsonElement code) &&
+                        code.GetString() is { Length: > 0 } source)
+                        inline.Add(source);
+                }
+            }
+        }
+
         return new Registration
         {
             Id = id,
             Matches = Strings(entry, "matches"),
             ExcludeMatches = Strings(entry, "excludeMatches"),
-            Js = Strings(entry, "js"),
+            Js = files,
+            Code = inline,
             Css = Strings(entry, "css"),
             RunAt = entry.TryGetProperty("runAt", out JsonElement runAt) &&
                 runAt.ValueKind == JsonValueKind.String ? runAt.GetString() ?? "document_idle" : "document_idle",

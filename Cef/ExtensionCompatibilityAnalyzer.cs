@@ -83,7 +83,10 @@ internal static partial class ExtensionCompatibilityAnalyzer
         "declarativeNetRequest.onRuleMatchedDebug",
         "tabs.get", "tabs.update", "tabs.query", "tabs.create", "tabs.reload",
         "storage.local.getKeys", "storage.session.getKeys", "storage.session.setAccessLevel",
-        "windows.create", "windows.getAll", "windows.getCurrent"
+        "windows.create", "windows.getAll", "windows.getCurrent",
+        "userScripts.register", "userScripts.update", "userScripts.unregister",
+        "userScripts.getScripts", "userScripts.configureWorld",
+        "offscreen.createDocument", "offscreen.closeDocument", "offscreen.hasDocument"
     };
 
     internal static void AnalyzeAndWrite(BrowserExtension extension)
