@@ -93,25 +93,82 @@ internal static class ExtensionBridge
             }
             if (method == "tabs.query")
             {
-                BrowserTab? selected = BrowserStore.Shared.SelectedTab;
-                return MakeResponse(requestId, new object[]
-                {
-                    new { id = ExtensionBackgroundManager.SelectedTabId,
-                        url = selected?.UrlString ?? "", active = true, index = 0 }
-                });
+                return MakeResponse(requestId, QueryTabs(
+                    args.TryGetProperty("queryInfo", out JsonElement queryInfo) ? queryInfo : default));
             }
             if (method == "tabs.create")
             {
                 string? url = null;
-                if (args.TryGetProperty("createProperties", out JsonElement properties) &&
-                    properties.TryGetProperty("url", out JsonElement urlElement))
-                    url = urlElement.GetString();
+                bool active = true;
+                if (args.TryGetProperty("createProperties", out JsonElement properties))
+                {
+                    if (properties.TryGetProperty("url", out JsonElement urlElement))
+                        url = urlElement.GetString();
+                    // A background tab is a real request: openers that stack up
+                    // several links expect to stay where they are.
+                    if (properties.TryGetProperty("active", out JsonElement activeElement) &&
+                        activeElement.ValueKind == JsonValueKind.False)
+                        active = false;
+                }
+
+                // A relative path means a page inside the extension.
                 if (!string.IsNullOrWhiteSpace(url) && Uri.TryCreate(url, UriKind.Relative, out _))
                     url = $"{SkewSchemes.ExtensionScheme}://{extensionId}/" + url.TrimStart('/');
-                if (string.IsNullOrWhiteSpace(url))
-                    return MakeError(requestId, "The extension did not provide a valid tab URL.");
-                App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.NewTab(url));
-                return MakeResponse(requestId, new { id = -1, url, active = true });
+                // chrome.tabs.create({}) with no url opens the new tab page.
+                if (string.IsNullOrWhiteSpace(url)) url = SkewSchemes.InternalScheme + "://newtab/";
+
+                string target = url;
+                bool selectIt = active;
+                // Captured now, not inside the lambda: NewTab selects what it
+                // creates, so reading the selection later would hand back the
+                // new tab and "restoring" it would be a no-op.
+                BrowserTab? wasSelected = BrowserStore.Shared.SelectedTab;
+                App.DispatcherQueue.TryEnqueue(() =>
+                {
+                    BrowserStore.Shared.NewTab(target);
+                    if (!selectIt && wasSelected is not null)
+                        BrowserStore.Shared.SelectTab(wasSelected.Id);
+                });
+                return MakeResponse(requestId, new
+                {
+                    id = -1, url = target, active, index = 0, windowId = 1, status = "loading",
+                });
+            }
+            if (method == "tabs.update")
+            {
+                int? targetId = args.TryGetProperty("tabId", out JsonElement tabIdElement) &&
+                    tabIdElement.TryGetInt32(out int parsedId) ? parsedId : null;
+                BrowserTab? target = FindTab(targetId) ?? BrowserStore.Shared.SelectedTab;
+                if (target is null) return MakeError(requestId, "No tab to update.");
+
+                string? navigateTo = null;
+                bool activate = false;
+                if (args.TryGetProperty("updateProperties", out JsonElement update))
+                {
+                    if (update.TryGetProperty("url", out JsonElement urlElement))
+                        navigateTo = urlElement.GetString();
+                    if (update.TryGetProperty("active", out JsonElement activeElement) &&
+                        activeElement.ValueKind == JsonValueKind.True)
+                        activate = true;
+                }
+
+                BrowserTab captured = target;
+                string? navigation = navigateTo;
+                bool shouldActivate = activate;
+                App.DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (shouldActivate) BrowserStore.Shared.SelectTab(captured.Id);
+                    if (!string.IsNullOrWhiteSpace(navigation))
+                        captured.Load(BrowserStore.Shared.FormatUrl(navigation));
+                });
+                return MakeResponse(requestId, TabSnapshot(captured, 0));
+            }
+            if (method == "tabs.get")
+            {
+                int? wanted = args.TryGetProperty("tabId", out JsonElement getId) &&
+                    getId.TryGetInt32(out int parsed) ? parsed : null;
+                BrowserTab? found = FindTab(wanted) ?? BrowserStore.Shared.SelectedTab;
+                return MakeResponse(requestId, found is null ? null : TabSnapshot(found, 0));
             }
             if (method == "tabs.sendMessage")
             {
@@ -137,9 +194,19 @@ internal static class ExtensionBridge
                         requestedIds.AddRange(ids.EnumerateArray().Where(item => item.TryGetInt32(out _))
                             .Select(item => item.GetInt32()));
                 }
-                BrowserTab? selected = BrowserStore.Shared.SelectedTab;
-                if (selected is not null && requestedIds.Contains(ExtensionBackgroundManager.SelectedTabId))
-                    App.DispatcherQueue.TryEnqueue(() => BrowserStore.Shared.CloseTab(selected.Id));
+
+                // Any tab by id, not just the selected one — a tab manager
+                // closing duplicates names every tab it wants gone.
+                var doomed = requestedIds
+                    .Select(id => FindTab(id))
+                    .Where(tab => tab is not null)
+                    .Select(tab => tab!.Id)
+                    .ToList();
+                if (doomed.Count > 0)
+                    App.DispatcherQueue.TryEnqueue(() =>
+                    {
+                        foreach (Guid id in doomed) BrowserStore.Shared.CloseTab(id);
+                    });
                 return MakeResponse(requestId, (object?)null);
             }
             if (method == "tabs.detectLanguage")
@@ -186,6 +253,18 @@ internal static class ExtensionBridge
                     return MakeResponse(requestId, (object?)null);
                 return MakeDeferredResponse(requestId);
             }
+            if (method.StartsWith("cookies."))
+            {
+                if (!HasPermission(extension, "cookies"))
+                    return MakeError(requestId, "The extension has not requested cookies permission.");
+                return HandleCookies(browser, requestId, method, args);
+            }
+            if (method.StartsWith("downloads."))
+            {
+                if (!HasPermission(extension, "downloads"))
+                    return MakeError(requestId, "The extension has not requested downloads permission.");
+                return HandleDownloads(browser, requestId, method, args);
+            }
             if (method.StartsWith("declarativeNetRequest."))
             {
                 if (!HasPermission(extension, "declarativeNetRequest") &&
@@ -231,6 +310,319 @@ internal static class ExtensionBridge
             return MakeError(requestId, ex.Message);
         }
     }
+
+    // ── Cookies ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// chrome.cookies, over CEF's cookie manager. Reads are asynchronous in CEF
+    /// — a visitor is called back on the IO thread — so the request is deferred
+    /// and completed when the visit ends, the same way runtime.sendMessage is.
+    /// </summary>
+    private static Dictionary<string, object?> HandleCookies(
+        CefBrowser browser, string requestId, string method, JsonElement args)
+    {
+        JsonElement details = args.TryGetProperty("details", out JsonElement value) ? value : default;
+        string? url = String(details, "url");
+        string? name = String(details, "name");
+
+        switch (method)
+        {
+            case "cookies.get":
+            case "cookies.getAll":
+            {
+                bool single = method == "cookies.get";
+                string? domainFilter = String(details, "domain");
+                var manager = CefCookieManager.GetGlobal(null);
+                if (manager is null) return MakeResponse(requestId, single ? null : Array.Empty<object>());
+
+                var visitor = new CookieCollector(single, name, domainFilter, collected =>
+                    ExtensionBackgroundManager.CompleteMessage(requestId, "",
+                        single ? collected.FirstOrDefault() : collected));
+
+                // Register before starting: the visit can finish on the IO
+                // thread before this method returns.
+                ExtensionBackgroundManager.ExpectResponse(requestId, browser);
+
+                bool started = string.IsNullOrEmpty(url)
+                    ? manager.VisitAllCookies(visitor)
+                    : manager.VisitUrlCookies(url, includeHttpOnly: true, visitor);
+                if (!started)
+                {
+                    ExtensionBackgroundManager.CompleteMessage(requestId, "",
+                        single ? null : new List<object>());
+                    return MakeDeferredResponse(requestId);
+                }
+                return MakeDeferredResponse(requestId);
+            }
+
+            case "cookies.set":
+            {
+                if (string.IsNullOrEmpty(url)) return MakeError(requestId, "cookies.set needs a url.");
+                var manager = CefCookieManager.GetGlobal(null);
+                if (manager is null) return MakeError(requestId, "No cookie manager.");
+
+                var cookie = new CefCookie
+                {
+                    Name = name ?? "",
+                    Value = String(details, "value") ?? "",
+                    Domain = String(details, "domain") ?? "",
+                    Path = String(details, "path") ?? "/",
+                    Secure = Bool(details, "secure") ?? false,
+                    HttpOnly = Bool(details, "httpOnly") ?? false,
+                };
+                if (details.ValueKind == JsonValueKind.Object &&
+                    details.TryGetProperty("expirationDate", out JsonElement expiry) &&
+                    expiry.ValueKind == JsonValueKind.Number)
+                {
+                    // CefBaseTime counts microseconds from 1601, the way
+                    // Chromium's base::Time does — not a DateTime and not a
+                    // Unix epoch, so the conversion is explicit.
+                    DateTime expiresUtc = DateTimeOffset
+                        .FromUnixTimeSeconds((long)expiry.GetDouble()).UtcDateTime;
+                    cookie.Expires = new CefBaseTime(
+                        (expiresUtc - new DateTime(1601, 1, 1, 0, 0, 0, DateTimeKind.Utc)).Ticks / 10);
+                }
+
+                manager.SetCookie(url, cookie, null);
+                return MakeResponse(requestId, new
+                {
+                    name = cookie.Name, value = cookie.Value, domain = cookie.Domain,
+                    path = cookie.Path, secure = cookie.Secure, httpOnly = cookie.HttpOnly,
+                });
+            }
+
+            case "cookies.remove":
+            {
+                if (string.IsNullOrEmpty(url)) return MakeError(requestId, "cookies.remove needs a url.");
+                CefCookieManager.GetGlobal(null)?.DeleteCookies(url, name ?? "", null);
+                return MakeResponse(requestId, new { url, name = name ?? "" });
+            }
+        }
+        return MakeResponse(requestId, (object?)null);
+    }
+
+    /// <summary>Gathers cookies from a CEF visit and hands them over when it ends.</summary>
+    private sealed class CookieCollector : CefCookieVisitor
+    {
+        private readonly List<object> _collected = [];
+        private readonly bool _stopAtFirst;
+        private readonly string? _name;
+        private readonly string? _domain;
+        private readonly Action<List<object>> _done;
+        private bool _finished;
+
+        public CookieCollector(bool stopAtFirst, string? name, string? domain, Action<List<object>> done)
+        {
+            _stopAtFirst = stopAtFirst;
+            _name = name;
+            _domain = domain;
+            _done = done;
+        }
+
+        protected override bool Visit(CefCookie cookie, int count, int total, out bool delete)
+        {
+            delete = false;
+            try
+            {
+                bool nameMatches = string.IsNullOrEmpty(_name) ||
+                    string.Equals(cookie.Name, _name, StringComparison.Ordinal);
+                bool domainMatches = string.IsNullOrEmpty(_domain) ||
+                    cookie.Domain.TrimStart('.').EndsWith(_domain.TrimStart('.'), StringComparison.OrdinalIgnoreCase);
+
+                if (nameMatches && domainMatches)
+                {
+                    _collected.Add(new
+                    {
+                        name = cookie.Name,
+                        value = cookie.Value,
+                        domain = cookie.Domain,
+                        path = cookie.Path,
+                        secure = cookie.Secure,
+                        httpOnly = cookie.HttpOnly,
+                        session = cookie.Expires is null,
+                        storeId = "0",
+                    });
+                    if (_stopAtFirst) { Finish(); return false; }
+                }
+
+                if (count + 1 >= total) Finish();
+                return true;
+            }
+            catch (Exception)
+            {
+                Finish();
+                return false;
+            }
+        }
+
+        private void Finish()
+        {
+            if (_finished) return;
+            _finished = true;
+            _done(_collected);
+        }
+    }
+
+    // ── Downloads ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// chrome.downloads, over the same download machinery the browser's own UI
+    /// uses, so an extension's download appears in the downloads panel rather
+    /// than somewhere of its own.
+    /// </summary>
+    private static Dictionary<string, object?> HandleDownloads(
+        CefBrowser browser, string requestId, string method, JsonElement args)
+    {
+        switch (method)
+        {
+            case "downloads.download":
+            {
+                JsonElement options = args.TryGetProperty("options", out JsonElement value) ? value : default;
+                string? url = String(options, "url");
+                if (string.IsNullOrWhiteSpace(url))
+                    return MakeError(requestId, "downloads.download needs a url.");
+                browser.GetHost().StartDownload(url);
+                return MakeResponse(requestId, 0);
+            }
+
+            case "downloads.search":
+            {
+                var items = new List<object>();
+                try
+                {
+                    foreach (DownloadItem item in DownloadStore.Shared.Items.ToArray())
+                        items.Add(new
+                        {
+                            id = (int)item.Id,
+                            url = item.Url,
+                            filename = item.Path,
+                            bytesReceived = item.Received,
+                            totalBytes = item.Total,
+                            state = item.IsCanceled ? "interrupted"
+                                : item.IsComplete ? "complete" : "in_progress",
+                            paused = false,
+                            exists = item.IsComplete,
+                        });
+                }
+                catch (Exception) { }
+                return MakeResponse(requestId, items);
+            }
+
+            case "downloads.cancel":
+            {
+                if (args.TryGetProperty("id", out JsonElement idElement) &&
+                    idElement.TryGetInt32(out int id))
+                {
+                    App.DispatcherQueue.TryEnqueue(() =>
+                    {
+                        DownloadItem? item = DownloadStore.Shared.Items
+                            .FirstOrDefault(entry => entry.Id == (uint)id);
+                        if (item is not null) DownloadStore.Shared.Cancel(item);
+                    });
+                }
+                return MakeResponse(requestId, (object?)null);
+            }
+
+            case "downloads.show":
+                App.DispatcherQueue.TryEnqueue(() => DownloadStore.Shared.ShowDefaultFolder());
+                return MakeResponse(requestId, (object?)null);
+        }
+        return MakeResponse(requestId, (object?)null);
+    }
+
+    // ── Tabs ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The id an extension knows a tab by. Derived from the tab's Guid so it is
+    /// stable for the life of the tab and survives reordering, which an index
+    /// would not.
+    /// </summary>
+    internal static int TabIdOf(BrowserTab tab) => tab.Id.GetHashCode();
+
+    private static BrowserTab? FindTab(int? id)
+    {
+        if (id is null) return null;
+        try
+        {
+            foreach (BrowserTab tab in BrowserStore.Shared.Tabs.ToArray())
+                if (TabIdOf(tab) == id.Value) return tab;
+        }
+        catch (Exception) { }
+        return null;
+    }
+
+    /// <summary>One tab in the shape chrome.tabs hands to extensions.</summary>
+    private static object TabSnapshot(BrowserTab tab, int index)
+    {
+        bool active = ReferenceEquals(BrowserStore.Shared.SelectedTab, tab);
+        return new
+        {
+            id = TabIdOf(tab),
+            index,
+            windowId = 1,
+            url = tab.UrlString ?? "",
+            pendingUrl = tab.UrlString ?? "",
+            title = tab.Title ?? "",
+            favIconUrl = tab.FaviconUrl ?? "",
+            active,
+            highlighted = active,
+            selected = active,
+            pinned = BrowserStore.Shared.IsPinned(tab.Id),
+            status = tab.IsLoading ? "loading" : "complete",
+            incognito = false,
+            audible = false,
+            discarded = false,
+            autoDiscardable = true,
+            groupId = -1,
+        };
+    }
+
+    /// <summary>
+    /// Every open tab, filtered by whatever the extension asked for. Returning
+    /// only the active tab — which is what this did — made tab managers,
+    /// session savers and "close duplicates" tools see a browser with one tab.
+    /// </summary>
+    private static List<object> QueryTabs(JsonElement queryInfo)
+    {
+        var result = new List<object>();
+        try
+        {
+            BrowserTab[] tabs = BrowserStore.Shared.Tabs.ToArray();
+            BrowserTab? selected = BrowserStore.Shared.SelectedTab;
+
+            bool? wantActive = Bool(queryInfo, "active");
+            bool? wantPinned = Bool(queryInfo, "pinned");
+            string? urlPattern = String(queryInfo, "url");
+            string? titlePattern = String(queryInfo, "title");
+
+            for (int index = 0; index < tabs.Length; index++)
+            {
+                BrowserTab tab = tabs[index];
+                bool isActive = ReferenceEquals(selected, tab);
+
+                if (wantActive is not null && wantActive != isActive) continue;
+                if (wantPinned is not null && wantPinned != BrowserStore.Shared.IsPinned(tab.Id)) continue;
+                if (urlPattern is not null && !MatchPattern(urlPattern, tab.UrlString ?? "")) continue;
+                if (titlePattern is not null && !MatchPattern(titlePattern, tab.Title ?? "")) continue;
+
+                result.Add(TabSnapshot(tab, index));
+            }
+        }
+        catch (Exception ex)
+        {
+            ExtensionDiagnostics.Write("api-error", "", $"tabs.query: {ex.Message}");
+        }
+        return result;
+    }
+
+    private static bool? Bool(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out JsonElement value) &&
+           value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? value.ValueKind == JsonValueKind.True : null;
+
+    private static string? String(JsonElement element, string name)
+        => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out JsonElement value) &&
+           value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     // ── Context Menus ────────────────────────────────────────────────────
 

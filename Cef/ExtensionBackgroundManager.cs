@@ -161,6 +161,22 @@ internal static class ExtensionBackgroundManager
         Skew.Controls.SkewBrowserView.BroadcastExtensionJavaScript(source, extensionId);
     }
 
+    /// <summary>
+    /// Say that a reply to this request will arrive later, and where to send it.
+    ///
+    /// <para>
+    /// Anything answered off the calling thread needs this — CEF's cookie visits
+    /// call back on the IO thread long after the bridge call returned, and
+    /// without a registered browser the completion has nowhere to go and the
+    /// extension's promise never settles.
+    /// </para>
+    /// </summary>
+    public static void ExpectResponse(string requestId, CefBrowser browser)
+    {
+        PendingMessages[requestId] = browser;
+        ScheduleMessageTimeout(requestId);
+    }
+
     public static void CompleteMessage(string requestId, string extensionId, object? result)
     {
         if (!PendingMessages.TryRemove(requestId, out CefBrowser? browser)) return;

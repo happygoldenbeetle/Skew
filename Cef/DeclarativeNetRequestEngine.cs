@@ -40,6 +40,14 @@ internal static class DeclarativeNetRequestEngine
         /// <summary>The urlFilter or regexFilter, as a regex over the full URL.</summary>
         public Regex? UrlPattern { get; init; }
 
+        /// <summary>
+        /// The longest literal run in the filter, lowercased. A URL that does
+        /// not contain it cannot match the pattern, and a substring scan is
+        /// enormously cheaper than a regex — with 58,000 rules loaded that
+        /// difference is the whole cost of a page load.
+        /// </summary>
+        public string? LiteralHint { get; init; }
+
         public HashSet<string>? ResourceTypes { get; init; }
         public HashSet<string>? ExcludedResourceTypes { get; init; }
 
@@ -91,10 +99,27 @@ internal static class DeclarativeNetRequestEngine
     /// Compile every enabled extension's static rulesets. Called at startup and
     /// whenever an extension is installed, removed, enabled or disabled.
     /// </summary>
+    /// <summary>
+    /// What the last compile was built from. The store raises several change
+    /// notifications while it loads, and recompiling 58,000 rules on each one
+    /// costs seconds of startup for an identical result.
+    /// </summary>
+    private static string s_loadedSignature = "";
+
     public static void Reload()
     {
         try
         {
+            string signature = string.Join("|", ExtensionStore.Shared.GetSnapshot()
+                .Where(extension => extension.Enabled)
+                .OrderBy(extension => extension.Id, StringComparer.Ordinal)
+                .Select(extension => extension.Id + ":" + extension.Version));
+            lock (s_lock)
+            {
+                if (signature == s_loadedSignature && s_matchSet.Length > 0) return;
+                s_loadedSignature = signature;
+            }
+
             var compiled = new Dictionary<string, List<CompiledRule>>(StringComparer.OrdinalIgnoreCase);
 
             foreach (BrowserExtension extension in ExtensionStore.Shared.GetSnapshot())
@@ -226,23 +251,29 @@ internal static class DeclarativeNetRequestEngine
                 sensitivity.ValueKind == JsonValueKind.True;
 
             Regex? pattern = null;
+            string? literalHint = null;
             if (condition.ValueKind == JsonValueKind.Object)
             {
+                // Interpreted, not RegexOptions.Compiled: a blocker ships tens of
+                // thousands of rules, and JIT-compiling each one costs seconds of
+                // startup and a great deal of memory for patterns most pages
+                // never reach. The literal pre-check below is what keeps matching
+                // fast instead.
+                RegexOptions options =
+                    (caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase) |
+                    RegexOptions.CultureInvariant;
+
                 if (condition.TryGetProperty("regexFilter", out JsonElement regexFilter) &&
                     regexFilter.GetString() is { Length: > 0 } regexText)
                 {
-                    pattern = new Regex(regexText,
-                        (caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase) |
-                        RegexOptions.Compiled | RegexOptions.CultureInvariant,
-                        TimeSpan.FromMilliseconds(50));
+                    pattern = new Regex(regexText, options, TimeSpan.FromMilliseconds(50));
                 }
                 else if (condition.TryGetProperty("urlFilter", out JsonElement urlFilter) &&
                     urlFilter.GetString() is { Length: > 0 } filterText)
                 {
-                    pattern = new Regex(UrlFilterToRegex(filterText),
-                        (caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase) |
-                        RegexOptions.Compiled | RegexOptions.CultureInvariant,
+                    pattern = new Regex(UrlFilterToRegex(filterText), options,
                         TimeSpan.FromMilliseconds(50));
+                    literalHint = LongestLiteral(filterText);
                 }
             }
 
@@ -255,6 +286,7 @@ internal static class DeclarativeNetRequestEngine
                 ActionType = type,
                 RedirectUrl = redirectUrl,
                 UrlPattern = pattern,
+                LiteralHint = literalHint,
                 ResourceTypes = StringSet(condition, "resourceTypes"),
                 ExcludedResourceTypes = StringSet(condition, "excludedResourceTypes"),
                 InitiatorDomains = StringList(condition, "initiatorDomains") ?? StringList(condition, "domains"),
@@ -329,6 +361,33 @@ internal static class DeclarativeNetRequestEngine
 
         if (anchorEnd) builder.Append('$');
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// The longest run of ordinary characters in a urlFilter — no wildcards, no
+    /// anchors. Any URL the pattern matches must contain it verbatim, so it is a
+    /// sound filter to test first. Short runs are not worth the scan.
+    /// </summary>
+    private static string? LongestLiteral(string filter)
+    {
+        string? best = null;
+        int start = -1;
+        for (int i = 0; i <= filter.Length; i++)
+        {
+            bool literal = i < filter.Length && filter[i] is not ('*' or '^' or '|');
+            if (literal)
+            {
+                if (start < 0) start = i;
+            }
+            else if (start >= 0)
+            {
+                int length = i - start;
+                if (best is null || length > best.Length)
+                    best = filter.Substring(start, length);
+                start = -1;
+            }
+        }
+        return best is { Length: >= 4 } ? best.ToLowerInvariant() : null;
     }
 
     private static HashSet<string>? StringSet(JsonElement condition, string name)
@@ -441,6 +500,7 @@ internal static class DeclarativeNetRequestEngine
 
         try
         {
+            string lowerUrl = url.ToLowerInvariant();
             string? initiatorHost = HostOf(initiatorUrl);
             string? requestHost = HostOf(url);
             bool thirdParty = initiatorHost is not null && requestHost is not null &&
@@ -452,6 +512,13 @@ internal static class DeclarativeNetRequestEngine
 
             foreach (CompiledRule rule in rules)
             {
+                // The cheap test first: a URL without the rule's literal cannot
+                // match its pattern, and this skips the great majority of them
+                // without touching the regex engine.
+                if (rule.LiteralHint is not null &&
+                    !lowerUrl.Contains(rule.LiteralHint, StringComparison.Ordinal))
+                    continue;
+
                 if (!Matches(rule, url, initiatorHost, requestHost, resourceType, method, thirdParty))
                     continue;
 
@@ -474,10 +541,20 @@ internal static class DeclarativeNetRequestEngine
             if (bestBlock is not null &&
                 (bestAllow is null || bestAllow.Priority < bestBlock.Priority))
             {
+                int blocked;
                 lock (s_lock)
                 {
                     s_blockedCounts.TryGetValue(bestBlock.ExtensionId, out int count);
-                    s_blockedCounts[bestBlock.ExtensionId] = count + 1;
+                    blocked = count + 1;
+                    s_blockedCounts[bestBlock.ExtensionId] = blocked;
+                }
+                // A trace at the first block and then at widening intervals: it
+                // is the only way to see from outside that rules are biting,
+                // without writing a line per request on the IO thread.
+                if (blocked is 1 or 10 or 100 or 1000 or 10000)
+                {
+                    ExtensionDiagnostics.Write("dnr-block", bestBlock.ExtensionId,
+                        $"Blocked {blocked} request(s); latest rule {bestBlock.Id} on {Truncate(url)}");
                 }
                 return new MatchResult(Decision.Block, null, bestBlock.ExtensionId);
             }
@@ -533,6 +610,9 @@ internal static class DeclarativeNetRequestEngine
     private static bool HostMatches(string host, string domain)
         => host.Equals(domain, StringComparison.OrdinalIgnoreCase) ||
            host.EndsWith("." + domain, StringComparison.OrdinalIgnoreCase);
+
+    private static string Truncate(string url)
+        => url.Length <= 120 ? url : url[..120] + "…";
 
     private static string? HostOf(string? url)
     {

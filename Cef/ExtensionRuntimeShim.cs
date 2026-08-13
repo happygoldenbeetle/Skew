@@ -361,16 +361,18 @@ chrome.tabs.detectLanguage=chrome.tabs.detectLanguage||function(tabId,cb){{
   if(typeof cb==='function')p.then(cb); return p;
 }};
 chrome.tabs.get=chrome.tabs.get||function(tabId,cb){{
-  var p=chrome.tabs.query({{active:true,currentWindow:true}}).then(function(tabs){{return tabs[0]||null;}});
+  var p=__skewExtCall('tabs.get',{{tabId:tabId}});
   if(typeof cb==='function')p.then(cb); return p;
 }};
 chrome.tabs.getCurrent=chrome.tabs.getCurrent||function(cb){{
   var p=chrome.tabs.query({{active:true,currentWindow:true}}).then(function(tabs){{return tabs[0]||null;}});
   if(typeof cb==='function')p.then(cb); return p;
 }};
+// Navigating and activating are real now, so this goes to the host rather than
+// resolving a made-up tab object the caller then acts on.
 chrome.tabs.update=chrome.tabs.update||function(tabId,updateProperties,cb){{
   if(typeof tabId==='object'){{cb=updateProperties;updateProperties=tabId;tabId=null;}}
-  var p=Promise.resolve({{id:tabId||0,active:true,url:updateProperties&&updateProperties.url||''}});
+  var p=__skewExtCall('tabs.update',{{tabId:tabId,updateProperties:updateProperties||{{}}}});
   if(typeof cb==='function')p.then(cb); return p;
 }};
 chrome.tabs.executeScript=chrome.tabs.executeScript||function(tabId,details,cb){{
@@ -554,6 +556,47 @@ chrome.devtools.panels=chrome.devtools.panels||{{themeName:'dark',openResource:f
 
 chrome.commands=chrome.commands||{{}};
 chrome.commands.onCommand=chrome.commands.onCommand||__skewEvent();
+
+// --- chrome.cookies ---
+chrome.cookies=chrome.cookies||{{}};
+chrome.cookies.onChanged=chrome.cookies.onChanged||__skewEvent();
+chrome.cookies.get=chrome.cookies.get||function(details,cb){{
+  var p=__skewExtCall('cookies.get',{{details:details||{{}}}});if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.cookies.getAll=chrome.cookies.getAll||function(details,cb){{
+  if(typeof details==='function'){{cb=details;details={{}};}}
+  var p=__skewExtCall('cookies.getAll',{{details:details||{{}}}}).then(function(r){{return r||[];}});
+  if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.cookies.set=chrome.cookies.set||function(details,cb){{
+  var p=__skewExtCall('cookies.set',{{details:details||{{}}}});if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.cookies.remove=chrome.cookies.remove||function(details,cb){{
+  var p=__skewExtCall('cookies.remove',{{details:details||{{}}}});if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.cookies.getAllCookieStores=chrome.cookies.getAllCookieStores||function(cb){{
+  var p=Promise.resolve([{{id:'0',tabIds:[]}}]);if(typeof cb==='function')p.then(cb);return p;
+}};
+
+// --- chrome.downloads ---
+chrome.downloads=chrome.downloads||{{}};
+chrome.downloads.onCreated=chrome.downloads.onCreated||__skewEvent();
+chrome.downloads.onChanged=chrome.downloads.onChanged||__skewEvent();
+chrome.downloads.onDeterminingFilename=chrome.downloads.onDeterminingFilename||__skewEvent();
+chrome.downloads.download=chrome.downloads.download||function(options,cb){{
+  var p=__skewExtCall('downloads.download',{{options:options||{{}}}});
+  if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.downloads.search=chrome.downloads.search||function(query,cb){{
+  if(typeof query==='function'){{cb=query;query={{}};}}
+  var p=__skewExtCall('downloads.search',{{query:query||{{}}}}).then(function(r){{return r||[];}});
+  if(typeof cb==='function')p.then(cb);return p;
+}};
+chrome.downloads.cancel=chrome.downloads.cancel||function(id,cb){{
+  var p=__skewExtCall('downloads.cancel',{{id:id}});if(typeof cb==='function')p.then(function(){{cb();}});return p;
+}};
+chrome.downloads.show=chrome.downloads.show||function(id){{__skewExtCall('downloads.show',{{id:id}});}};
+chrome.downloads.showDefaultFolder=chrome.downloads.showDefaultFolder||function(){{__skewExtCall('downloads.show',{{}});}};
 
 // --- chrome.i18n ---
 chrome.i18n=chrome.i18n||{{}};
