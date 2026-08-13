@@ -722,42 +722,9 @@ chrome.devtools.panels=chrome.devtools.panels||{{themeName:'dark',openResource:f
 chrome.commands=chrome.commands||{{}};
 chrome.commands.onCommand=chrome.commands.onCommand||__skewEvent();
 
-// --- Popup sizing ---
-// A popup is sized by its own document in Chrome; the host has no way to know
-// how big it wants to be until it says so. Without this the panel keeps its
-// opening guess and the page floats inside it with dead space at the right and
-// bottom, which is what an extension popup here looked like.
-if(isExtensionPage&&!chrome.__skewPopupSizeReporter){{
-  chrome.__skewPopupSizeReporter=true;
-  var __skewLastSize='';
-  var __skewReportSize=function(){{
-    try{{
-      var root=document.documentElement,body=document.body;
-      if(!root&&!body)return;
-      var width=Math.max(root?root.scrollWidth:0,body?body.scrollWidth:0,
-        body?body.offsetWidth:0);
-      var height=Math.max(root?root.scrollHeight:0,body?body.scrollHeight:0,
-        body?body.offsetHeight:0);
-      if(width<=0||height<=0)return;
-      var key=width+'x'+height;
-      if(key===__skewLastSize)return;
-      __skewLastSize=key;
-      __skewExtCall('popup.size',{{width:width,height:height}});
-    }}catch(e){{}}
-  }};
-  var __skewScheduleSize=function(){{setTimeout(__skewReportSize,0);setTimeout(__skewReportSize,120);}};
-  if(document.readyState==='loading')
-    document.addEventListener('DOMContentLoaded',__skewScheduleSize);
-  else __skewScheduleSize();
-  window.addEventListener('load',__skewScheduleSize);
-  try{{
-    // Popups grow as their own scripts fill them in.
-    if(window.ResizeObserver){{
-      var __skewObserver=new ResizeObserver(__skewReportSize);
-      if(document.documentElement)__skewObserver.observe(document.documentElement);
-    }}
-  }}catch(e){{}}
-}}
+// Popup sizing lives on the host now, through Chromium's auto-resize. It was
+// measured here for a while, which cannot work: the page is laid out in the
+// viewport it was handed, so it only ever reports the size it already has.
 
 // --- chrome.userScripts ---
 // Scriptlets: code that must look like the page's own, so it can replace a

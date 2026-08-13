@@ -48,6 +48,14 @@ public interface IBrowserViewDelegate
     /// <summary>Find-in-page progress: total match count and 1-based active index.</summary>
     void OnFindResult(int count, int activeMatchOrdinal);
 
+    /// <summary>
+    /// The page's preferred size, reported by Chromium when auto-resize is on.
+    /// This is the only honest measure of how big a document wants to be: asking
+    /// the page itself returns the viewport it was handed, so a popup measured
+    /// from JavaScript always agrees with whatever size it was already given.
+    /// </summary>
+    void OnAutoResize(int width, int height);
+
     /// <summary>Mouse cursor change requested by the Chromium engine.</summary>
     void OnCursorChange(CefCursorType type);
 }

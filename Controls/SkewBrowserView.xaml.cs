@@ -348,6 +348,13 @@ public sealed partial class SkewBrowserView : UserControl, IBrowserViewDelegate,
             CaptureViewSize();
             browser.GetHost().WasResized();
             SyncBrowserVisibility();
+
+            // A popup asks for auto-resize before its browser exists.
+            if (_pendingAutoResize is { } bounds)
+            {
+                _pendingAutoResize = null;
+                EnableAutoResize(bounds.MinWidth, bounds.MinHeight, bounds.MaxWidth, bounds.MaxHeight);
+            }
         });
 
     void IBrowserViewDelegate.OnBeforeClose(CefBrowser browser)
@@ -418,6 +425,34 @@ public sealed partial class SkewBrowserView : UserControl, IBrowserViewDelegate,
 
     void IBrowserViewDelegate.OnCursorChange(CefCursorType type)
         => Post(() => ApplyCursor(type));
+
+    /// <summary>
+    /// Raised when Chromium reports the page's preferred size, which only
+    /// happens while auto-resize is on. An extension popup uses it to take the
+    /// size of its own document.
+    /// </summary>
+    public event Action<int, int>? PreferredSizeChanged;
+
+    void IBrowserViewDelegate.OnAutoResize(int width, int height)
+        => Post(() => PreferredSizeChanged?.Invoke(width, height));
+
+    /// <summary>
+    /// Ask Chromium to report how big the document wants to be, between these
+    /// bounds. Off for ordinary tabs — a page there fills the card it is given.
+    /// </summary>
+    public void EnableAutoResize(int minWidth, int minHeight, int maxWidth, int maxHeight)
+    {
+        if (_browser is null)
+        {
+            // Before the browser exists, remember it for when it does.
+            _pendingAutoResize = (minWidth, minHeight, maxWidth, maxHeight);
+            return;
+        }
+        _browser.GetHost().SetAutoResizeEnabled(true,
+            new CefSize(minWidth, minHeight), new CefSize(maxWidth, maxHeight));
+    }
+
+    private (int MinWidth, int MinHeight, int MaxWidth, int MaxHeight)? _pendingAutoResize;
 
     private void Post(Action action)
     {

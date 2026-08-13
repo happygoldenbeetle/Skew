@@ -418,6 +418,10 @@ internal static class ExtensionBackgroundManager
         void IBrowserViewDelegate.OnFindResult(int count, int activeMatchOrdinal) { }
         void IBrowserViewDelegate.OnCursorChange(CefCursorType type) { }
 
+        // A background page is never shown, so how big it would like to be is
+        // of no interest.
+        void IBrowserViewDelegate.OnAutoResize(int width, int height) { }
+
         CefRectangle IOsrHost.GetViewRectDip() => new(0, 0, 1, 1);
         float IOsrHost.DeviceScaleFactor => 1;
         void IOsrHost.OnPaint(CefPaintElementType type, CefRectangle[] dirtyRects, IntPtr buffer, int width, int height) { }

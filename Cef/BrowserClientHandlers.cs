@@ -98,6 +98,12 @@ internal sealed class SkewDisplayHandler : CefDisplayHandler
     protected override void OnTitleChange(CefBrowser browser, string title)
         => _client.Delegate?.OnTitleChange(title ?? "");
 
+    protected override bool OnAutoResize(CefBrowser browser, ref CefSize newSize)
+    {
+        _client.Delegate?.OnAutoResize(newSize.Width, newSize.Height);
+        return true;
+    }
+
     protected override void OnAddressChange(CefBrowser browser, CefFrame frame, string url)
     {
         if (frame.IsMain)

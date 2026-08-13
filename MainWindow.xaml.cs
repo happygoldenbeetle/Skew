@@ -1331,9 +1331,22 @@ public sealed partial class MainWindow : Window
 
         var browserView = new Controls.SkewBrowserView(popupUrl)
         {
+            // A starting guess only; Chromium reports what the document
+            // actually wants and the panel follows.
             Width = 360,
             Height = 480,
             ExtensionTabId = ExtensionBackgroundManager.SelectedTabId
+        };
+
+        // Chromium's own preferred-size reporting, within the bounds Chrome
+        // uses for popups. Asking the page how big it is cannot work: it is laid
+        // out in the viewport we gave it, so it always answers with that.
+        browserView.EnableAutoResize(minWidth: 200, minHeight: 100, maxWidth: 760, maxHeight: 600);
+        browserView.PreferredSizeChanged += (width, height) =>
+        {
+            if (!ReferenceEquals(_extensionActionPopupView, browserView)) return;
+            browserView.Width = Math.Clamp(width, 200, 760);
+            browserView.Height = Math.Clamp(height, 100, 600);
         };
         var flyout = new Flyout
         {
